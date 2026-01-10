@@ -1,9 +1,9 @@
-'use client';
+"use client";
 
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { useSocket } from '@/hooks/useSocket';
-import { JobStatus } from '@tailor.me/shared';
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useSocket } from "@/hooks/useSocket";
+import { JobStatus } from "@tailor.me/shared";
 
 interface ResumeJob {
   id: string;
@@ -24,11 +24,11 @@ export default function DashboardPage() {
 
   const fetchJobs = async () => {
     try {
-      const res = await fetch('http://localhost:3001/api/jobs');
+      const res = await fetch("http://localhost:3001/api/jobs");
       const data = await res.json();
       setJobs(data.jobs);
     } catch (error) {
-      console.error('Failed to fetch jobs:', error);
+      console.error("Failed to fetch jobs:", error);
     } finally {
       setLoading(false);
     }
@@ -41,17 +41,19 @@ export default function DashboardPage() {
   useEffect(() => {
     if (!socket) return;
 
-    socket.on('job.progress', ({ jobId, progress, stage }: any) => {
+    socket.on("job.progress", ({ jobId, progress, stage }: any) => {
       setJobs((prev) =>
-        prev.map((job) => (job.id === jobId ? { ...job, progress, stage } : job))
+        prev.map((job) =>
+          job.id === jobId ? { ...job, progress, stage } : job
+        )
       );
     });
 
-    socket.on('job.completed', ({ jobId }: any) => {
+    socket.on("job.completed", ({ jobId }: any) => {
       fetchJobs(); // Refresh to get final state
     });
 
-    socket.on('job.failed', ({ jobId, error }: any) => {
+    socket.on("job.failed", ({ jobId, error }: any) => {
       setJobs((prev) =>
         prev.map((job) =>
           job.id === jobId
@@ -62,9 +64,9 @@ export default function DashboardPage() {
     });
 
     return () => {
-      socket.off('job.progress');
-      socket.off('job.completed');
-      socket.off('job.failed');
+      socket.off("job.progress");
+      socket.off("job.completed");
+      socket.off("job.failed");
     };
   }, [socket]);
 
@@ -77,15 +79,15 @@ export default function DashboardPage() {
   const getStatusColor = (status: string) => {
     switch (status) {
       case JobStatus.COMPLETED:
-        return 'bg-green-100 text-green-800';
+        return "bg-green-100 text-green-800";
       case JobStatus.PROCESSING:
-        return 'bg-blue-100 text-blue-800';
+        return "bg-blue-100 text-blue-800";
       case JobStatus.QUEUED:
-        return 'bg-yellow-100 text-yellow-800';
+        return "bg-yellow-100 text-yellow-800";
       case JobStatus.FAILED:
-        return 'bg-red-100 text-red-800';
+        return "bg-red-100 text-red-800";
       default:
-        return 'bg-gray-100 text-gray-800';
+        return "bg-gray-100 text-gray-800";
     }
   };
 
@@ -103,7 +105,7 @@ export default function DashboardPage() {
         <div className="flex justify-between items-center mb-8">
           <h1 className="text-3xl font-bold text-gray-900">Resume Dashboard</h1>
           <button
-            onClick={() => router.push('/')}
+            onClick={() => router.push("/")}
             className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-6 rounded-lg transition-colors"
           >
             New Resume
@@ -112,7 +114,8 @@ export default function DashboardPage() {
 
         {activeJobs.length >= 10 && (
           <div className="mb-6 bg-yellow-50 border border-yellow-200 text-yellow-800 px-4 py-3 rounded-lg">
-            ⚠️ Maximum of 10 concurrent jobs reached. Please wait for some jobs to complete.
+            ⚠️ Maximum of 10 concurrent jobs reached. Please wait for some jobs
+            to complete.
           </div>
         )}
 
@@ -124,7 +127,11 @@ export default function DashboardPage() {
             </h2>
             <div className="space-y-4">
               {activeJobs.map((job) => (
-                <JobCard key={job.id} job={job} onClick={() => router.push(`/jobs/${job.id}`)} />
+                <JobCard
+                  key={job.id}
+                  job={job}
+                  onClick={() => router.push(`/jobs/${job.id}`)}
+                />
               ))}
             </div>
           </div>
@@ -133,10 +140,16 @@ export default function DashboardPage() {
         {/* Completed Jobs */}
         {completedJobs.length > 0 && (
           <div className="mb-8">
-            <h2 className="text-xl font-semibold mb-4 text-gray-900">Completed</h2>
+            <h2 className="text-xl font-semibold mb-4 text-gray-900">
+              Completed
+            </h2>
             <div className="space-y-4">
               {completedJobs.map((job) => (
-                <JobCard key={job.id} job={job} onClick={() => router.push(`/jobs/${job.id}`)} />
+                <JobCard
+                  key={job.id}
+                  job={job}
+                  onClick={() => router.push(`/jobs/${job.id}`)}
+                />
               ))}
             </div>
           </div>
@@ -148,7 +161,11 @@ export default function DashboardPage() {
             <h2 className="text-xl font-semibold mb-4 text-gray-900">Failed</h2>
             <div className="space-y-4">
               {failedJobs.map((job) => (
-                <JobCard key={job.id} job={job} onClick={() => router.push(`/jobs/${job.id}`)} />
+                <JobCard
+                  key={job.id}
+                  job={job}
+                  onClick={() => router.push(`/jobs/${job.id}`)}
+                />
               ))}
             </div>
           </div>
@@ -168,15 +185,15 @@ function JobCard({ job, onClick }: { job: ResumeJob; onClick: () => void }) {
   const getStatusColor = (status: string) => {
     switch (status) {
       case JobStatus.COMPLETED:
-        return 'bg-green-100 text-green-800';
+        return "bg-green-100 text-green-800";
       case JobStatus.PROCESSING:
-        return 'bg-blue-100 text-blue-800';
+        return "bg-blue-100 text-blue-800";
       case JobStatus.QUEUED:
-        return 'bg-yellow-100 text-yellow-800';
+        return "bg-yellow-100 text-yellow-800";
       case JobStatus.FAILED:
-        return 'bg-red-100 text-red-800';
+        return "bg-red-100 text-red-800";
       default:
-        return 'bg-gray-100 text-gray-800';
+        return "bg-gray-100 text-gray-800";
     }
   };
 
@@ -190,7 +207,9 @@ function JobCard({ job, onClick }: { job: ResumeJob; onClick: () => void }) {
           <p className="text-sm text-gray-500 mb-2">
             {new Date(job.createdAt).toLocaleString()}
           </p>
-          <p className="text-gray-700 line-clamp-2">{job.jobDescription.slice(0, 150)}...</p>
+          <p className="text-gray-700 line-clamp-2">
+            {job.jobDescription.slice(0, 150)}...
+          </p>
         </div>
         <span
           className={`ml-4 px-3 py-1 rounded-full text-xs font-semibold ${getStatusColor(
@@ -215,7 +234,9 @@ function JobCard({ job, onClick }: { job: ResumeJob; onClick: () => void }) {
       </div>
 
       {job.errorMessage && (
-        <div className="mt-4 text-sm text-red-600">Error: {job.errorMessage}</div>
+        <div className="mt-4 text-sm text-red-600">
+          Error: {job.errorMessage}
+        </div>
       )}
     </div>
   );
