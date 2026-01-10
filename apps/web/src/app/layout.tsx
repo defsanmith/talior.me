@@ -1,9 +1,10 @@
-import type { Metadata } from 'next';
-import './globals.css';
+import type { Metadata } from "next";
+import "./globals.css";
+import RootProvider from "@/components/providers/root-provider";
 
 export const metadata: Metadata = {
-  title: 'Tailor.me - AI Resume Builder',
-  description: 'Build tailored resumes with AI',
+  title: "Tailor.me - AI Resume Builder",
+  description: "Build tailored resumes with AI",
 };
 
 export default function RootLayout({
@@ -13,7 +14,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className="antialiased">{children}</body>
+      <body className="antialiased">
+        <RootProvider>{children}</RootProvider>
+      </body>
     </html>
   );
 }
