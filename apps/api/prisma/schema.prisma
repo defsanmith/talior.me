@@ -1,0 +1,147 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id          String       @id @default(cuid())
+  email       String       @unique
+  name        String
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  experiences Experience[]
+  education   Education[]
+  projects    Project[]
+  skills      Skill[]
+  resumeJobs  ResumeJob[]
+
+  @@map("users")
+}
+
+model Experience {
+  id          String   @id @default(cuid())
+  userId      String
+  company     String
+  title       String
+  startDate   String
+  endDate     String?
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  bullets Bullet[]
+
+  @@index([userId])
+  @@map("experiences")
+}
+
+model Bullet {
+  id           String   @id @default(cuid())
+  experienceId String
+  content      String
+  tags         String[] @default([])
+  tech         String[] @default([])
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  experience       Experience        @relation(fields: [experienceId], references: [id], onDelete: Cascade)
+  resumeJobBullets ResumeJobBullet[]
+
+  @@index([experienceId])
+  @@index([tags])
+  @@index([tech])
+  @@map("bullets")
+}
+
+model Education {
+  id             String   @id @default(cuid())
+  userId         String
+  institution    String
+  degree         String
+  graduationDate String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("education")
+}
+
+model Project {
+  id          String   @id @default(cuid())
+  userId      String
+  name        String
+  description String
+  tech        String[] @default([])
+  url         String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("projects")
+}
+
+model Skill {
+  id        String   @id @default(cuid())
+  userId    String
+  name      String
+  category  String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("skills")
+}
+
+model ResumeJob {
+  id             String    @id @default(cuid())
+  userId         String
+  jobDescription String
+  parsedJd       Json?
+  status         String    @default("QUEUED")
+  stage          String    @default("Queued")
+  progress       Int       @default(0)
+  errorMessage   String?
+  resultResume   Json?
+  createdAt      DateTime  @default(now())
+  completedAt    DateTime?
+  updatedAt      DateTime  @updatedAt
+
+  user    User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  bullets ResumeJobBullet[]
+
+  @@index([userId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("resume_jobs")
+}
+
+model ResumeJobBullet {
+  id            String  @id @default(cuid())
+  resumeJobId   String
+  bulletId      String
+  originalText  String
+  rewrittenText String
+  evidence      Json?
+  verifierNote  String?
+
+  resumeJob ResumeJob @relation(fields: [resumeJobId], references: [id], onDelete: Cascade)
+  bullet    Bullet    @relation(fields: [bulletId], references: [id], onDelete: Cascade)
+
+  @@index([resumeJobId])
+  @@index([bulletId])
+  @@map("resume_job_bullets")
+}
