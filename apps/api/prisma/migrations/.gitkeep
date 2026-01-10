@@ -1,0 +1,171 @@
+-- CreateTable
+CREATE TABLE "users" (
+    "id" TEXT NOT NULL,
+    "email" TEXT NOT NULL,
+    "name" TEXT NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "users_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "experiences" (
+    "id" TEXT NOT NULL,
+    "userId" TEXT NOT NULL,
+    "company" TEXT NOT NULL,
+    "title" TEXT NOT NULL,
+    "startDate" TEXT NOT NULL,
+    "endDate" TEXT,
+    "description" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "experiences_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "bullets" (
+    "id" TEXT NOT NULL,
+    "experienceId" TEXT NOT NULL,
+    "content" TEXT NOT NULL,
+    "tags" TEXT[] DEFAULT ARRAY[]::TEXT[],
+    "tech" TEXT[] DEFAULT ARRAY[]::TEXT[],
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "bullets_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "education" (
+    "id" TEXT NOT NULL,
+    "userId" TEXT NOT NULL,
+    "institution" TEXT NOT NULL,
+    "degree" TEXT NOT NULL,
+    "graduationDate" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "education_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "projects" (
+    "id" TEXT NOT NULL,
+    "userId" TEXT NOT NULL,
+    "name" TEXT NOT NULL,
+    "description" TEXT NOT NULL,
+    "tech" TEXT[] DEFAULT ARRAY[]::TEXT[],
+    "url" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "projects_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "skills" (
+    "id" TEXT NOT NULL,
+    "userId" TEXT NOT NULL,
+    "name" TEXT NOT NULL,
+    "category" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "skills_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "resume_jobs" (
+    "id" TEXT NOT NULL,
+    "userId" TEXT NOT NULL,
+    "jobDescription" TEXT NOT NULL,
+    "parsedJd" JSONB,
+    "status" TEXT NOT NULL DEFAULT 'QUEUED',
+    "stage" TEXT NOT NULL DEFAULT 'Queued',
+    "progress" INTEGER NOT NULL DEFAULT 0,
+    "errorMessage" TEXT,
+    "resultResume" JSONB,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "completedAt" TIMESTAMP(3),
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "resume_jobs_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "resume_job_bullets" (
+    "id" TEXT NOT NULL,
+    "resumeJobId" TEXT NOT NULL,
+    "bulletId" TEXT NOT NULL,
+    "originalText" TEXT NOT NULL,
+    "rewrittenText" TEXT NOT NULL,
+    "evidence" JSONB,
+    "verifierNote" TEXT,
+
+    CONSTRAINT "resume_job_bullets_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateIndex
+CREATE UNIQUE INDEX "users_email_key" ON "users"("email");
+
+-- CreateIndex
+CREATE INDEX "experiences_userId_idx" ON "experiences"("userId");
+
+-- CreateIndex
+CREATE INDEX "bullets_experienceId_idx" ON "bullets"("experienceId");
+
+-- CreateIndex
+CREATE INDEX "bullets_tags_idx" ON "bullets"("tags");
+
+-- CreateIndex
+CREATE INDEX "bullets_tech_idx" ON "bullets"("tech");
+
+-- CreateIndex
+CREATE INDEX "education_userId_idx" ON "education"("userId");
+
+-- CreateIndex
+CREATE INDEX "projects_userId_idx" ON "projects"("userId");
+
+-- CreateIndex
+CREATE INDEX "skills_userId_idx" ON "skills"("userId");
+
+-- CreateIndex
+CREATE INDEX "resume_jobs_userId_idx" ON "resume_jobs"("userId");
+
+-- CreateIndex
+CREATE INDEX "resume_jobs_status_idx" ON "resume_jobs"("status");
+
+-- CreateIndex
+CREATE INDEX "resume_jobs_createdAt_idx" ON "resume_jobs"("createdAt");
+
+-- CreateIndex
+CREATE INDEX "resume_job_bullets_resumeJobId_idx" ON "resume_job_bullets"("resumeJobId");
+
+-- CreateIndex
+CREATE INDEX "resume_job_bullets_bulletId_idx" ON "resume_job_bullets"("bulletId");
+
+-- AddForeignKey
+ALTER TABLE "experiences" ADD CONSTRAINT "experiences_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "bullets" ADD CONSTRAINT "bullets_experienceId_fkey" FOREIGN KEY ("experienceId") REFERENCES "experiences"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "education" ADD CONSTRAINT "education_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "projects" ADD CONSTRAINT "projects_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "skills" ADD CONSTRAINT "skills_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "resume_jobs" ADD CONSTRAINT "resume_jobs_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "resume_job_bullets" ADD CONSTRAINT "resume_job_bullets_resumeJobId_fkey" FOREIGN KEY ("resumeJobId") REFERENCES "resume_jobs"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "resume_job_bullets" ADD CONSTRAINT "resume_job_bullets_bulletId_fkey" FOREIGN KEY ("bulletId") REFERENCES "bullets"("id") ON DELETE CASCADE ON UPDATE CASCADE;
