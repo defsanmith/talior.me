@@ -5,13 +5,16 @@ import {
   HttpException,
   HttpStatus,
   Param,
+  Patch,
   Post,
 } from "@nestjs/common";
 import {
   CreateJobDto,
   CreateJobResponse,
+  EditableResume,
   GetJobResponse,
   GetJobsResponse,
+  UpdateResumeDto,
 } from "@tailor.me/shared";
 import { JobsService } from "./jobs.service";
 
@@ -51,8 +54,28 @@ export class JobsController {
     const bullets = await this.jobsService.getJobBullets(jobId);
     return {
       job,
-      bullets,
-      result: job.resultResume,
+      bullets: bullets as any,
+      result: job.resultResume as any,
     };
+  }
+
+  @Patch(":jobId/resume")
+  async updateJobResume(
+    @Param("jobId") jobId: string,
+    @Body() updateResumeDto: UpdateResumeDto
+  ): Promise<{ resume: EditableResume }> {
+    const resume = await this.jobsService.updateJobResume(
+      jobId,
+      updateResumeDto
+    );
+    return { resume };
+  }
+
+  @Get(":jobId/resume")
+  async getJobResume(
+    @Param("jobId") jobId: string
+  ): Promise<{ resume: EditableResume | null }> {
+    const resume = await this.jobsService.getJobResume(jobId);
+    return { resume };
   }
 }

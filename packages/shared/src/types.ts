@@ -63,6 +63,116 @@ export const ResumeJsonSchema = z.object({
 
 export type ResumeJson = z.infer<typeof ResumeJsonSchema>;
 
+// ============================================
+// Resume Builder Types (with visibility & ordering)
+// ============================================
+
+// Coursework item for education
+export const ResumeCourseworkSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  visible: z.boolean().default(true),
+});
+
+export type ResumeCoursework = z.infer<typeof ResumeCourseworkSchema>;
+
+// Bullet point with visibility and ordering
+export const ResumeBulletSchema = z.object({
+  id: z.string(),
+  text: z.string(),
+  visible: z.boolean().default(true),
+  order: z.number(),
+});
+
+export type ResumeBullet = z.infer<typeof ResumeBulletSchema>;
+
+// Education section with coursework
+export const ResumeEducationSchema = z.object({
+  id: z.string(),
+  institution: z.string(),
+  degree: z.string(),
+  graduationDate: z.string().nullable(),
+  coursework: z.array(ResumeCourseworkSchema).default([]),
+  visible: z.boolean().default(true),
+  order: z.number(),
+});
+
+export type ResumeEducation = z.infer<typeof ResumeEducationSchema>;
+
+// Experience section with bullet points
+export const ResumeExperienceSchema = z.object({
+  id: z.string(),
+  company: z.string(),
+  title: z.string(),
+  startDate: z.string(),
+  endDate: z.string().nullable(),
+  bullets: z.array(ResumeBulletSchema).default([]),
+  visible: z.boolean().default(true),
+  order: z.number(),
+});
+
+export type ResumeExperience = z.infer<typeof ResumeExperienceSchema>;
+
+// Individual skill within a category
+export const ResumeSkillItemSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  visible: z.boolean().default(true),
+});
+
+export type ResumeSkillItem = z.infer<typeof ResumeSkillItemSchema>;
+
+// Skill category grouping skills
+export const ResumeSkillCategorySchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  skills: z.array(ResumeSkillItemSchema).default([]),
+  visible: z.boolean().default(true),
+  order: z.number(),
+});
+
+export type ResumeSkillCategory = z.infer<typeof ResumeSkillCategorySchema>;
+
+// Project section with bullets
+export const ResumeProjectSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  description: z.string(),
+  tech: z.array(z.string()).default([]),
+  bullets: z.array(ResumeBulletSchema).default([]),
+  visible: z.boolean().default(true),
+  order: z.number(),
+});
+
+export type ResumeProject = z.infer<typeof ResumeProjectSchema>;
+
+// Section order configuration
+export const SectionOrderSchema = z.object({
+  id: z.string(),
+  type: z.enum(["education", "experience", "skills", "projects"]),
+  visible: z.boolean().default(true),
+  order: z.number(),
+});
+
+export type SectionOrder = z.infer<typeof SectionOrderSchema>;
+
+// Editable Resume JSON (full resume with visibility/ordering)
+export const EditableResumeSchema = z.object({
+  summary: z.string().optional(),
+  sectionOrder: z.array(SectionOrderSchema).default([
+    { id: "education", type: "education", visible: true, order: 0 },
+    { id: "experience", type: "experience", visible: true, order: 1 },
+    { id: "skills", type: "skills", visible: true, order: 2 },
+    { id: "projects", type: "projects", visible: true, order: 3 },
+  ]),
+  education: z.array(ResumeEducationSchema).default([]),
+  experiences: z.array(ResumeExperienceSchema).default([]),
+  skillCategories: z.array(ResumeSkillCategorySchema).default([]),
+  projects: z.array(ResumeProjectSchema).default([]),
+});
+
+export type EditableResume = z.infer<typeof EditableResumeSchema>;
+
 // API Response Types for Jobs endpoints
 export interface CreateJobResponse {
   jobId: string;
@@ -99,5 +209,5 @@ export interface GetJobsResponse {
 export interface GetJobResponse {
   job: JobResponse;
   bullets: Array<Bullet>;
-  result: any;
+  result: EditableResume | ResumeJson | null;
 }

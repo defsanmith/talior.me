@@ -1,7 +1,11 @@
-import { Injectable } from "@nestjs/common";
+import { Injectable, NotFoundException } from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service";
 import { QueueService } from "../queue/queue.service";
-import { JobStatus } from "@tailor.me/shared";
+import {
+  JobStatus,
+  EditableResume,
+  UpdateResumeDto,
+} from "@tailor.me/shared";
 
 @Injectable()
 export class JobsService {
@@ -69,5 +73,60 @@ export class JobsService {
         bullet: true,
       },
     });
+  }
+
+  async updateJobResume(
+    jobId: string,
+    updateDto: UpdateResumeDto
+  ): Promise<EditableResume> {
+    const job = await this.prisma.resumeJob.findUnique({
+      where: { id: jobId },
+    });
+
+    if (!job) {
+      throw new NotFoundException(`Job with id ${jobId} not found`);
+    }
+
+    // Merge the existing resume with the updates
+    const currentResume = (job.resultResume as EditableResume) || {
+      summary: "",
+      sectionOrder: [
+        { id: "education", type: "education", visible: true, order: 0 },
+        { id: "experience", type: "experience", visible: true, order: 1 },
+        { id: "skills", type: "skills", visible: true, order: 2 },
+        { id: "projects", type: "projects", visible: true, order: 3 },
+      ],
+      education: [],
+      experiences: [],
+      skillCategories: [],
+      projects: [],
+    };
+
+    const updatedResume: EditableResume = {
+      ...currentResume,
+      ...updateDto,
+    };
+
+    // Update the job with the new resume
+    const updatedJob = await this.prisma.resumeJob.update({
+      where: { id: jobId },
+      data: {
+        resultResume: updatedResume as any,
+      },
+    });
+
+    return updatedJob.resultResume as EditableResume;
+  }
+
+  async getJobResume(jobId: string): Promise<EditableResume | null> {
+    const job = await this.prisma.resumeJob.findUnique({
+      where: { id: jobId },
+    });
+
+    if (!job) {
+      throw new NotFoundException(`Job with id ${jobId} not found`);
+    }
+
+    return job.resultResume as EditableResume | null;
   }
 }
