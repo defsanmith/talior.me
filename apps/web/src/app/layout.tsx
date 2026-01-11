@@ -16,9 +16,9 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className="antialiased">
-        <AppLayout>
-          <RootProvider>{children}</RootProvider>
-        </AppLayout>
+        <RootProvider>
+          <AppLayout>{children}</AppLayout>
+        </RootProvider>
       </body>
     </html>
   );

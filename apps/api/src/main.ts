@@ -1,6 +1,8 @@
+import { ValidationPipe } from "@nestjs/common";
 import { NestFactory } from "@nestjs/core";
 import { AppModule } from "./app.module";
-import { ValidationPipe } from "@nestjs/common";
+import { HttpExceptionFilter } from "./common/filters/http-exception.filter";
+import { ResponseInterceptor } from "./common/interceptors/response.interceptor";
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
@@ -16,6 +18,12 @@ async function bootstrap() {
       transform: true,
     })
   );
+
+  // Apply global response interceptor
+  app.useGlobalInterceptors(new ResponseInterceptor());
+
+  // Apply global exception filter
+  app.useGlobalFilters(new HttpExceptionFilter());
 
   const port = process.env.API_PORT || 3001;
   await app.listen(port);

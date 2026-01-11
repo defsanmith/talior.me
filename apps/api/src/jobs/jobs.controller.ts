@@ -1,21 +1,28 @@
 import {
-  Controller,
-  Post,
-  Get,
   Body,
-  Param,
+  Controller,
+  Get,
   HttpException,
   HttpStatus,
+  Param,
+  Post,
 } from "@nestjs/common";
+import {
+  CreateJobDto,
+  CreateJobResponse,
+  GetJobResponse,
+  GetJobsResponse,
+} from "@tailor.me/shared";
 import { JobsService } from "./jobs.service";
-import { CreateJobDto } from "@tailor.me/shared";
 
 @Controller("api/jobs")
 export class JobsController {
   constructor(private readonly jobsService: JobsService) {}
 
   @Post()
-  async createJob(@Body() createJobDto: CreateJobDto) {
+  async createJob(
+    @Body() createJobDto: CreateJobDto
+  ): Promise<CreateJobResponse> {
     const activeCount = await this.jobsService.getActiveJobCount();
     if (activeCount >= 10) {
       throw new HttpException(
@@ -29,13 +36,13 @@ export class JobsController {
   }
 
   @Get()
-  async getJobs() {
+  async getJobs(): Promise<GetJobsResponse> {
     const jobs = await this.jobsService.getAllJobs();
     return { jobs };
   }
 
   @Get(":jobId")
-  async getJob(@Param("jobId") jobId: string) {
+  async getJob(@Param("jobId") jobId: string): Promise<GetJobResponse> {
     const job = await this.jobsService.getJobById(jobId);
     if (!job) {
       throw new HttpException("Job not found", HttpStatus.NOT_FOUND);
