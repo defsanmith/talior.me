@@ -151,7 +151,7 @@ export default function JobDetailPage() {
   // Wait for data to load, then render the editor
   if (isLoading) {
     return (
-      <div className="flex min-h-screen items-center justify-center">
+      <div className="flex items-center justify-center">
         <div className="flex items-center gap-2 text-zinc-400">
           <Loader2 className="h-5 w-5 animate-spin" />
           <span>Loading resume...</span>
@@ -162,7 +162,7 @@ export default function JobDetailPage() {
 
   if (error || !response?.data) {
     return (
-      <div className="flex min-h-screen items-center justify-center">
+      <div className="flex items-center justify-center">
         <div className="flex items-center gap-2 text-red-400">
           <AlertCircle className="h-5 w-5" />
           <span>Job not found</span>
@@ -346,7 +346,7 @@ function ResumeBuilderEditor({
       {/* Header with save status */}
       <div>
         <div className="flex items-center justify-between px-6 py-3">
-          <h1 className="text-xl font-semibold">Resume Builder</h1>
+          <h1>Resume Builder</h1>
           <div className="flex items-center gap-2">
             <SaveStatus status={saveStatus} isSaving={isSaving} />
           </div>

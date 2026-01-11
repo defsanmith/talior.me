@@ -14,6 +14,7 @@ import {
 import { restrictToVerticalAxis } from "@dnd-kit/modifiers";
 import {
   arrayMove,
+  horizontalListSortingStrategy,
   SortableContext,
   sortableKeyboardCoordinates,
   verticalListSortingStrategy,
@@ -136,6 +137,13 @@ export function SkillsSection({
     });
   };
 
+  const handleReorderSkills = (
+    categoryId: string,
+    skills: ResumeSkillItem[],
+  ) => {
+    handleUpdateItem(categoryId, { skills });
+  };
+
   return (
     <div className={cn("rounded-lg border", !sectionVisible && "opacity-50")}>
       {/* Section Header */}
@@ -195,6 +203,9 @@ export function SkillsSection({
                       handleUpdateSkill(item.id, sId, updates)
                     }
                     onRemoveSkill={(sId) => handleRemoveSkill(item.id, sId)}
+                    onReorderSkills={(skills) =>
+                      handleReorderSkills(item.id, skills)
+                    }
                   />
                 ))}
               </div>
@@ -223,6 +234,7 @@ interface SkillCategoryItemProps {
   onAddSkill: () => void;
   onUpdateSkill: (id: string, updates: Partial<ResumeSkillItem>) => void;
   onRemoveSkill: (id: string) => void;
+  onReorderSkills: (skills: ResumeSkillItem[]) => void;
 }
 
 function SkillCategoryItem({
@@ -232,7 +244,25 @@ function SkillCategoryItem({
   onAddSkill,
   onUpdateSkill,
   onRemoveSkill,
+  onReorderSkills,
 }: SkillCategoryItemProps) {
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    }),
+  );
+
+  const handleSkillDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (over && active.id !== over.id) {
+      const oldIndex = item.skills.findIndex((s) => s.id === active.id);
+      const newIndex = item.skills.findIndex((s) => s.id === over.id);
+      const reordered = arrayMove(item.skills, oldIndex, newIndex);
+      onReorderSkills(reordered);
+    }
+  };
+
   return (
     <DraggableItem id={item.id}>
       <div
@@ -272,56 +302,83 @@ function SkillCategoryItem({
         </div>
 
         {/* Skills List */}
-        <div className="mt-3 flex flex-wrap gap-2">
-          {item.skills.map((skill) => (
-            <div
-              key={skill.id}
-              className={cn(
-                "group flex items-center gap-1 rounded-full border px-3 py-1",
-                !skill.visible && "opacity-50",
-              )}
-            >
-              <EditableText
-                value={skill.name}
-                onChange={(name) => onUpdateSkill(skill.id, { name })}
-                placeholder="Skill"
-                className="text-sm"
-              />
-              <div className="flex items-center gap-0.5 transition-opacity group-hover:opacity-100">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() =>
-                    onUpdateSkill(skill.id, { visible: !skill.visible })
-                  }
-                  className="h-5 w-5 p-0"
-                >
-                  {skill.visible ? (
-                    <Eye className="h-3 w-3 text-emerald-400" />
-                  ) : (
-                    <EyeOff className="h-3 w-3" />
-                  )}
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => onRemoveSkill(skill.id)}
-                  className="h-5 w-5 p-0 hover:text-red-400"
-                >
-                  <X className="h-3 w-3" />
-                </Button>
-              </div>
-            </div>
-          ))}
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragEnd={handleSkillDragEnd}
+        >
+          <SortableContext
+            items={item.skills.map((s) => s.id)}
+            strategy={horizontalListSortingStrategy}
+          >
+            <div className="mt-3 flex flex-wrap gap-2">
+              {item.skills.map((skill) => (
+                <SkillItem
+                  key={skill.id}
+                  skill={skill}
+                  onUpdate={(updates) => onUpdateSkill(skill.id, updates)}
+                  onRemove={() => onRemoveSkill(skill.id)}
+                />
+              ))}
 
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={onAddSkill}
+                className="h-7 rounded-full border border-dashed px-3"
+              >
+                <Plus className="mr-1 h-3 w-3" />
+                Add
+              </Button>
+            </div>
+          </SortableContext>
+        </DndContext>
+      </div>
+    </DraggableItem>
+  );
+}
+
+interface SkillItemProps {
+  skill: ResumeSkillItem;
+  onUpdate: (updates: Partial<ResumeSkillItem>) => void;
+  onRemove: () => void;
+}
+
+function SkillItem({ skill, onUpdate, onRemove }: SkillItemProps) {
+  return (
+    <DraggableItem id={skill.id}>
+      <div
+        className={cn(
+          "group flex items-center gap-1 rounded-full border px-3 py-1",
+          !skill.visible && "opacity-50",
+        )}
+      >
+        <EditableText
+          value={skill.name}
+          onChange={(name) => onUpdate({ name })}
+          placeholder="Skill"
+          className="text-sm"
+        />
+        <div className="flex items-center gap-0.5 transition-opacity group-hover:opacity-100">
           <Button
             variant="ghost"
             size="sm"
-            onClick={onAddSkill}
-            className="h-7 rounded-full border border-dashed px-3"
+            onClick={() => onUpdate({ visible: !skill.visible })}
+            className="h-5 w-5 p-0"
           >
-            <Plus className="mr-1 h-3 w-3" />
-            Add
+            {skill.visible ? (
+              <Eye className="h-3 w-3 text-emerald-400" />
+            ) : (
+              <EyeOff className="h-3 w-3" />
+            )}
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onRemove}
+            className="h-5 w-5 p-0 hover:text-red-400"
+          >
+            <X className="h-3 w-3" />
           </Button>
         </div>
       </div>
