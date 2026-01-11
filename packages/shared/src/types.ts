@@ -80,22 +80,24 @@ export interface JobResponse {
   updatedAt: Date;
 }
 
+export interface Bullet {
+  id: string;
+  resumeJobId: string;
+  bulletId: string;
+  selected: boolean;
+  rewrittenText: string | null;
+  evidenceBulletIds: string[];
+  riskFlags: string[];
+  createdAt: Date;
+  bullet: any;
+}
+
 export interface GetJobsResponse {
   jobs: Array<JobResponse>;
 }
 
 export interface GetJobResponse {
   job: JobResponse;
-  bullets: Array<{
-    id: string;
-    resumeJobId: string;
-    bulletId: string;
-    selected: boolean;
-    rewrittenText: string | null;
-    evidenceBulletIds: string[];
-    riskFlags: string[];
-    createdAt: Date;
-    bullet: any;
-  }>;
+  bullets: Array<Bullet>;
   result: any;
 }
