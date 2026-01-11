@@ -16,15 +16,15 @@ import {
   sortableKeyboardCoordinates,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
-import { AlertCircle, Check, Loader2 } from "lucide-react";
+import { AlertCircle, Check, Download, Loader2 } from "lucide-react";
 import { useParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { DraggableItem } from "@/components/resume-builder/draggable-item";
 import { EducationSection } from "@/components/resume-builder/education-section";
 import { ExperienceSection } from "@/components/resume-builder/experience-section";
+import { PdfPreview } from "@/components/resume-builder/pdf-preview";
 import { ProjectsSection } from "@/components/resume-builder/projects-section";
-import { ResumePreview } from "@/components/resume-builder/resume-preview";
 import { SkillsSection } from "@/components/resume-builder/skills-section";
 import {
   EditableResume,
@@ -34,6 +34,8 @@ import {
   ResumeSkillCategory,
   SectionOrder,
 } from "@/components/resume-builder/types";
+import { Button } from "@/components/ui/button";
+import { Config } from "@/lib/config";
 import {
   useGetJobByIdQuery,
   useUpdateJobResumeMutation,
@@ -341,22 +343,38 @@ function ResumeBuilderEditor({
     }
   };
 
+  const handleDownload = () => {
+    window.open(
+      `${Config.API_BASE_URL}/jobs/${jobId}/resume/pdf?download=true`,
+      "_blank",
+    );
+  };
+
   return (
     <div>
       {/* Header with save status */}
       <div>
-        <div className="flex items-center justify-between px-6 py-3">
+        <div className="flex items-center justify-between py-4 pr-4">
           <h1>Resume Builder</h1>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-4">
             <SaveStatus status={saveStatus} isSaving={isSaving} />
+            <Button
+              onClick={handleDownload}
+              variant="outline"
+              size="sm"
+              className="gap-2"
+            >
+              <Download className="h-4 w-4" />
+              Download PDF
+            </Button>
           </div>
         </div>
       </div>
 
       {/* Main content - two column layout */}
-      <div className="flex h-[calc(100vh-57px)]">
+      <div className="flex h-[calc(100vh-156px)]">
         {/* Left Panel - Editor */}
-        <div className="w-1/2 overflow-y-auto p-6">
+        <div className="w-1/2 overflow-y-auto p-4 pl-0">
           <div className="mb-4">
             <p className="text-sm">
               Drag sections to reorder. Click the eye icon to show/hide content.
@@ -381,12 +399,12 @@ function ResumeBuilderEditor({
           </DndContext>
         </div>
 
-        {/* Right Panel - Preview */}
-        <div className="w-1/2 overflow-y-auto p-6">
+        {/* Right Panel - PDF Preview */}
+        <div className="w-1/2 overflow-y-auto p-4 pr-0">
           <div className="mb-4">
-            <h2 className="text-sm font-medium">Live Preview</h2>
+            <h2 className="text-sm font-medium">Live PDF Preview</h2>
           </div>
-          <ResumePreview resume={resume} />
+          <PdfPreview jobId={jobId} resume={resume} />
         </div>
       </div>
     </div>

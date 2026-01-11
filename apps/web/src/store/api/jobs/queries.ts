@@ -50,6 +50,16 @@ export const jobApi = appApi.injectEndpoints({
         { type: "Jobs", id: jobId },
       ],
     }),
+    getResumePdf: build.query<Blob, string>({
+      query: (jobId) => ({
+        url: `/jobs/${jobId}/resume/pdf`,
+        method: "GET",
+        responseHandler: async (response) => {
+          return response.blob();
+        },
+        cache: "no-cache",
+      }),
+    }),
   }),
 });
 
@@ -58,4 +68,5 @@ export const {
   useGetJobByIdQuery,
   useGetJobResumeQuery,
   useUpdateJobResumeMutation,
+  useLazyGetResumePdfQuery,
 } = jobApi;

@@ -31,6 +31,19 @@ services:
       timeout: 5s
       retries: 5
 
+  latex:
+    build:
+      context: ./apps/latex-service
+      dockerfile: Dockerfile
+    container_name: tailor-latex
+    ports:
+      - "3002:3002"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:3002/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
 volumes:
   postgres_data:
   redis_data:

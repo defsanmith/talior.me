@@ -1,5 +1,6 @@
 "use client";
 
+import { cn } from "@/lib/utils";
 import {
   EditableResume,
   ResumeEducation,
@@ -7,7 +8,6 @@ import {
   ResumeProject,
   ResumeSkillCategory,
 } from "./types";
-import { cn } from "@/lib/utils";
 
 interface ResumePreviewProps {
   resume: EditableResume;
@@ -25,7 +25,9 @@ export function ResumePreview({ resume, className }: ResumePreviewProps) {
       case "education":
         return <EducationPreview key="education" items={resume.education} />;
       case "experience":
-        return <ExperiencePreview key="experience" items={resume.experiences} />;
+        return (
+          <ExperiencePreview key="experience" items={resume.experiences} />
+        );
       case "skills":
         return <SkillsPreview key="skills" items={resume.skillCategories} />;
       case "projects":
@@ -39,7 +41,7 @@ export function ResumePreview({ resume, className }: ResumePreviewProps) {
     <div
       className={cn(
         "mx-auto max-w-2xl rounded-lg bg-white p-8 text-gray-900 shadow-xl",
-        className
+        className,
       )}
       style={{
         fontFamily: "'Times New Roman', Times, serif",
@@ -56,7 +58,8 @@ export function ResumePreview({ resume, className }: ResumePreviewProps) {
           Your Name
         </h1>
         <p className="text-sm text-gray-600">
-          email@example.com | (555) 123-4567 | City, State | linkedin.com/in/yourprofile
+          email@example.com | (555) 123-4567 | City, State |
+          linkedin.com/in/yourprofile
         </p>
       </div>
 
@@ -98,7 +101,9 @@ function EducationPreview({ items }: EducationPreviewProps) {
             <div key={item.id}>
               <div className="flex justify-between">
                 <div>
-                  <span className="font-semibold">{item.degree || "Degree"}</span>
+                  <span className="font-semibold">
+                    {item.degree || "Degree"}
+                  </span>
                   {item.institution && (
                     <span className="text-gray-700"> - {item.institution}</span>
                   )}
@@ -149,7 +154,9 @@ function ExperiencePreview({ items }: ExperiencePreviewProps) {
             <div key={item.id}>
               <div className="flex justify-between">
                 <div>
-                  <span className="font-semibold">{item.title || "Position"}</span>
+                  <span className="font-semibold">
+                    {item.title || "Position"}
+                  </span>
                   {item.company && (
                     <span className="text-gray-700"> - {item.company}</span>
                   )}
@@ -159,7 +166,7 @@ function ExperiencePreview({ items }: ExperiencePreviewProps) {
                 </span>
               </div>
               {visibleBullets.length > 0 && (
-                <ul className="mt-1 ml-4 list-disc space-y-0.5 text-sm">
+                <ul className="ml-4 mt-1 list-disc space-y-0.5 text-sm">
                   {visibleBullets.map((bullet) => (
                     <li key={bullet.id}>{bullet.text || "..."}</li>
                   ))}
@@ -196,7 +203,9 @@ function SkillsPreview({ items }: SkillsPreviewProps) {
 
           return (
             <div key={category.id} className="text-sm">
-              <span className="font-semibold">{category.name || "Category"}:</span>{" "}
+              <span className="font-semibold">
+                {category.name || "Category"}:
+              </span>{" "}
               {visibleSkills.map((s) => s.name).join(", ")}
             </div>
           );
@@ -239,10 +248,12 @@ function ProjectsPreview({ items }: ProjectsPreviewProps) {
                 )}
               </div>
               {item.description && (
-                <p className="mt-0.5 text-sm text-gray-600">{item.description}</p>
+                <p className="mt-0.5 text-sm text-gray-600">
+                  {item.description}
+                </p>
               )}
               {visibleBullets.length > 0 && (
-                <ul className="mt-1 ml-4 list-disc space-y-0.5 text-sm">
+                <ul className="ml-4 mt-1 list-disc space-y-0.5 text-sm">
                   {visibleBullets.map((bullet) => (
                     <li key={bullet.id}>{bullet.text || "..."}</li>
                   ))}
@@ -255,4 +266,3 @@ function ProjectsPreview({ items }: ProjectsPreviewProps) {
     </section>
   );
 }
-

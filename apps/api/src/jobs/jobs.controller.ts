@@ -7,6 +7,8 @@ import {
   Param,
   Patch,
   Post,
+  Query,
+  StreamableFile,
 } from "@nestjs/common";
 import {
   CreateJobDto,
@@ -16,11 +18,15 @@ import {
   GetJobsResponse,
   UpdateResumeDto,
 } from "@tailor.me/shared";
+import { PdfService } from "../pdf/pdf.service";
 import { JobsService } from "./jobs.service";
 
 @Controller("api/jobs")
 export class JobsController {
-  constructor(private readonly jobsService: JobsService) {}
+  constructor(
+    private readonly jobsService: JobsService,
+    private readonly pdfService: PdfService
+  ) {}
 
   @Post()
   async createJob(
@@ -77,5 +83,30 @@ export class JobsController {
   ): Promise<{ resume: EditableResume | null }> {
     const resume = await this.jobsService.getJobResume(jobId);
     return { resume };
+  }
+
+  @Get(":jobId/resume/pdf")
+  async getResumePdf(
+    @Param("jobId") jobId: string,
+    @Query("download") download: string
+  ): Promise<StreamableFile> {
+    const resume = await this.jobsService.getJobResume(jobId);
+    if (!resume) {
+      throw new HttpException("Resume not found", HttpStatus.NOT_FOUND);
+    }
+
+    const pdfBuffer = await this.pdfService.generatePdf(resume);
+
+    // Use StreamableFile options to set headers
+    const disposition =
+      download === "true"
+        ? 'attachment; filename="resume.pdf"'
+        : 'inline; filename="resume.pdf"';
+
+    return new StreamableFile(pdfBuffer, {
+      type: "application/pdf",
+      disposition,
+      length: pdfBuffer.length,
+    });
   }
 }
