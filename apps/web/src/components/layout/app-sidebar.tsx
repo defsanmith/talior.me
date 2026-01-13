@@ -47,7 +47,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
               asChild
               className="data-[slot=sidebar-menu-button]:!p-1.5"
             >
-              <Link href={Router.CREATE}>
+              <Link href={Router.DASHBOARD}>
                 <ArrowUpCircleIcon className="h-5 w-5" />
                 <span className="text-base font-semibold">Tailor.me</span>
               </Link>

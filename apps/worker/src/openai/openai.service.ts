@@ -131,6 +131,7 @@ CRITICAL RULES:
 - DO NOT add scope words like "led", "owned", "architected" unless already present
 - DO NOT make new claims about impact or responsibility
 - ONLY rephrase and reorder existing information to emphasize relevance
+- Make sure every bullet in an experience starts with a different action word
 
 Return JSON with:
 - bulletId: the bullet ID
@@ -215,11 +216,6 @@ SELECTION GUIDELINES:
 - From each experience, choose 2-5 bullets that directly align with the job requirements
 - Select 2-3 most relevant projects with their bullets
 - Select all education entries but only include coursework relevant to the job
-- **Include ALL technical skills from the candidate's profile, sorted by relevance to the job**
-  - For each skill category, include ALL skills but order them by relevance (most relevant first)
-  - Skills matching job requirements should come first
-  - Skills related to the role/industry should come next
-  - Less relevant skills should come last, but still be included
 - Prioritize recent and impactful experiences
 - Focus on transferable skills and achievements
 - Consider both explicit skill matches and implicit relevance
@@ -245,12 +241,6 @@ Return a JSON object with this exact structure:
       "id": "education_id",
       "selectedCoursework": ["Course 1", "Course 2"],
       "relevanceReason": "Brief explanation"
-    }
-  ],
-  "skills": [
-    {
-      "categoryId": "category_id",
-      "skillIds": ["skill_id1", "skill_id2", ...]  // All skills in this category, sorted by relevance
     }
   ]
 }`,
