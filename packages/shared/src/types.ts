@@ -159,8 +159,21 @@ export const SectionOrderSchema = z.object({
 
 export type SectionOrder = z.infer<typeof SectionOrderSchema>;
 
+// User profile info for resume header
+export const ResumeUserSchema = z.object({
+  name: z.string(),
+  email: z.string().optional(),
+  phone: z.string().optional(),
+  location: z.string().optional(),
+  website: z.string().optional(),
+  linkedin: z.string().optional(),
+});
+
+export type ResumeUser = z.infer<typeof ResumeUserSchema>;
+
 // Editable Resume JSON (full resume with visibility/ordering)
 export const EditableResumeSchema = z.object({
+  user: ResumeUserSchema.optional(),
   summary: z.string().optional(),
   sectionOrder: z.array(SectionOrderSchema).default([
     { id: "education", type: "education", visible: true, order: 0 },

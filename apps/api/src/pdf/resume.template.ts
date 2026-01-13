@@ -19,7 +19,7 @@ function escapeLatex(text: string): string {
 }
 
 /**
- * Generates the LaTeX document from an EditableResume
+ * Generates the LaTeX document from an EditableResume using Jake's Resume template
  */
 export function generateResumeLatex(resume: EditableResume): string {
   const visibleSections = (resume.sectionOrder || [])
@@ -45,50 +45,183 @@ export function generateResumeLatex(resume: EditableResume): string {
     }
   }
 
-  return `\\documentclass[11pt,letterpaper]{article}
+  return `%-------------------------
+% Resume - LaTeX Template
+% Based on Jake's Resume Template
+%-------------------------
 
-% Packages
-\\usepackage[utf8]{inputenc}
-\\usepackage[T1]{fontenc}
-\\usepackage{lmodern}
-\\usepackage[margin=0.75in]{geometry}
-\\usepackage{enumitem}
+\\documentclass[letterpaper,11pt]{article}
+
+\\usepackage{latexsym}
+\\usepackage[empty]{fullpage}
 \\usepackage{titlesec}
-\\usepackage{hyperref}
-\\usepackage{xcolor}
+\\usepackage{marvosym}
+\\usepackage[usenames,dvipsnames]{color}
+\\usepackage{verbatim}
+\\usepackage{enumitem}
+\\usepackage[hidelinks]{hyperref}
+\\usepackage{fancyhdr}
+\\usepackage[english]{babel}
+\\usepackage{tabularx}
 
-% Remove page numbers
-\\pagestyle{empty}
+\\pagestyle{fancy}
+\\fancyhf{}
+\\fancyfoot{}
+\\renewcommand{\\headrulewidth}{0pt}
+\\renewcommand{\\footrulewidth}{0pt}
 
-% Section formatting
-\\titleformat{\\section}{\\large\\bfseries\\uppercase}{}{0em}{}[\\titlerule]
-\\titlespacing{\\section}{0pt}{12pt}{6pt}
+% Adjust margins
+\\addtolength{\\oddsidemargin}{-0.5in}
+\\addtolength{\\evensidemargin}{-0.5in}
+\\addtolength{\\textwidth}{1in}
+\\addtolength{\\topmargin}{-.5in}
+\\addtolength{\\textheight}{1.0in}
 
-% List formatting
-\\setlist[itemize]{nosep, leftmargin=1.5em, label={\\textbullet}}
+\\urlstyle{same}
 
-% Hyperlink styling
-\\hypersetup{
-  colorlinks=true,
-  linkcolor=black,
-  urlcolor=blue!70!black
+\\raggedbottom
+\\raggedright
+\\setlength{\\tabcolsep}{0in}
+
+% Sections formatting
+\\titleformat{\\section}{
+  \\vspace{-4pt}\\scshape\\raggedright\\large
+}{}{0em}{}[\\color{black}\\titlerule \\vspace{-5pt}]
+
+%-------------------------
+% Custom commands
+\\newcommand{\\resumeItem}[1]{
+  \\item\\small{
+    {#1 \\vspace{-2pt}}
+  }
 }
+
+\\newcommand{\\resumeSubheading}[4]{
+  \\vspace{-2pt}\\item
+    \\begin{tabular*}{0.97\\textwidth}[t]{l@{\\extracolsep{\\fill}}r}
+      \\textbf{#1} & #2 \\\\
+      \\textit{\\small#3} & \\textit{\\small #4} \\\\
+    \\end{tabular*}\\vspace{-7pt}
+}
+
+\\newcommand{\\resumeEducationHeading}[4]{
+  \\vspace{-2pt}\\item
+    \\begin{tabular*}{0.97\\textwidth}[t]{l@{\\extracolsep{\\fill}}r}
+      \\textbf{#1} & #2 \\\\
+      \\textit{\\small#3} & \\textit{\\small #4} \\\\
+    \\end{tabular*}\\vspace{-7pt}
+}
+
+\\newcommand{\\resumeProjectHeading}[2]{
+    \\item
+    \\begin{tabular*}{0.97\\textwidth}{l@{\\extracolsep{\\fill}}r}
+      \\small#1 & #2 \\\\
+    \\end{tabular*}\\vspace{-7pt}
+}
+
+\\newcommand{\\resumeSubItem}[1]{\\resumeItem{#1}\\vspace{-4pt}}
+
+\\renewcommand\\labelitemii{$\\vcenter{\\hbox{\\tiny$\\bullet$}}$}
+
+\\newcommand{\\resumeSubHeadingListStart}{\\begin{itemize}[leftmargin=0.15in, label={}]}
+\\newcommand{\\resumeSubHeadingListEnd}{\\end{itemize}}
+\\newcommand{\\resumeItemListStart}{\\begin{itemize}}
+\\newcommand{\\resumeItemListEnd}{\\end{itemize}\\vspace{-5pt}}
+
+%-------------------------------------------
+%%%%%%  RESUME STARTS HERE  %%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 \\begin{document}
 
-% Header
-\\begin{center}
-  {\\LARGE\\bfseries Your Name}\\\\[4pt]
-  email@example.com \\textbar{} (555) 123-4567 \\textbar{} City, State \\textbar{} linkedin.com/in/yourprofile
-\\end{center}
-
-\\vspace{8pt}
-
-${resume.summary ? `\\textit{${escapeLatex(resume.summary)}}\\\\[8pt]` : ""}
+%----------HEADING----------
+${generateHeaderSection(resume)}
 
 ${sectionsLatex}
 
 \\end{document}
+`;
+}
+
+/**
+ * Formats a phone number to (xxx)-xxx-xxxx format
+ */
+function formatPhoneNumber(phone: string): string {
+  // Remove all non-digit characters
+  const digits = phone.replace(/\D/g, "");
+
+  // If we have 10 digits, format as (xxx)-xxx-xxxx
+  if (digits.length === 10) {
+    return `(${digits.slice(0, 3)})-${digits.slice(3, 6)}-${digits.slice(6)}`;
+  }
+
+  // If we have 11 digits starting with 1, format as (xxx)-xxx-xxxx
+  if (digits.length === 11 && digits.startsWith("1")) {
+    return `(${digits.slice(1, 4)})-${digits.slice(4, 7)}-${digits.slice(7)}`;
+  }
+
+  // Otherwise return as-is
+  return phone;
+}
+
+/**
+ * Cleans up URL for display (removes https://, www., and trailing slash)
+ */
+function cleanUrlForDisplay(url: string): string {
+  return url
+    .replace(/^https?:\/\//, "")
+    .replace(/^www\./, "")
+    .replace(/\/$/, "");
+}
+
+function generateHeaderSection(resume: EditableResume): string {
+  const user = resume.user;
+  const name = user?.name ? escapeLatex(user.name) : "Your Name";
+
+  // Build contact info parts
+  const contactParts: string[] = [];
+
+  if (user?.phone) {
+    const formattedPhone = formatPhoneNumber(user.phone);
+    contactParts.push(escapeLatex(formattedPhone));
+  }
+
+  if (user?.email) {
+    const email = escapeLatex(user.email);
+    contactParts.push(`\\href{mailto:${email}}{${email}}`);
+  }
+
+  if (user?.location) {
+    contactParts.push(escapeLatex(user.location));
+  }
+
+  if (user?.linkedin) {
+    // Clean up linkedin URL for display (remove https://, www., trailing slash)
+    const linkedinDisplay = cleanUrlForDisplay(user.linkedin);
+    const linkedinUrl = user.linkedin.startsWith("http")
+      ? user.linkedin
+      : `https://${user.linkedin}`;
+    contactParts.push(
+      `\\href{${escapeLatex(linkedinUrl)}}{${escapeLatex(linkedinDisplay)}}`
+    );
+  }
+
+  if (user?.website) {
+    // Clean up website URL for display (remove https://, www., trailing slash)
+    const websiteDisplay = cleanUrlForDisplay(user.website);
+    const websiteUrl = user.website.startsWith("http")
+      ? user.website
+      : `https://${user.website}`;
+    contactParts.push(
+      `\\href{${escapeLatex(websiteUrl)}}{${escapeLatex(websiteDisplay)}}`
+    );
+  }
+
+  const contactLine = contactParts.length > 0 ? contactParts.join(" $|$ ") : "";
+
+  return `\\begin{center}
+    \\textbf{\\Huge \\scshape ${name}} \\\\ \\vspace{1pt}
+    \\small ${contactLine}
+\\end{center}
 `;
 }
 
@@ -99,33 +232,40 @@ function generateEducationSection(resume: EditableResume): string {
 
   if (visibleItems.length === 0) return "";
 
-  let content = `\\section{Education}\n\n`;
+  let content = `%-----------EDUCATION-----------%
+\\section{Education}
+    \\resumeSubHeadingListStart
+`;
 
   for (const item of visibleItems) {
     const visibleCoursework = (item.coursework || []).filter((c) => c.visible);
     const degree = escapeLatex(item.degree || "Degree");
-    const institution = escapeLatex(item.institution || "");
-    const gradDate = item.graduationDate ? escapeLatex(item.graduationDate) : "";
+    const institution = escapeLatex(item.institution || "Institution");
+    const gradDate = item.graduationDate
+      ? escapeLatex(item.graduationDate)
+      : "";
 
-    content += `\\textbf{${degree}}`;
-    if (institution) {
-      content += ` -- ${institution}`;
-    }
-    if (gradDate) {
-      content += ` \\hfill ${gradDate}`;
-    }
-    content += `\\\\\n`;
+    content += `
+    \\resumeEducationHeading
+    {${institution}}{${gradDate}}
+    {${degree}}{}
+`;
 
     if (visibleCoursework.length > 0) {
       const courseworkList = visibleCoursework
         .map((c) => escapeLatex(c.name))
         .join(", ");
-      content += `\\textit{Relevant Coursework:} ${courseworkList}\\\\\n`;
+      content += `    \\resumeItemListStart
+        \\resumeItem{\\textbf{Relevant Coursework}: ${courseworkList}}
+    \\resumeItemListEnd
+`;
     }
-    content += `\\vspace{4pt}\n`;
   }
 
-  content += `\n`;
+  content += `
+    \\resumeSubHeadingListEnd
+
+`;
   return content;
 }
 
@@ -136,7 +276,10 @@ function generateExperienceSection(resume: EditableResume): string {
 
   if (visibleItems.length === 0) return "";
 
-  let content = `\\section{Experience}\n\n`;
+  let content = `%-----------EXPERIENCE-----------%
+\\section{Experience}
+\\resumeSubHeadingListStart
+`;
 
   for (const item of visibleItems) {
     const visibleBullets = (item.bullets || [])
@@ -144,27 +287,30 @@ function generateExperienceSection(resume: EditableResume): string {
       .sort((a, b) => a.order - b.order);
 
     const title = escapeLatex(item.title || "Position");
-    const company = escapeLatex(item.company || "");
+    const company = escapeLatex(item.company || "Company");
     const startDate = escapeLatex(item.startDate || "Start");
     const endDate = item.endDate ? escapeLatex(item.endDate) : "Present";
 
-    content += `\\textbf{${title}}`;
-    if (company) {
-      content += ` -- ${company}`;
-    }
-    content += ` \\hfill ${startDate} -- ${endDate}\\\\\n`;
+    content += `
+    \\resumeSubheading
+    {${title}}{${startDate} -- ${endDate}}
+    {${company}}{}
+`;
 
     if (visibleBullets.length > 0) {
-      content += `\\begin{itemize}\n`;
+      content += `    \\resumeItemListStart
+`;
       for (const bullet of visibleBullets) {
-        content += `  \\item ${escapeLatex(bullet.text || "...")}\n`;
+        content += `        \\resumeItem{${escapeLatex(bullet.text || "...")}}\n`;
       }
-      content += `\\end{itemize}\n`;
+      content += `    \\resumeItemListEnd
+`;
     }
-    content += `\\vspace{4pt}\n`;
   }
 
-  content += `\n`;
+  content += `\\resumeSubHeadingListEnd
+
+`;
   return content;
 }
 
@@ -175,7 +321,11 @@ function generateSkillsSection(resume: EditableResume): string {
 
   if (visibleItems.length === 0) return "";
 
-  let content = `\\section{Skills}\n\n`;
+  let content = `%-----------SKILLS-----------
+\\section{Technical Skills}
+ \\begin{itemize}[leftmargin=0.15in, label={}]
+    \\small{\\item{
+`;
 
   for (const category of visibleItems) {
     const visibleSkills = (category.skills || []).filter((s) => s.visible);
@@ -184,10 +334,13 @@ function generateSkillsSection(resume: EditableResume): string {
     const categoryName = escapeLatex(category.name || "Category");
     const skillsList = visibleSkills.map((s) => escapeLatex(s.name)).join(", ");
 
-    content += `\\textbf{${categoryName}:} ${skillsList}\\\\\n`;
+    content += `    \\textbf{${categoryName}}{: ${skillsList}} \\\\\n`;
   }
 
-  content += `\\vspace{4pt}\n\n`;
+  content += `    }}
+ \\end{itemize}
+
+`;
   return content;
 }
 
@@ -198,7 +351,10 @@ function generateProjectsSection(resume: EditableResume): string {
 
   if (visibleItems.length === 0) return "";
 
-  let content = `\\section{Projects}\n\n`;
+  let content = `%-----------PROJECTS-----------
+\\section{Projects}
+    \\resumeSubHeadingListStart
+`;
 
   for (const item of visibleItems) {
     const visibleBullets = (item.bullets || [])
@@ -207,29 +363,24 @@ function generateProjectsSection(resume: EditableResume): string {
 
     const name = escapeLatex(item.name || "Project");
     const tech = (item.tech || []).map((t) => escapeLatex(t)).join(", ");
-    const description = escapeLatex(item.description || "");
 
-    content += `\\textbf{${name}}`;
-    if (tech) {
-      content += ` \\textit{(${tech})}`;
-    }
-    content += `\\\\\n`;
-
-    if (description) {
-      content += `${description}\\\\\n`;
-    }
+    content += `    \\resumeProjectHeading
+    {\\textbf{${name}}${tech ? ` $|$ \\emph{${tech}}` : ""}}{}
+`;
 
     if (visibleBullets.length > 0) {
-      content += `\\begin{itemize}\n`;
+      content += `    \\resumeItemListStart
+`;
       for (const bullet of visibleBullets) {
-        content += `  \\item ${escapeLatex(bullet.text || "...")}\n`;
+        content += `        \\resumeItem{${escapeLatex(bullet.text || "...")}}\n`;
       }
-      content += `\\end{itemize}\n`;
+      content += `    \\resumeItemListEnd
+`;
     }
-    content += `\\vspace{4pt}\n`;
   }
 
-  content += `\n`;
+  content += `    \\resumeSubHeadingListEnd
+
+`;
   return content;
 }
-

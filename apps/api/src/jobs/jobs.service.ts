@@ -121,12 +121,33 @@ export class JobsService {
   async getJobResume(jobId: string): Promise<EditableResume | null> {
     const job = await this.prisma.resumeJob.findUnique({
       where: { id: jobId },
+      include: {
+        user: true,
+      },
     });
 
     if (!job) {
       throw new NotFoundException(`Job with id ${jobId} not found`);
     }
 
-    return job.resultResume as EditableResume | null;
+    const resume = job.resultResume as EditableResume | null;
+
+    // If no resume yet, return null
+    if (!resume) {
+      return null;
+    }
+
+    // Always include fresh user data for PDF generation
+    return {
+      ...resume,
+      user: {
+        name: job.user.name,
+        email: job.user.email || undefined,
+        phone: job.user.phone || undefined,
+        location: job.user.location || undefined,
+        website: job.user.website || undefined,
+        linkedin: job.user.linkedin || undefined,
+      },
+    };
   }
 }

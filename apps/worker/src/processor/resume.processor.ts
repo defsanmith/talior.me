@@ -190,8 +190,11 @@ export class ResumeProcessor {
    * Fetches the complete user profile for AI-based selection
    */
   private async fetchFullProfile(userId: string): Promise<ProfileData> {
-    const [experiences, projects, education, skillCategories] =
+    const [user, experiences, projects, education, skillCategories] =
       await Promise.all([
+        this.prisma.user.findUnique({
+          where: { id: userId },
+        }),
         this.prisma.experience.findMany({
           where: { userId },
           orderBy: { startDate: "desc" },
@@ -226,6 +229,16 @@ export class ResumeProcessor {
       ]);
 
     return {
+      user: user
+        ? {
+            name: user.name,
+            email: user.email,
+            phone: user.phone,
+            location: user.location,
+            website: user.website,
+            linkedin: user.linkedin,
+          }
+        : null,
       experiences: experiences.map((exp) => ({
         id: exp.id,
         company: exp.company,
@@ -593,6 +606,16 @@ export class ResumeProcessor {
       .filter((c): c is NonNullable<typeof c> => c !== null);
 
     return {
+      user: profileData.user
+        ? {
+            name: profileData.user.name,
+            email: profileData.user.email || undefined,
+            phone: profileData.user.phone || undefined,
+            location: profileData.user.location || undefined,
+            website: profileData.user.website || undefined,
+            linkedin: profileData.user.linkedin || undefined,
+          }
+        : undefined,
       sectionOrder: [
         {
           id: "education",

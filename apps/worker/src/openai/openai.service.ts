@@ -43,7 +43,17 @@ export interface ProfileSkillCategory {
   }>;
 }
 
+export interface ProfileUser {
+  name: string;
+  email: string | null;
+  phone: string | null;
+  location: string | null;
+  website: string | null;
+  linkedin: string | null;
+}
+
 export interface ProfileData {
+  user: ProfileUser | null;
   experiences: ProfileExperience[];
   projects: ProfileProject[];
   education: ProfileEducation[];
