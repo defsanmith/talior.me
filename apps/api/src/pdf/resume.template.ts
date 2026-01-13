@@ -175,7 +175,16 @@ function cleanUrlForDisplay(url: string): string {
 
 function generateHeaderSection(resume: EditableResume): string {
   const user = resume.user;
-  const name = user?.name ? escapeLatex(user.name) : "Your Name";
+
+  // Build full name from firstName and lastName
+  let name = "Your Name";
+  if (user?.firstName && user?.lastName) {
+    name = escapeLatex(`${user.firstName} ${user.lastName}`);
+  } else if (user?.firstName) {
+    name = escapeLatex(user.firstName);
+  } else if (user?.lastName) {
+    name = escapeLatex(user.lastName);
+  }
 
   // Build contact info parts
   const contactParts: string[] = [];

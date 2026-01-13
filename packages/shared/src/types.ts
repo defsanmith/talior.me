@@ -13,6 +13,9 @@ export const ParsedJDSchema = z.object({
   nice_to_have: z.array(z.string()),
   responsibilities: z.array(z.string()),
   keywords: z.array(z.string()),
+  companyName: z.string().nullable().optional(),
+  jobPosition: z.string().nullable().optional(),
+  teamName: z.string().nullable().optional(),
 });
 
 export type ParsedJD = z.infer<typeof ParsedJDSchema>;
@@ -164,7 +167,8 @@ export type SectionOrder = z.infer<typeof SectionOrderSchema>;
 
 // User profile info for resume header
 export const ResumeUserSchema = z.object({
-  name: z.string(),
+  firstName: z.string().optional(),
+  lastName: z.string().optional(),
   email: z.string().optional(),
   phone: z.string().optional(),
   location: z.string().optional(),
@@ -201,6 +205,9 @@ export interface JobResponse {
   id: string;
   userId: string;
   jobDescription: string;
+  companyName?: string | null;
+  jobPosition?: string | null;
+  teamName?: string | null;
   status: string;
   stage: string;
   progress: number;

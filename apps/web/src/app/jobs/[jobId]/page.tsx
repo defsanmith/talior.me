@@ -175,17 +175,25 @@ export default function JobDetailPage() {
 
   // Render the editor with initial data
   const initialResume = migrateResume(response.data.result);
-  return <ResumeBuilderEditor jobId={jobId} initialResume={initialResume} />;
+  return (
+    <ResumeBuilderEditor
+      jobId={jobId}
+      initialResume={initialResume}
+      job={response.data.job}
+    />
+  );
 }
 
 interface ResumeBuilderEditorProps {
   jobId: string;
   initialResume: EditableResume;
+  job: any;
 }
 
 function ResumeBuilderEditor({
   jobId,
   initialResume,
+  job,
 }: ResumeBuilderEditorProps) {
   const [updateResume, { isLoading: isSaving }] = useUpdateJobResumeMutation();
 
@@ -343,7 +351,22 @@ function ResumeBuilderEditor({
     }
   };
 
-  const handleDownload = () => {
+  const handleDownload = async () => {
+    // Copy company name and team name to clipboard
+    if (job?.companyName) {
+      const clipboardText = job.teamName
+        ? `${job.companyName} - ${job.teamName}`
+        : job.companyName;
+
+      try {
+        await navigator.clipboard.writeText(clipboardText);
+        console.log("Copied to clipboard:", clipboardText);
+      } catch (err) {
+        console.error("Failed to copy to clipboard:", err);
+      }
+    }
+
+    // Open PDF in new tab
     window.open(
       `${Config.API_BASE_URL}/jobs/${jobId}/resume/pdf?download=true`,
       "_blank",
@@ -355,7 +378,22 @@ function ResumeBuilderEditor({
       {/* Header with save status */}
       <div>
         <div className="flex items-center justify-between py-4 pr-4">
-          <h1>Resume Builder</h1>
+          <div>
+            <h1>Resume Builder</h1>
+            {(job?.companyName || job?.jobPosition) && (
+              <div className="mt-1 flex items-center gap-2 text-sm text-muted-foreground">
+                {job.jobPosition && <span>{job.jobPosition}</span>}
+                {job.jobPosition && job.companyName && <span>•</span>}
+                {job.companyName && <span>{job.companyName}</span>}
+                {job.teamName && (
+                  <>
+                    <span>•</span>
+                    <span>{job.teamName}</span>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
           <div className="flex items-center gap-4">
             <SaveStatus status={saveStatus} isSaving={isSaving} />
             <Button

@@ -1,11 +1,7 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
+import { EditableResume, JobStatus, UpdateResumeDto } from "@tailor.me/shared";
 import { PrismaService } from "../prisma/prisma.service";
 import { QueueService } from "../queue/queue.service";
-import {
-  JobStatus,
-  EditableResume,
-  UpdateResumeDto,
-} from "@tailor.me/shared";
 
 @Injectable()
 export class JobsService {
@@ -141,7 +137,8 @@ export class JobsService {
     return {
       ...resume,
       user: {
-        name: job.user.name,
+        firstName: job.user.firstName || undefined,
+        lastName: job.user.lastName || undefined,
         email: job.user.email || undefined,
         phone: job.user.phone || undefined,
         location: job.user.location || undefined,

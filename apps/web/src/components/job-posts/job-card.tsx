@@ -40,14 +40,23 @@ export default function JobCard({
         <div className="flex items-start justify-between">
           <div className="flex-1 space-y-1">
             <CardTitle className="text-lg">
-              {new Date(job.createdAt).toLocaleDateString(undefined, {
-                year: "numeric",
-                month: "long",
-                day: "numeric",
-                hour: "2-digit",
-                minute: "2-digit",
-              })}
+              {job.companyName && job.jobPosition
+                ? `${job.jobPosition} at ${job.companyName}`
+                : job.companyName ||
+                  job.jobPosition ||
+                  new Date(job.createdAt).toLocaleDateString(undefined, {
+                    year: "numeric",
+                    month: "long",
+                    day: "numeric",
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}
             </CardTitle>
+            {job.teamName && (
+              <div className="text-sm text-muted-foreground">
+                {job.teamName}
+              </div>
+            )}
             <CardDescription className="line-clamp-2">
               {job.jobDescription.slice(0, 150)}...
             </CardDescription>

@@ -1,12 +1,12 @@
 import { z } from "zod";
 import {
   EditableResumeSchema,
-  ResumeEducationSchema,
-  ResumeExperienceSchema,
-  ResumeSkillCategorySchema,
-  ResumeProjectSchema,
   ResumeBulletSchema,
   ResumeCourseworkSchema,
+  ResumeEducationSchema,
+  ResumeExperienceSchema,
+  ResumeProjectSchema,
+  ResumeSkillCategorySchema,
   ResumeSkillItemSchema,
   SectionOrderSchema,
 } from "./types";
@@ -15,6 +15,9 @@ export const CreateJobDtoSchema = z.object({
   jobDescription: z
     .string()
     .min(10, "Job description must be at least 10 characters"),
+  companyName: z.string().nullable().optional(),
+  jobPosition: z.string().nullable().optional(),
+  teamName: z.string().nullable().optional(),
 });
 
 export type CreateJobDto = z.infer<typeof CreateJobDtoSchema>;
@@ -138,7 +141,9 @@ export type UpdateCourseworkItemDto = z.infer<
 >;
 
 // Skill item DTOs
-export const CreateSkillItemDtoSchema = ResumeSkillItemSchema.omit({ id: true });
+export const CreateSkillItemDtoSchema = ResumeSkillItemSchema.omit({
+  id: true,
+});
 export type CreateSkillItemDto = z.infer<typeof CreateSkillItemDtoSchema>;
 
 export const UpdateSkillItemDtoSchema = ResumeSkillItemSchema.partial();
@@ -162,7 +167,8 @@ export type ReorderItemsDto = z.infer<typeof ReorderItemsDtoSchema>;
 
 // User DTOs
 export const UpdateUserDtoSchema = z.object({
-  name: z.string().min(1).optional(),
+  firstName: z.string().nullable().optional(),
+  lastName: z.string().nullable().optional(),
   email: z.string().email().optional(),
   phone: z.string().nullable().optional(),
   location: z.string().nullable().optional(),
@@ -180,10 +186,15 @@ export const CreateProfileExperienceDtoSchema = z.object({
   endDate: z.string().nullable().optional(),
   description: z.string().nullable().optional(),
 });
-export type CreateProfileExperienceDto = z.infer<typeof CreateProfileExperienceDtoSchema>;
+export type CreateProfileExperienceDto = z.infer<
+  typeof CreateProfileExperienceDtoSchema
+>;
 
-export const UpdateProfileExperienceDtoSchema = CreateProfileExperienceDtoSchema.partial();
-export type UpdateProfileExperienceDto = z.infer<typeof UpdateProfileExperienceDtoSchema>;
+export const UpdateProfileExperienceDtoSchema =
+  CreateProfileExperienceDtoSchema.partial();
+export type UpdateProfileExperienceDto = z.infer<
+  typeof UpdateProfileExperienceDtoSchema
+>;
 
 // Profile Education DTOs (maps to Prisma Education model)
 export const CreateProfileEducationDtoSchema = z.object({
@@ -193,10 +204,15 @@ export const CreateProfileEducationDtoSchema = z.object({
   graduationDate: z.string().nullable().optional(),
   coursework: z.array(z.string()).optional(),
 });
-export type CreateProfileEducationDto = z.infer<typeof CreateProfileEducationDtoSchema>;
+export type CreateProfileEducationDto = z.infer<
+  typeof CreateProfileEducationDtoSchema
+>;
 
-export const UpdateProfileEducationDtoSchema = CreateProfileEducationDtoSchema.partial();
-export type UpdateProfileEducationDto = z.infer<typeof UpdateProfileEducationDtoSchema>;
+export const UpdateProfileEducationDtoSchema =
+  CreateProfileEducationDtoSchema.partial();
+export type UpdateProfileEducationDto = z.infer<
+  typeof UpdateProfileEducationDtoSchema
+>;
 
 // Profile Project DTOs (maps to Prisma Project model)
 export const CreateProfileProjectDtoSchema = z.object({
@@ -204,25 +220,37 @@ export const CreateProfileProjectDtoSchema = z.object({
   date: z.string().nullable().optional(),
   url: z.string().nullable().optional(),
 });
-export type CreateProfileProjectDto = z.infer<typeof CreateProfileProjectDtoSchema>;
+export type CreateProfileProjectDto = z.infer<
+  typeof CreateProfileProjectDtoSchema
+>;
 
-export const UpdateProfileProjectDtoSchema = CreateProfileProjectDtoSchema.partial();
-export type UpdateProfileProjectDto = z.infer<typeof UpdateProfileProjectDtoSchema>;
+export const UpdateProfileProjectDtoSchema =
+  CreateProfileProjectDtoSchema.partial();
+export type UpdateProfileProjectDto = z.infer<
+  typeof UpdateProfileProjectDtoSchema
+>;
 
 // Update Project Skills DTO
 export const UpdateProjectSkillsDtoSchema = z.object({
   skillIds: z.array(z.string()),
 });
-export type UpdateProjectSkillsDto = z.infer<typeof UpdateProjectSkillsDtoSchema>;
+export type UpdateProjectSkillsDto = z.infer<
+  typeof UpdateProjectSkillsDtoSchema
+>;
 
 // Profile Skill Category DTOs (maps to Prisma SkillCategory model)
 export const CreateProfileSkillCategoryDtoSchema = z.object({
   name: z.string().min(1),
 });
-export type CreateProfileSkillCategoryDto = z.infer<typeof CreateProfileSkillCategoryDtoSchema>;
+export type CreateProfileSkillCategoryDto = z.infer<
+  typeof CreateProfileSkillCategoryDtoSchema
+>;
 
-export const UpdateProfileSkillCategoryDtoSchema = CreateProfileSkillCategoryDtoSchema.partial();
-export type UpdateProfileSkillCategoryDto = z.infer<typeof UpdateProfileSkillCategoryDtoSchema>;
+export const UpdateProfileSkillCategoryDtoSchema =
+  CreateProfileSkillCategoryDtoSchema.partial();
+export type UpdateProfileSkillCategoryDto = z.infer<
+  typeof UpdateProfileSkillCategoryDtoSchema
+>;
 
 // Profile Skill DTOs (maps to Prisma Skill model)
 export const CreateProfileSkillDtoSchema = z.object({
@@ -231,7 +259,8 @@ export const CreateProfileSkillDtoSchema = z.object({
 });
 export type CreateProfileSkillDto = z.infer<typeof CreateProfileSkillDtoSchema>;
 
-export const UpdateProfileSkillDtoSchema = CreateProfileSkillDtoSchema.partial();
+export const UpdateProfileSkillDtoSchema =
+  CreateProfileSkillDtoSchema.partial();
 export type UpdateProfileSkillDto = z.infer<typeof UpdateProfileSkillDtoSchema>;
 
 // Profile Bullet DTOs (maps to Prisma Bullet model)
@@ -239,7 +268,9 @@ export const UpdateProfileBulletDtoSchema = z.object({
   content: z.string().min(1).optional(),
   tags: z.array(z.string()).optional(),
 });
-export type UpdateProfileBulletDto = z.infer<typeof UpdateProfileBulletDtoSchema>;
+export type UpdateProfileBulletDto = z.infer<
+  typeof UpdateProfileBulletDtoSchema
+>;
 
 // Update Bullet Skills DTO
 export const UpdateBulletSkillsDtoSchema = z.object({
@@ -251,7 +282,8 @@ export type UpdateBulletSkillsDto = z.infer<typeof UpdateBulletSkillsDtoSchema>;
 export interface ProfileUser {
   id: string;
   email: string;
-  name: string;
+  firstName: string | null;
+  lastName: string | null;
   phone: string | null;
   location: string | null;
   website: string | null;

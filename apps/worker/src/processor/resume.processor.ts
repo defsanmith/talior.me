@@ -65,7 +65,7 @@ export class ResumeProcessor {
     const { jobId, userId, jobDescription } = job.data;
 
     try {
-      // Step A: Parse JD
+      // Step A: Parse JD (includes metadata extraction)
       await this.updateJobStatus(
         jobId,
         JobStatus.PROCESSING,
@@ -75,9 +75,16 @@ export class ResumeProcessor {
       await job.updateProgress({ progress: 10, stage: JobStage.PARSING_JD });
 
       const parsedJd = await this.openai.parseJobDescription(jobDescription);
+
+      // Update job with parsed JD and metadata
       await this.prisma.resumeJob.update({
         where: { id: jobId },
-        data: { parsedJd: parsedJd as any },
+        data: {
+          parsedJd: parsedJd as any,
+          companyName: parsedJd.companyName || null,
+          jobPosition: parsedJd.jobPosition || null,
+          teamName: parsedJd.teamName || null,
+        },
       });
 
       // Step B: Retrieve full profile
@@ -239,7 +246,8 @@ export class ResumeProcessor {
     return {
       user: user
         ? {
-            name: user.name,
+            firstName: user.firstName,
+            lastName: user.lastName,
             email: user.email,
             phone: user.phone,
             location: user.location,
@@ -720,7 +728,8 @@ export class ResumeProcessor {
     return {
       user: profileData.user
         ? {
-            name: profileData.user.name,
+            firstName: profileData.user.firstName || undefined,
+            lastName: profileData.user.lastName || undefined,
             email: profileData.user.email || undefined,
             phone: profileData.user.phone || undefined,
             location: profileData.user.location || undefined,

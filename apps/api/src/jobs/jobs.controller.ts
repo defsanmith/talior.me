@@ -97,11 +97,30 @@ export class JobsController {
 
     const pdfBuffer = await this.pdfService.generatePdf(resume);
 
+    // Generate sanitized filename from user's firstName and lastName
+    const sanitize = (str: string | undefined) => {
+      if (!str) return "";
+      return str.replace(/[^a-zA-Z0-9-]/g, "_");
+    };
+
+    const firstName = sanitize(resume.user?.firstName || "");
+    const lastName = sanitize(resume.user?.lastName || "");
+
+    // Generate filename from firstName and lastName
+    let filename = "resume.pdf";
+    if (firstName && lastName) {
+      filename = `${firstName}_${lastName}_Resume.pdf`;
+    } else if (firstName) {
+      filename = `${firstName}_Resume.pdf`;
+    } else if (lastName) {
+      filename = `${lastName}_Resume.pdf`;
+    }
+
     // Use StreamableFile options to set headers
     const disposition =
       download === "true"
-        ? 'attachment; filename="resume.pdf"'
-        : 'inline; filename="resume.pdf"';
+        ? `attachment; filename="${filename}"`
+        : `inline; filename="${filename}"`;
 
     return new StreamableFile(pdfBuffer, {
       type: "application/pdf",

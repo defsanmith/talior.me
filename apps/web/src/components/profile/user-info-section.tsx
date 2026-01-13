@@ -1,6 +1,5 @@
 "use client";
 
-import { ProfileUser } from "@tailor.me/shared";
 import {
   Card,
   CardContent,
@@ -8,17 +7,11 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { InlineTextField } from "./inline-text-field";
-import { useUpdateUserMutation } from "@/store/api/profile/queries";
-import {
-  User,
-  Mail,
-  Phone,
-  MapPin,
-  Globe,
-  Linkedin,
-} from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useUpdateUserMutation } from "@/store/api/profile/queries";
+import { ProfileUser } from "@tailor.me/shared";
+import { Globe, Linkedin, Mail, MapPin, Phone, User } from "lucide-react";
+import { InlineTextField } from "./inline-text-field";
 
 interface UserInfoSectionProps {
   user: ProfileUser | null;
@@ -77,25 +70,35 @@ export function UserInfoSection({ user, isLoading }: UserInfoSectionProps) {
           <User className="h-5 w-5" />
           Profile
         </CardTitle>
-        <CardDescription>
-          Your personal and contact information
-        </CardDescription>
+        <CardDescription>Your personal and contact information</CardDescription>
       </CardHeader>
       <CardContent>
         <div className="grid gap-6 md:grid-cols-2">
-          {/* Name */}
+          {/* First Name */}
           <div className="space-y-1">
             <label className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
               <User className="h-4 w-4" />
-              Name
+              First Name
             </label>
             <InlineTextField
-              value={user.name}
-              onSave={(v) => handleUpdateField("name", v)}
-              placeholder="Enter your name"
+              value={user.firstName || ""}
+              onSave={(v) => handleUpdateField("firstName", v)}
+              placeholder="Enter first name"
               isLoading={isUpdating}
-              validate={(v) => (v.length < 1 ? "Name is required" : null)}
-              className="text-lg font-semibold"
+            />
+          </div>
+
+          {/* Last Name */}
+          <div className="space-y-1">
+            <label className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+              <User className="h-4 w-4" />
+              Last Name
+            </label>
+            <InlineTextField
+              value={user.lastName || ""}
+              onSave={(v) => handleUpdateField("lastName", v)}
+              placeholder="Enter last name"
+              isLoading={isUpdating}
             />
           </div>
 

@@ -48,7 +48,8 @@ export interface ProfileSkillCategory {
 }
 
 export interface ProfileUser {
-  name: string;
+  firstName: string | null;
+  lastName: string | null;
   email: string | null;
   phone: string | null;
   location: string | null;
@@ -99,11 +100,11 @@ export class OpenAIService {
         {
           role: "system",
           content:
-            "You are a job description parser. Extract required skills, nice-to-have skills, responsibilities, and keywords from the job description. Return only valid JSON.",
+            "You are a job description parser. Extract required skills, nice-to-have skills, responsibilities, keywords, and job metadata from the job description. Return only valid JSON.",
         },
         {
           role: "user",
-          content: `Parse this job description:\n\n${jobDescription}\n\nReturn JSON with: required_skills (array), nice_to_have (array), responsibilities (array), keywords (array)`,
+          content: `Parse this job description:\n\n${jobDescription}\n\nReturn JSON with:\n- required_skills (array)\n- nice_to_have (array)\n- responsibilities (array)\n- keywords (array)\n- companyName: the company name (string or null)\n- jobPosition: the job title/position (string or null)\n- teamName: the team name if mentioned (string or null)`,
         },
       ],
       response_format: { type: "json_object" },

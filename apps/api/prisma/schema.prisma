@@ -13,7 +13,8 @@ datasource db {
 model User {
   id              String          @id @default(cuid())
   email           String          @unique
-  name            String
+  firstName       String?
+  lastName        String?
   phone           String?
   location        String?
   website         String?
@@ -170,6 +171,9 @@ model ResumeJob {
   id             String    @id @default(cuid())
   userId         String
   jobDescription String
+  companyName    String?
+  jobPosition    String?
+  teamName       String?
   parsedJd       Json?
   status         String    @default("QUEUED")
   stage          String    @default("Queued")

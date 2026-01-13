@@ -11,7 +11,8 @@ async function main() {
     update: {},
     create: {
       email: "demo@tailor.me",
-      name: "Demo User",
+      firstName: "Demo",
+      lastName: "User",
       phone: "+1 (555) 123-4567",
       location: "San Francisco, CA",
       website: "https://demo.tailor.me",
@@ -167,7 +168,8 @@ async function main() {
   await prisma.bullet.create({
     data: {
       projectId: project.id,
-      content: "Added TypeScript support for new query hooks, improving type safety across 50+ consumers",
+      content:
+        "Added TypeScript support for new query hooks, improving type safety across 50+ consumers",
       tags: ["typescript", "open-source"],
     },
   });
@@ -175,7 +177,8 @@ async function main() {
   await prisma.bullet.create({
     data: {
       projectId: project.id,
-      content: "Fixed critical caching bug affecting 10K+ users, merged in v4.0 release",
+      content:
+        "Fixed critical caching bug affecting 10K+ users, merged in v4.0 release",
       tags: ["bug-fix", "caching"],
     },
   });
