@@ -16,8 +16,24 @@ interface ResumeResponse {
   resume: EditableResume;
 }
 
+interface CreateJobArgs {
+  jobDescription: string;
+}
+
+interface CreateJobResponse {
+  jobId: string;
+}
+
 export const jobApi = appApi.injectEndpoints({
   endpoints: (build) => ({
+    createJob: build.mutation<ApiResponse<CreateJobResponse>, CreateJobArgs>({
+      query: (body) => ({
+        url: `/jobs`,
+        method: "POST",
+        body,
+      }),
+      invalidatesTags: ["Jobs"],
+    }),
     getJobs: build.query<ApiResponse<GetJobsResponse>, void>({
       query: () => ({
         url: `/jobs`,
@@ -39,7 +55,10 @@ export const jobApi = appApi.injectEndpoints({
       }),
       providesTags: (result, error, jobId) => [{ type: "Resume", id: jobId }],
     }),
-    updateJobResume: build.mutation<ApiResponse<ResumeResponse>, UpdateResumeArgs>({
+    updateJobResume: build.mutation<
+      ApiResponse<ResumeResponse>,
+      UpdateResumeArgs
+    >({
       query: ({ jobId, resume }) => ({
         url: `/jobs/${jobId}/resume`,
         method: "PATCH",
@@ -64,6 +83,7 @@ export const jobApi = appApi.injectEndpoints({
 });
 
 export const {
+  useCreateJobMutation,
   useGetJobsQuery,
   useGetJobByIdQuery,
   useGetJobResumeQuery,

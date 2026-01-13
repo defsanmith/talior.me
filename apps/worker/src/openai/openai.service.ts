@@ -217,7 +217,11 @@ SELECTION GUIDELINES:
 - Select 2-4 most relevant experiences with 3-5 bullets each
 - Select 1-3 most relevant projects with their bullets
 - Select all education entries but only include coursework relevant to the job
-- Select skills that match the job requirements, organized by category
+- **Include ALL technical skills from the candidate's profile, sorted by relevance to the job**
+  - For each skill category, include ALL skills but order them by relevance (most relevant first)
+  - Skills matching job requirements should come first
+  - Skills related to the role/industry should come next
+  - Less relevant skills should come last, but still be included
 - Prioritize recent and impactful experiences
 - Focus on transferable skills and achievements
 - Consider both explicit skill matches and implicit relevance
@@ -248,7 +252,7 @@ Return a JSON object with this exact structure:
   "skills": [
     {
       "categoryId": "category_id",
-      "skillIds": ["skill_id1", "skill_id2", ...]
+      "skillIds": ["skill_id1", "skill_id2", ...]  // All skills in this category, sorted by relevance
     }
   ]
 }`,

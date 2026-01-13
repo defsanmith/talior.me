@@ -1,43 +1,41 @@
 "use client";
 
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import Router from "@/lib/router";
+import { useCreateJobMutation } from "@/store/api/jobs/queries";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 export default function HomePage() {
   const [jobDescription, setJobDescription] = useState("");
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [error, setError] = useState("");
   const router = useRouter();
+  const [createJob, { isLoading, error }] = useCreateJobMutation();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError("");
-    setIsSubmitting(true);
 
     try {
-      const res = await fetch("http://localhost:3001/api/jobs", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ jobDescription }),
-      });
-
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.message || "Failed to create job");
-      }
-
-      const { jobId } = await res.json();
-      router.push("/dashboard");
+      await createJob({ jobDescription }).unwrap();
+      router.push(Router.DASHBOARD);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "An error occurred");
-    } finally {
-      setIsSubmitting(false);
+      // Error is handled by RTK Query
+      console.error("Failed to create job:", err);
     }
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
-      <div className="container mx-auto px-4 py-16">
+    <div>
+      <div className="container mx-auto px-4">
         <div className="mx-auto max-w-3xl">
           <div className="mb-12 text-center">
             <h1 className="mb-4 text-5xl font-bold text-gray-900">Tailor.me</h1>
@@ -47,63 +45,71 @@ export default function HomePage() {
             </p>
           </div>
 
-          <div className="rounded-lg bg-white p-8 shadow-xl">
-            <form onSubmit={handleSubmit} className="space-y-6">
-              <div>
-                <label
-                  htmlFor="jd"
-                  className="mb-2 block text-sm font-medium text-gray-700"
-                >
-                  Paste the Job Description
-                </label>
-                <textarea
-                  id="jd"
-                  value={jobDescription}
-                  onChange={(e) => setJobDescription(e.target.value)}
-                  className="h-64 w-full resize-none rounded-lg border border-gray-300 px-4 py-3 focus:border-transparent focus:ring-2 focus:ring-blue-500"
-                  placeholder="Paste the full job description here..."
-                  required
-                  minLength={10}
-                />
-              </div>
-
-              {error && (
-                <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-red-700">
-                  {error}
+          <Card>
+            <CardHeader>
+              <CardTitle>Create Resume</CardTitle>
+              <CardDescription>
+                Paste the job description to get started
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <form onSubmit={handleSubmit} className="space-y-6">
+                <div className="space-y-2">
+                  <Label htmlFor="jd">Job Description</Label>
+                  <Textarea
+                    id="jd"
+                    value={jobDescription}
+                    onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) =>
+                      setJobDescription(e.target.value)
+                    }
+                    className="h-64 resize-none"
+                    placeholder="Paste the full job description here..."
+                    required
+                    minLength={10}
+                  />
                 </div>
-              )}
 
-              <div className="flex gap-4">
-                <button
-                  type="submit"
-                  disabled={isSubmitting}
-                  className="flex-1 rounded-lg bg-blue-600 px-6 py-3 font-semibold text-white transition-colors hover:bg-blue-700 disabled:bg-blue-300"
-                >
-                  {isSubmitting ? "Creating..." : "Build Resume"}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => router.push("/dashboard")}
-                  className="rounded-lg border border-gray-300 px-6 py-3 font-semibold transition-colors hover:bg-gray-50"
-                >
-                  Dashboard
-                </button>
+                {error && (
+                  <Alert variant="destructive">
+                    <AlertDescription>
+                      {"data" in error &&
+                      typeof error.data === "object" &&
+                      error.data &&
+                      "message" in error.data
+                        ? String(error.data.message)
+                        : "Failed to create job"}
+                    </AlertDescription>
+                  </Alert>
+                )}
+
+                <div className="flex gap-4">
+                  <Button type="submit" disabled={isLoading} className="flex-1">
+                    {isLoading ? "Creating..." : "Build Resume"}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => router.push("/dashboard")}
+                  >
+                    Dashboard
+                  </Button>
+                </div>
+              </form>
+
+              <div className="mt-8 border-t pt-6">
+                <h3 className="mb-2 font-semibold text-gray-900">
+                  How it works:
+                </h3>
+                <ol className="list-inside list-decimal space-y-2 text-gray-600">
+                  <li>Paste a job description above</li>
+                  <li>AI analyzes the requirements and keywords</li>
+                  <li>Selects and tailors bullets from your profile</li>
+                  <li>Verifies accuracy (no hallucinations!)</li>
+                  <li>Generates your optimized resume</li>
+                </ol>
               </div>
-            </form>
-
-            <div className="mt-8 border-t border-gray-200 pt-6">
-              <h3 className="mb-2 font-semibold text-gray-900">
-                How it works:
-              </h3>
-              <ol className="list-inside list-decimal space-y-2 text-gray-600">
-                <li>Paste a job description above</li>
-                <li>AI analyzes the requirements and keywords</li>
-                <li>Selects and tailors bullets from your profile</li>
-                <li>Verifies accuracy (no hallucinations!)</li>
-                <li>Generates your optimized resume</li>
-              </ol>
-            </div>
-          </div>
+            </CardContent>
+          </Card>
         </div>
       </div>
     </div>
