@@ -1,7 +1,16 @@
 import { Injectable } from "@nestjs/common";
-import { JobStage, JobStatus, ParsedJD, ResumeJson } from "@tailor.me/shared";
+import {
+  EditableResume,
+  JobStage,
+  JobStatus,
+  ParsedJD,
+} from "@tailor.me/shared";
 import { Job, Worker } from "bullmq";
-import { OpenAIService } from "../openai/openai.service";
+import {
+  ContentSelection,
+  OpenAIService,
+  ProfileData,
+} from "../openai/openai.service";
 import { PrismaService } from "../prisma/prisma.service";
 
 interface JobData {
@@ -10,13 +19,13 @@ interface JobData {
   jobDescription: string;
 }
 
-interface CandidateBullet {
+interface SelectedBullet {
   id: string;
   content: string;
   tags: string[];
-  skills: string[]; // Skill names from BulletSkill relation
-  experienceId: string;
-  score: number;
+  skills: string[];
+  parentId: string; // experienceId or projectId
+  parentType: "experience" | "project";
 }
 
 @Injectable()
@@ -56,6 +65,7 @@ export class ResumeProcessor {
     const { jobId, userId, jobDescription } = job.data;
 
     try {
+      // Step A: Parse JD
       await this.updateJobStatus(
         jobId,
         JobStatus.PROCESSING,
@@ -64,89 +74,96 @@ export class ResumeProcessor {
       );
       await job.updateProgress({ progress: 10, stage: JobStage.PARSING_JD });
 
-      // Step A: Parse JD
       const parsedJd = await this.openai.parseJobDescription(jobDescription);
       await this.prisma.resumeJob.update({
         where: { id: jobId },
         data: { parsedJd: parsedJd as any },
       });
 
+      // Step B: Retrieve full profile
       await this.updateJobStatus(
         jobId,
         JobStatus.PROCESSING,
         JobStage.RETRIEVING_BULLETS,
-        25
+        20
       );
       await job.updateProgress({
-        progress: 25,
+        progress: 20,
         stage: JobStage.RETRIEVING_BULLETS,
       });
 
-      // Step B: Retrieve bullets
-      const candidateBullets = await this.retrieveBullets(userId, parsedJd);
+      const profileData = await this.fetchFullProfile(userId);
 
+      // Step C: AI-based content selection
       await this.updateJobStatus(
         jobId,
         JobStatus.PROCESSING,
         JobStage.SELECTING_BULLETS,
-        40
+        35
       );
       await job.updateProgress({
-        progress: 40,
+        progress: 35,
         stage: JobStage.SELECTING_BULLETS,
       });
 
-      // Step C: Select bullets
-      const selectedBullets = this.selectBullets(candidateBullets, parsedJd);
+      const contentSelection = await this.openai.selectRelevantContent(
+        profileData,
+        parsedJd
+      );
 
+      // Step D: Extract selected bullets for rewriting
+      const selectedBullets = this.extractSelectedBullets(
+        profileData,
+        contentSelection
+      );
+
+      // Step E: Rewrite bullets
       await this.updateJobStatus(
         jobId,
         JobStatus.PROCESSING,
         JobStage.REWRITING_BULLETS,
-        55
+        50
       );
       await job.updateProgress({
-        progress: 55,
+        progress: 50,
         stage: JobStage.REWRITING_BULLETS,
       });
 
-      // Step D: Rewrite bullets
       const rewrittenBullets = await this.rewriteBullets(
         selectedBullets,
         parsedJd
       );
 
+      // Step F: Verify
       await this.updateJobStatus(
         jobId,
         JobStatus.PROCESSING,
         JobStage.VERIFYING,
-        75
+        70
       );
-      await job.updateProgress({ progress: 75, stage: JobStage.VERIFYING });
+      await job.updateProgress({ progress: 70, stage: JobStage.VERIFYING });
 
-      // Step E: Verify
       const verifiedBullets = this.verifyBullets(
         selectedBullets,
         rewrittenBullets
       );
 
+      // Step G: Assemble resume
       await this.updateJobStatus(
         jobId,
         JobStatus.PROCESSING,
         JobStage.ASSEMBLING,
-        90
+        85
       );
-      await job.updateProgress({ progress: 90, stage: JobStage.ASSEMBLING });
+      await job.updateProgress({ progress: 85, stage: JobStage.ASSEMBLING });
 
-      // Step F: Assemble resume
-      const resume = await this.assembleResume(
-        userId,
-        selectedBullets,
-        verifiedBullets,
-        parsedJd
+      const resume = this.assembleResumeFromSelection(
+        profileData,
+        contentSelection,
+        verifiedBullets
       );
 
-      // Step G: Save results
+      // Step H: Save results
       await this.saveResults(jobId, resume, selectedBullets, verifiedBullets);
 
       await this.updateJobStatus(
@@ -169,149 +186,180 @@ export class ResumeProcessor {
     }
   }
 
-  private async retrieveBullets(
-    userId: string,
-    parsedJd: ParsedJD
-  ): Promise<CandidateBullet[]> {
-    const allKeywords = [
-      ...parsedJd.required_skills,
-      ...parsedJd.nice_to_have,
-      ...parsedJd.keywords,
-    ].map((k) => k.toLowerCase());
-
-    const experiences = await this.prisma.experience.findMany({
-      where: { userId },
-      include: {
-        bullets: {
+  /**
+   * Fetches the complete user profile for AI-based selection
+   */
+  private async fetchFullProfile(userId: string): Promise<ProfileData> {
+    const [experiences, projects, education, skillCategories] =
+      await Promise.all([
+        this.prisma.experience.findMany({
+          where: { userId },
+          orderBy: { startDate: "desc" },
           include: {
-            skills: {
+            bullets: {
               include: {
-                skill: true,
+                skills: {
+                  include: { skill: true },
+                },
               },
             },
           },
-        },
-      },
-    });
+        }),
+        this.prisma.project.findMany({
+          where: { userId },
+          include: {
+            bullets: true,
+            skills: {
+              include: { skill: true },
+            },
+          },
+        }),
+        this.prisma.education.findMany({
+          where: { userId },
+        }),
+        this.prisma.skillCategory.findMany({
+          where: { userId },
+          include: {
+            skills: true,
+          },
+        }),
+      ]);
 
-    const candidates: CandidateBullet[] = [];
+    return {
+      experiences: experiences.map((exp) => ({
+        id: exp.id,
+        company: exp.company,
+        title: exp.title,
+        startDate: exp.startDate,
+        endDate: exp.endDate,
+        bullets: exp.bullets.map((b) => ({
+          id: b.id,
+          content: b.content,
+          skills: b.skills.map((bs: any) => bs.skill.name),
+        })),
+      })),
+      projects: projects.map((proj) => ({
+        id: proj.id,
+        name: proj.name,
+        skills: proj.skills.map((ps: any) => ps.skill.name),
+        bullets: proj.bullets.map((b) => ({
+          id: b.id,
+          content: b.content,
+        })),
+      })),
+      education: education.map((edu: any) => ({
+        id: edu.id,
+        institution: edu.institution,
+        degree: edu.degree,
+        graduationDate: edu.graduationDate,
+        coursework: edu.coursework || [],
+      })),
+      skillCategories: skillCategories.map((cat) => ({
+        id: cat.id,
+        name: cat.name,
+        skills: cat.skills.map((s) => ({
+          id: s.id,
+          name: s.name,
+        })),
+      })),
+    };
+  }
 
-    for (const exp of experiences) {
-      for (const bullet of exp.bullets) {
-        const bulletText = bullet.content.toLowerCase();
-        // Extract skill names from the BulletSkill relation
-        const skillNames = bullet.skills.map((bs: any) => bs.skill.name);
-        const bulletKeywords = [
-          ...bullet.tags.map((t) => t.toLowerCase()),
-          ...skillNames.map((s: string) => s.toLowerCase()),
-        ];
+  /**
+   * Extracts the selected bullets from the AI selection for rewriting
+   */
+  private extractSelectedBullets(
+    profileData: ProfileData,
+    selection: ContentSelection
+  ): SelectedBullet[] {
+    const bullets: SelectedBullet[] = [];
 
-        let score = 0;
+    // Extract experience bullets
+    for (const expSelection of selection.experiences) {
+      const experience = profileData.experiences.find(
+        (e) => e.id === expSelection.id
+      );
+      if (!experience) continue;
 
-        // Score based on keyword matches
-        for (const keyword of allKeywords) {
-          if (
-            bulletText.includes(keyword) ||
-            bulletKeywords.some((bk) => bk.includes(keyword))
-          ) {
-            score += parsedJd.required_skills.some(
-              (s) => s.toLowerCase() === keyword
-            )
-              ? 2
-              : 1;
-          }
-        }
-
-        if (score > 0) {
-          candidates.push({
+      for (const bulletId of expSelection.bulletIds) {
+        const bullet = experience.bullets.find((b) => b.id === bulletId);
+        if (bullet) {
+          bullets.push({
             id: bullet.id,
             content: bullet.content,
-            tags: bullet.tags,
-            skills: skillNames,
-            experienceId: exp.id,
-            score,
+            tags: [],
+            skills: bullet.skills,
+            parentId: experience.id,
+            parentType: "experience",
           });
         }
       }
     }
 
-    // Return top 30 candidates sorted by score
-    return candidates.sort((a, b) => b.score - a.score).slice(0, 30);
-  }
-
-  private selectBullets(
-    candidates: CandidateBullet[],
-    parsedJd: ParsedJD
-  ): CandidateBullet[] {
-    const selected: CandidateBullet[] = [];
-    const usedExperiences = new Set<string>();
-    const coveredSkills = new Set<string>();
-
-    const requiredSkills = parsedJd.required_skills.map((s) => s.toLowerCase());
-
-    // First pass: select bullets that cover required skills
-    for (const candidate of candidates) {
-      if (selected.length >= 16) break;
-
-      const bulletText = candidate.content.toLowerCase();
-      const bulletKeywords = [...candidate.tags, ...candidate.skills].map((k) =>
-        k.toLowerCase()
+    // Extract project bullets
+    for (const projSelection of selection.projects) {
+      const project = profileData.projects.find(
+        (p) => p.id === projSelection.id
       );
+      if (!project) continue;
 
-      // Check if this bullet covers any uncovered required skills
-      let coversNew = false;
-      for (const skill of requiredSkills) {
-        if (!coveredSkills.has(skill)) {
-          if (
-            bulletText.includes(skill) ||
-            bulletKeywords.some((k) => k.includes(skill))
-          ) {
-            coveredSkills.add(skill);
-            coversNew = true;
-          }
+      for (const bulletId of projSelection.bulletIds) {
+        const bullet = project.bullets.find((b) => b.id === bulletId);
+        if (bullet) {
+          bullets.push({
+            id: bullet.id,
+            content: bullet.content,
+            tags: [],
+            skills: project.skills, // Use project skills for project bullets
+            parentId: project.id,
+            parentType: "project",
+          });
         }
       }
-
-      // Limit bullets per experience to avoid repetition
-      const experienceCount = selected.filter(
-        (b) => b.experienceId === candidate.experienceId
-      ).length;
-
-      if (coversNew || experienceCount < 4) {
-        selected.push(candidate);
-      }
     }
 
-    // Ensure minimum of 12 bullets
-    for (const candidate of candidates) {
-      if (selected.length >= 12) break;
-      if (!selected.find((s) => s.id === candidate.id)) {
-        selected.push(candidate);
-      }
-    }
-
-    return selected.slice(0, 16);
+    return bullets;
   }
 
   private async rewriteBullets(
-    bullets: CandidateBullet[],
+    bullets: SelectedBullet[],
     parsedJd: ParsedJD
   ): Promise<Map<string, any>> {
     const rewritten = new Map();
 
-    for (const bullet of bullets) {
-      try {
-        const result = await this.openai.rewriteBullet(bullet, parsedJd);
-        rewritten.set(bullet.id, result);
-      } catch (error) {
-        console.error(`Failed to rewrite bullet ${bullet.id}:`, error);
-        // Fallback to original
-        rewritten.set(bullet.id, {
-          bulletId: bullet.id,
-          rewrittenText: bullet.content,
-          evidenceBulletIds: [bullet.id],
-          riskFlags: ["rewrite_failed"],
-        });
+    // Process bullets in parallel for better performance
+    const results = await Promise.allSettled(
+      bullets.map(async (bullet) => {
+        try {
+          const result = await this.openai.rewriteBullet(
+            {
+              id: bullet.id,
+              content: bullet.content,
+              tags: bullet.tags,
+              skills: bullet.skills,
+            },
+            parsedJd
+          );
+          return { id: bullet.id, result, success: true };
+        } catch (error) {
+          console.error(`Failed to rewrite bullet ${bullet.id}:`, error);
+          return {
+            id: bullet.id,
+            result: {
+              bulletId: bullet.id,
+              rewrittenText: bullet.content,
+              evidenceBulletIds: [bullet.id],
+              riskFlags: ["rewrite_failed"],
+            },
+            success: false,
+          };
+        }
+      })
+    );
+
+    for (const res of results) {
+      if (res.status === "fulfilled") {
+        rewritten.set(res.value.id, res.value.result);
       }
     }
 
@@ -319,7 +367,7 @@ export class ResumeProcessor {
   }
 
   private verifyBullets(
-    originalBullets: CandidateBullet[],
+    originalBullets: SelectedBullet[],
     rewrittenMap: Map<string, any>
   ): Map<string, { text: string; verifierNote: string | null }> {
     const verified = new Map();
@@ -344,7 +392,7 @@ export class ResumeProcessor {
         issues.push(`New numbers added: ${newNumbers.join(", ")}`);
       }
 
-      // Check for new tech (simple keyword check) - using skills from BulletSkill relation
+      // Check for new tech (simple keyword check)
       const originalSkills = [...original.skills, ...original.tags].map((t) =>
         t.toLowerCase()
       );
@@ -411,90 +459,167 @@ export class ResumeProcessor {
     return verified;
   }
 
-  private async assembleResume(
-    userId: string,
-    selectedBullets: CandidateBullet[],
-    verifiedBullets: Map<string, any>,
-    parsedJd: ParsedJD
-  ): Promise<ResumeJson> {
-    // Get user data with project skills and bullets
-    const [experiences, education, projects, skills] = await Promise.all([
-      this.prisma.experience.findMany({
-        where: { userId },
-        orderBy: { startDate: "desc" },
-      }),
-      this.prisma.education.findMany({ where: { userId } }),
-      this.prisma.project.findMany({
-        where: { userId },
-        include: {
-          skills: {
-            include: {
-              skill: true,
-            },
-          },
-          bullets: true,
-        },
-      }),
-      this.prisma.skill.findMany({ where: { userId } }),
-    ]);
+  /**
+   * Assembles the final resume from AI selection and verified bullets
+   * Returns EditableResume format with categorized skills and relevance reasons
+   */
+  private assembleResumeFromSelection(
+    profileData: ProfileData,
+    selection: ContentSelection,
+    verifiedBullets: Map<string, { text: string; verifierNote: string | null }>
+  ): EditableResume {
+    // Build experience sections from AI selection with relevance reasons
+    const experiences = selection.experiences
+      .map((expSelection, index) => {
+        const experience = profileData.experiences.find(
+          (e) => e.id === expSelection.id
+        );
+        if (!experience) return null;
 
-    // Group bullets by experience
-    const bulletsByExp = new Map<string, string[]>();
-    for (const bullet of selectedBullets) {
-      const verified = verifiedBullets.get(bullet.id);
-      if (verified) {
-        if (!bulletsByExp.has(bullet.experienceId)) {
-          bulletsByExp.set(bullet.experienceId, []);
-        }
-        bulletsByExp.get(bullet.experienceId)!.push(verified.text);
-      }
-    }
+        const bullets = expSelection.bulletIds
+          .map((bulletId, bulletIndex) => {
+            const verified = verifiedBullets.get(bulletId);
+            if (!verified) return null;
+            return {
+              id: bulletId,
+              text: verified.text,
+              visible: true,
+              order: bulletIndex,
+            };
+          })
+          .filter((b): b is NonNullable<typeof b> => b !== null);
 
-    // Build experience sections
-    const experienceSections = experiences
-      .filter((exp) => bulletsByExp.has(exp.id))
-      .map((exp) => ({
-        company: exp.company,
-        title: exp.title,
-        startDate: exp.startDate,
-        endDate: exp.endDate,
-        bullets: bulletsByExp.get(exp.id) || [],
-      }));
+        return {
+          id: experience.id,
+          company: experience.company,
+          title: experience.title,
+          startDate: experience.startDate,
+          endDate: experience.endDate,
+          bullets,
+          visible: true,
+          order: index,
+          relevanceReason: expSelection.relevanceReason,
+        };
+      })
+      .filter((e): e is NonNullable<typeof e> => e !== null);
 
-    // Collect skills
-    const allSkills = new Set<string>();
-    skills.forEach((s) => allSkills.add(s.name));
-    parsedJd.required_skills.forEach((s) => {
-      if (
-        skills.some((skill) => skill.name.toLowerCase() === s.toLowerCase())
-      ) {
-        allSkills.add(s);
-      }
-    });
+    // Build project sections from AI selection with relevance reasons
+    const projects = selection.projects
+      .map((projSelection, index) => {
+        const project = profileData.projects.find(
+          (p) => p.id === projSelection.id
+        );
+        if (!project) return null;
+
+        const bullets = projSelection.bulletIds
+          .map((bulletId, bulletIndex) => {
+            const verified = verifiedBullets.get(bulletId);
+            if (!verified) return null;
+            return {
+              id: bulletId,
+              text: verified.text,
+              visible: true,
+              order: bulletIndex,
+            };
+          })
+          .filter((b): b is NonNullable<typeof b> => b !== null);
+
+        return {
+          id: project.id,
+          name: project.name,
+          description: bullets.length > 0 ? bullets[0].text : "",
+          tech: project.skills,
+          bullets,
+          visible: true,
+          order: index,
+          relevanceReason: projSelection.relevanceReason,
+        };
+      })
+      .filter((p): p is NonNullable<typeof p> => p !== null);
+
+    // Build education sections from AI selection with coursework and relevance reasons
+    const education = selection.education
+      .map((eduSelection, index) => {
+        const edu = profileData.education.find((e) => e.id === eduSelection.id);
+        if (!edu) return null;
+
+        return {
+          id: edu.id,
+          institution: edu.institution,
+          degree: edu.degree,
+          graduationDate: edu.graduationDate,
+          coursework: eduSelection.selectedCoursework.map((name, i) => ({
+            id: `${edu.id}-cw-${i}`,
+            name,
+            visible: true,
+          })),
+          visible: true,
+          order: index,
+          relevanceReason: eduSelection.relevanceReason,
+        };
+      })
+      .filter((e): e is NonNullable<typeof e> => e !== null);
+
+    // Build skill categories from AI selection (properly categorized)
+    const skillCategories = selection.skills
+      .map((skillSelection, index) => {
+        const category = profileData.skillCategories.find(
+          (c) => c.id === skillSelection.categoryId
+        );
+        if (!category) return null;
+
+        const selectedSkills = skillSelection.skillIds
+          .map((skillId) => {
+            const skill = category.skills.find((s) => s.id === skillId);
+            if (!skill) return null;
+            return {
+              id: skill.id,
+              name: skill.name,
+              visible: true,
+            };
+          })
+          .filter((s): s is NonNullable<typeof s> => s !== null);
+
+        if (selectedSkills.length === 0) return null;
+
+        return {
+          id: category.id,
+          name: category.name,
+          skills: selectedSkills,
+          visible: true,
+          order: index,
+        };
+      })
+      .filter((c): c is NonNullable<typeof c> => c !== null);
 
     return {
-      skills: Array.from(allSkills),
-      experiences: experienceSections,
-      projects: projects.map((p: any) => ({
-        name: p.name,
-        // Use first bullet content as description if available, otherwise empty string
-        description: p.bullets.length > 0 ? p.bullets[0].content : "",
-        // Extract skill names from ProjectSkill relation
-        tech: p.skills.map((ps: any) => ps.skill.name),
-        bullets: p.bullets.map((b: any) => b.content),
-      })),
-      education: education.map((e) => ({
-        institution: e.institution,
-        degree: e.degree,
-        graduationDate: e.graduationDate,
-      })),
+      sectionOrder: [
+        {
+          id: "education",
+          type: "education" as const,
+          visible: true,
+          order: 0,
+        },
+        {
+          id: "experience",
+          type: "experience" as const,
+          visible: true,
+          order: 1,
+        },
+        { id: "skills", type: "skills" as const, visible: true, order: 2 },
+        { id: "projects", type: "projects" as const, visible: true, order: 3 },
+      ],
+      education,
+      experiences,
+      skillCategories,
+      projects,
     };
   }
 
   private async saveResults(
     jobId: string,
-    resume: ResumeJson,
-    selectedBullets: CandidateBullet[],
+    resume: EditableResume,
+    selectedBullets: SelectedBullet[],
     verifiedBullets: Map<string, any>
   ): Promise<void> {
     // Save resume
@@ -506,22 +631,24 @@ export class ResumeProcessor {
       },
     });
 
-    // Save bullet mappings
-    for (const bullet of selectedBullets) {
-      const verified = verifiedBullets.get(bullet.id);
-      if (verified) {
-        await this.prisma.resumeJobBullet.create({
-          data: {
-            resumeJobId: jobId,
-            bulletId: bullet.id,
-            originalText: bullet.content,
-            rewrittenText: verified.text,
-            evidence: { evidenceBulletIds: [bullet.id] },
-            verifierNote: verified.verifierNote,
-          },
-        });
-      }
-    }
+    // Save bullet mappings in parallel
+    await Promise.all(
+      selectedBullets.map(async (bullet) => {
+        const verified = verifiedBullets.get(bullet.id);
+        if (verified) {
+          await this.prisma.resumeJobBullet.create({
+            data: {
+              resumeJobId: jobId,
+              bulletId: bullet.id,
+              originalText: bullet.content,
+              rewrittenText: verified.text,
+              evidence: { evidenceBulletIds: [bullet.id] },
+              verifierNote: verified.verifierNote,
+            },
+          });
+        }
+      })
+    );
   }
 
   private async updateJobStatus(

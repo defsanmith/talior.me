@@ -24,10 +24,12 @@ import {
   Eye,
   EyeOff,
   Plus,
+  Sparkles,
   Trash2,
   X,
 } from "lucide-react";
 import { useState } from "react";
+import { Alert, AlertDescription, AlertTitle } from "../ui/alert";
 import { DraggableItem } from "./draggable-item";
 import { EditableText } from "./editable-text";
 import { ResumeBullet, ResumeProject } from "./types";
@@ -340,6 +342,15 @@ function ProjectItem({
             </Button>
           </div>
         </div>
+
+        {/* AI Relevance Reason */}
+        {item.relevanceReason && (
+          <Alert className="mt-4">
+            <Sparkles className="h-4 w-4" />
+            <AlertTitle>Relevance Reason for this project entry</AlertTitle>
+            <AlertDescription>{item.relevanceReason}</AlertDescription>
+          </Alert>
+        )}
 
         {/* Tech Stack */}
         <div className="mt-3">

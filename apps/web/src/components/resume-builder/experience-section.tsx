@@ -24,10 +24,12 @@ import {
   Eye,
   EyeOff,
   Plus,
+  Sparkles,
   Trash2,
   X,
 } from "lucide-react";
 import { useState } from "react";
+import { Alert, AlertDescription, AlertTitle } from "../ui/alert";
 import { DraggableItem } from "./draggable-item";
 import { EditableText } from "./editable-text";
 import { ResumeBullet, ResumeExperience } from "./types";
@@ -326,6 +328,15 @@ function ExperienceItem({
             </Button>
           </div>
         </div>
+
+        {/* AI Relevance Reason */}
+        {item.relevanceReason && (
+          <Alert className="mt-4">
+            <Sparkles className="h-4 w-4" />
+            <AlertTitle>Relevance Reason for this experience entry</AlertTitle>
+            <AlertDescription>{item.relevanceReason}</AlertDescription>
+          </Alert>
+        )}
 
         {/* Bullets Section */}
         <div className="mt-4">

@@ -95,6 +95,7 @@ export const ResumeEducationSchema = z.object({
   coursework: z.array(ResumeCourseworkSchema).default([]),
   visible: z.boolean().default(true),
   order: z.number(),
+  relevanceReason: z.string().optional(), // AI explanation for inclusion
 });
 
 export type ResumeEducation = z.infer<typeof ResumeEducationSchema>;
@@ -109,6 +110,7 @@ export const ResumeExperienceSchema = z.object({
   bullets: z.array(ResumeBulletSchema).default([]),
   visible: z.boolean().default(true),
   order: z.number(),
+  relevanceReason: z.string().optional(), // AI explanation for inclusion
 });
 
 export type ResumeExperience = z.infer<typeof ResumeExperienceSchema>;
@@ -142,6 +144,7 @@ export const ResumeProjectSchema = z.object({
   bullets: z.array(ResumeBulletSchema).default([]),
   visible: z.boolean().default(true),
   order: z.number(),
+  relevanceReason: z.string().optional(), // AI explanation for inclusion
 });
 
 export type ResumeProject = z.infer<typeof ResumeProjectSchema>;
