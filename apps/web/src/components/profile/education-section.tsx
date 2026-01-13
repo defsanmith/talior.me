@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { ProfileEducation } from "@tailor.me/shared";
+import { Badge } from "@/components/ui/badge";
 import {
   Card,
   CardContent,
@@ -9,6 +10,11 @@ import {
   CardTitle,
   CardDescription,
 } from "@/components/ui/card";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import { Button } from "@/components/ui/button";
 import { InlineTextField } from "./inline-text-field";
 import {
@@ -16,7 +22,7 @@ import {
   useUpdateEducationMutation,
   useDeleteEducationMutation,
 } from "@/store/api/profile/queries";
-import { GraduationCap, MapPin, Plus, Trash2 } from "lucide-react";
+import { BookOpen, ChevronsUpDown, GraduationCap, MapPin, Plus, Trash2, X } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 
@@ -57,11 +63,28 @@ export function EducationSection({
   const handleUpdateField = async (
     id: string,
     field: string,
-    value: string
+    value: string | string[]
   ) => {
     await updateEducation({
       id,
-      data: { [field]: value || null },
+      data: { [field]: Array.isArray(value) ? value : value || null },
+    });
+  };
+
+  const handleAddCoursework = async (id: string, currentCoursework: string[], newCourse: string) => {
+    if (!newCourse.trim()) return;
+    const updated = [...currentCoursework, newCourse.trim()];
+    await updateEducation({
+      id,
+      data: { coursework: updated },
+    });
+  };
+
+  const handleRemoveCoursework = async (id: string, currentCoursework: string[], courseToRemove: string) => {
+    const updated = currentCoursework.filter((c) => c !== courseToRemove);
+    await updateEducation({
+      id,
+      data: { coursework: updated },
     });
   };
 
@@ -171,57 +194,14 @@ export function EducationSection({
         )}
 
         {education.map((edu) => (
-          <div
+          <EducationCard
             key={edu.id}
-            className="group rounded-lg border p-4 transition-colors hover:bg-muted/50"
-          >
-            <div className="flex items-start justify-between">
-              <div className="flex-1 space-y-2">
-                <InlineTextField
-                  value={edu.degree}
-                  onSave={(value) => handleUpdateField(edu.id, "degree", value)}
-                  className="text-lg font-semibold"
-                  validate={(v) => (v.length < 1 ? "Degree is required" : null)}
-                />
-                <InlineTextField
-                  value={edu.institution}
-                  onSave={(value) =>
-                    handleUpdateField(edu.id, "institution", value)
-                  }
-                  className="text-muted-foreground"
-                  validate={(v) =>
-                    v.length < 1 ? "Institution is required" : null
-                  }
-                />
-                <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                  <MapPin className="h-3 w-3" />
-                  <InlineTextField
-                    value={edu.location || ""}
-                    onSave={(value) =>
-                      handleUpdateField(edu.id, "location", value)
-                    }
-                    placeholder="Add location"
-                  />
-                </div>
-                <InlineTextField
-                  value={edu.graduationDate || ""}
-                  onSave={(value) =>
-                    handleUpdateField(edu.id, "graduationDate", value)
-                  }
-                  placeholder="Graduation date"
-                  className="text-sm text-muted-foreground"
-                />
-              </div>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="opacity-0 group-hover:opacity-100 text-destructive hover:text-destructive"
-                onClick={() => handleDeleteEducation(edu.id)}
-              >
-                <Trash2 className="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
+            edu={edu}
+            onUpdateField={handleUpdateField}
+            onAddCoursework={handleAddCoursework}
+            onRemoveCoursework={handleRemoveCoursework}
+            onDelete={handleDeleteEducation}
+          />
         ))}
 
         {education.length === 0 && !isAddingNew && (
@@ -231,6 +211,140 @@ export function EducationSection({
         )}
       </CardContent>
     </Card>
+  );
+}
+
+interface EducationCardProps {
+  edu: ProfileEducation;
+  onUpdateField: (id: string, field: string, value: string | string[]) => void;
+  onAddCoursework: (id: string, currentCoursework: string[], newCourse: string) => void;
+  onRemoveCoursework: (id: string, currentCoursework: string[], courseToRemove: string) => void;
+  onDelete: (id: string) => void;
+}
+
+function EducationCard({
+  edu,
+  onUpdateField,
+  onAddCoursework,
+  onRemoveCoursework,
+  onDelete,
+}: EducationCardProps) {
+  const [newCourse, setNewCourse] = useState("");
+
+  const handleAddCourse = () => {
+    if (newCourse.trim()) {
+      onAddCoursework(edu.id, edu.coursework || [], newCourse.trim());
+      setNewCourse("");
+    }
+  };
+
+  return (
+    <div className="group rounded-lg border p-4 transition-colors hover:bg-muted/50">
+      <div className="flex items-start justify-between">
+        <div className="flex-1 space-y-2">
+          <InlineTextField
+            value={edu.degree}
+            onSave={(value) => onUpdateField(edu.id, "degree", value)}
+            className="text-lg font-semibold"
+            validate={(v) => (v.length < 1 ? "Degree is required" : null)}
+          />
+          <InlineTextField
+            value={edu.institution}
+            onSave={(value) => onUpdateField(edu.id, "institution", value)}
+            className="text-muted-foreground"
+            validate={(v) => (v.length < 1 ? "Institution is required" : null)}
+          />
+          <div className="flex items-center gap-1 text-sm text-muted-foreground">
+            <MapPin className="h-3 w-3" />
+            <InlineTextField
+              value={edu.location || ""}
+              onSave={(value) => onUpdateField(edu.id, "location", value)}
+              placeholder="Add location"
+            />
+          </div>
+          <InlineTextField
+            value={edu.graduationDate || ""}
+            onSave={(value) => onUpdateField(edu.id, "graduationDate", value)}
+            placeholder="Graduation date"
+            className="text-sm text-muted-foreground"
+          />
+        </div>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="opacity-0 group-hover:opacity-100 text-destructive hover:text-destructive"
+          onClick={() => onDelete(edu.id)}
+        >
+          <Trash2 className="h-4 w-4" />
+        </Button>
+      </div>
+
+      {/* Coursework */}
+      <Collapsible defaultOpen={false} className="mt-4">
+        <div className="flex items-center justify-between">
+          <CollapsibleTrigger asChild>
+            <Button variant="ghost" size="sm" className="gap-1 px-2">
+              <BookOpen className="h-4 w-4" />
+              <span className="text-sm font-medium">
+                Coursework ({edu.coursework?.length || 0})
+              </span>
+              <ChevronsUpDown className="h-4 w-4" />
+            </Button>
+          </CollapsibleTrigger>
+        </div>
+        <CollapsibleContent className="mt-2">
+          <div className="space-y-2">
+            {/* Add new coursework input */}
+            <div className="flex items-center gap-2">
+              <Input
+                value={newCourse}
+                onChange={(e) => setNewCourse(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    handleAddCourse();
+                  }
+                }}
+                placeholder="Add coursework..."
+                className="h-8 text-sm"
+              />
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleAddCourse}
+                disabled={!newCourse.trim()}
+              >
+                <Plus className="h-4 w-4" />
+              </Button>
+            </div>
+
+            {/* Coursework list */}
+            <div className="flex flex-wrap gap-2">
+              {edu.coursework?.map((course) => (
+                <Badge
+                  key={course}
+                  variant="secondary"
+                  className="group/course cursor-pointer text-sm"
+                >
+                  {course}
+                  <button
+                    className="ml-1 opacity-50 hover:opacity-100 transition-opacity"
+                    onClick={() => onRemoveCoursework(edu.id, edu.coursework || [], course)}
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </Badge>
+              ))}
+              {(!edu.coursework || edu.coursework.length === 0) && (
+                <p className="text-sm text-muted-foreground">
+                  No coursework added yet.
+                </p>
+              )}
+            </div>
+          </div>
+        </CollapsibleContent>
+      </Collapsible>
+    </div>
   );
 }
 

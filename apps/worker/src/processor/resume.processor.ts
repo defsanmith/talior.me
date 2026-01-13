@@ -1,8 +1,8 @@
 import { Injectable } from "@nestjs/common";
+import { JobStage, JobStatus, ParsedJD, ResumeJson } from "@tailor.me/shared";
 import { Job, Worker } from "bullmq";
-import { PrismaService } from "../prisma/prisma.service";
 import { OpenAIService } from "../openai/openai.service";
-import { JobStatus, JobStage, ParsedJD, ResumeJson } from "@tailor.me/shared";
+import { PrismaService } from "../prisma/prisma.service";
 
 interface JobData {
   jobId: string;
@@ -14,7 +14,7 @@ interface CandidateBullet {
   id: string;
   content: string;
   tags: string[];
-  tech: string[];
+  skills: string[]; // Skill names from BulletSkill relation
   experienceId: string;
   score: number;
 }
@@ -181,7 +181,17 @@ export class ResumeProcessor {
 
     const experiences = await this.prisma.experience.findMany({
       where: { userId },
-      include: { bullets: true },
+      include: {
+        bullets: {
+          include: {
+            skills: {
+              include: {
+                skill: true,
+              },
+            },
+          },
+        },
+      },
     });
 
     const candidates: CandidateBullet[] = [];
@@ -189,9 +199,11 @@ export class ResumeProcessor {
     for (const exp of experiences) {
       for (const bullet of exp.bullets) {
         const bulletText = bullet.content.toLowerCase();
+        // Extract skill names from the BulletSkill relation
+        const skillNames = bullet.skills.map((bs: any) => bs.skill.name);
         const bulletKeywords = [
           ...bullet.tags.map((t) => t.toLowerCase()),
-          ...bullet.tech.map((t) => t.toLowerCase()),
+          ...skillNames.map((s: string) => s.toLowerCase()),
         ];
 
         let score = 0;
@@ -215,7 +227,7 @@ export class ResumeProcessor {
             id: bullet.id,
             content: bullet.content,
             tags: bullet.tags,
-            tech: bullet.tech,
+            skills: skillNames,
             experienceId: exp.id,
             score,
           });
@@ -242,7 +254,7 @@ export class ResumeProcessor {
       if (selected.length >= 16) break;
 
       const bulletText = candidate.content.toLowerCase();
-      const bulletKeywords = [...candidate.tags, ...candidate.tech].map((k) =>
+      const bulletKeywords = [...candidate.tags, ...candidate.skills].map((k) =>
         k.toLowerCase()
       );
 
@@ -332,8 +344,8 @@ export class ResumeProcessor {
         issues.push(`New numbers added: ${newNumbers.join(", ")}`);
       }
 
-      // Check for new tech (simple keyword check)
-      const originalTech = [...original.tech, ...original.tags].map((t) =>
+      // Check for new tech (simple keyword check) - using skills from BulletSkill relation
+      const originalSkills = [...original.skills, ...original.tags].map((t) =>
         t.toLowerCase()
       );
       const commonTechWords = [
@@ -361,7 +373,7 @@ export class ResumeProcessor {
         if (
           rewrittenText.includes(tech) &&
           !originalText.includes(tech) &&
-          !originalTech.includes(tech)
+          !originalSkills.includes(tech)
         ) {
           issues.push(`New tech mentioned: ${tech}`);
         }
@@ -405,14 +417,24 @@ export class ResumeProcessor {
     verifiedBullets: Map<string, any>,
     parsedJd: ParsedJD
   ): Promise<ResumeJson> {
-    // Get user data
+    // Get user data with project skills and bullets
     const [experiences, education, projects, skills] = await Promise.all([
       this.prisma.experience.findMany({
         where: { userId },
         orderBy: { startDate: "desc" },
       }),
       this.prisma.education.findMany({ where: { userId } }),
-      this.prisma.project.findMany({ where: { userId } }),
+      this.prisma.project.findMany({
+        where: { userId },
+        include: {
+          skills: {
+            include: {
+              skill: true,
+            },
+          },
+          bullets: true,
+        },
+      }),
       this.prisma.skill.findMany({ where: { userId } }),
     ]);
 
@@ -453,11 +475,13 @@ export class ResumeProcessor {
     return {
       skills: Array.from(allSkills),
       experiences: experienceSections,
-      projects: projects.map((p) => ({
+      projects: projects.map((p: any) => ({
         name: p.name,
-        description: p.description,
-        tech: p.tech,
-        bullets: [],
+        // Use first bullet content as description if available, otherwise empty string
+        description: p.bullets.length > 0 ? p.bullets[0].content : "",
+        // Extract skill names from ProjectSkill relation
+        tech: p.skills.map((ps: any) => ps.skill.name),
+        bullets: p.bullets.map((b: any) => b.content),
       })),
       education: education.map((e) => ({
         institution: e.institution,

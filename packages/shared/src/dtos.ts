@@ -191,6 +191,7 @@ export const CreateProfileEducationDtoSchema = z.object({
   degree: z.string().min(1),
   location: z.string().nullable().optional(),
   graduationDate: z.string().nullable().optional(),
+  coursework: z.array(z.string()).optional(),
 });
 export type CreateProfileEducationDto = z.infer<typeof CreateProfileEducationDtoSchema>;
 
@@ -298,6 +299,7 @@ export interface ProfileEducation {
   degree: string;
   location: string | null;
   graduationDate: string | null;
+  coursework: string[];
   createdAt: Date;
   updatedAt: Date;
 }

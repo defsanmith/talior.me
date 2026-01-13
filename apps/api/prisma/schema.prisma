@@ -91,6 +91,7 @@ model Education {
   degree         String
   location       String?
   graduationDate String?
+  coursework     String[] @default([])
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 

@@ -22,7 +22,7 @@ function escapeLatex(text: string): string {
  * Generates the LaTeX document from an EditableResume
  */
 export function generateResumeLatex(resume: EditableResume): string {
-  const visibleSections = resume.sectionOrder
+  const visibleSections = (resume.sectionOrder || [])
     .filter((s) => s.visible)
     .sort((a, b) => a.order - b.order);
 
@@ -93,7 +93,7 @@ ${sectionsLatex}
 }
 
 function generateEducationSection(resume: EditableResume): string {
-  const visibleItems = resume.education
+  const visibleItems = (resume.education || [])
     .filter((item) => item.visible)
     .sort((a, b) => a.order - b.order);
 
@@ -102,7 +102,7 @@ function generateEducationSection(resume: EditableResume): string {
   let content = `\\section{Education}\n\n`;
 
   for (const item of visibleItems) {
-    const visibleCoursework = item.coursework.filter((c) => c.visible);
+    const visibleCoursework = (item.coursework || []).filter((c) => c.visible);
     const degree = escapeLatex(item.degree || "Degree");
     const institution = escapeLatex(item.institution || "");
     const gradDate = item.graduationDate ? escapeLatex(item.graduationDate) : "";
@@ -130,7 +130,7 @@ function generateEducationSection(resume: EditableResume): string {
 }
 
 function generateExperienceSection(resume: EditableResume): string {
-  const visibleItems = resume.experiences
+  const visibleItems = (resume.experiences || [])
     .filter((item) => item.visible)
     .sort((a, b) => a.order - b.order);
 
@@ -139,7 +139,7 @@ function generateExperienceSection(resume: EditableResume): string {
   let content = `\\section{Experience}\n\n`;
 
   for (const item of visibleItems) {
-    const visibleBullets = item.bullets
+    const visibleBullets = (item.bullets || [])
       .filter((b) => b.visible)
       .sort((a, b) => a.order - b.order);
 
@@ -169,7 +169,7 @@ function generateExperienceSection(resume: EditableResume): string {
 }
 
 function generateSkillsSection(resume: EditableResume): string {
-  const visibleItems = resume.skillCategories
+  const visibleItems = (resume.skillCategories || [])
     .filter((item) => item.visible)
     .sort((a, b) => a.order - b.order);
 
@@ -178,7 +178,7 @@ function generateSkillsSection(resume: EditableResume): string {
   let content = `\\section{Skills}\n\n`;
 
   for (const category of visibleItems) {
-    const visibleSkills = category.skills.filter((s) => s.visible);
+    const visibleSkills = (category.skills || []).filter((s) => s.visible);
     if (visibleSkills.length === 0) continue;
 
     const categoryName = escapeLatex(category.name || "Category");
@@ -192,7 +192,7 @@ function generateSkillsSection(resume: EditableResume): string {
 }
 
 function generateProjectsSection(resume: EditableResume): string {
-  const visibleItems = resume.projects
+  const visibleItems = (resume.projects || [])
     .filter((item) => item.visible)
     .sort((a, b) => a.order - b.order);
 
@@ -201,12 +201,12 @@ function generateProjectsSection(resume: EditableResume): string {
   let content = `\\section{Projects}\n\n`;
 
   for (const item of visibleItems) {
-    const visibleBullets = item.bullets
+    const visibleBullets = (item.bullets || [])
       .filter((b) => b.visible)
       .sort((a, b) => a.order - b.order);
 
     const name = escapeLatex(item.name || "Project");
-    const tech = item.tech.map((t) => escapeLatex(t)).join(", ");
+    const tech = (item.tech || []).map((t) => escapeLatex(t)).join(", ");
     const description = escapeLatex(item.description || "");
 
     content += `\\textbf{${name}}`;
