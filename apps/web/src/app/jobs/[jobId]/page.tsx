@@ -354,9 +354,9 @@ function ResumeBuilderEditor({
   const handleDownload = async () => {
     // Copy company name and team name to clipboard
     if (job?.companyName) {
-      const clipboardText = job.teamName
-        ? `${job.companyName} - ${job.teamName}`
-        : job.companyName;
+      const clipboardText = [job.companyName, job.jobPosition, job.teamName]
+        .filter(Boolean)
+        .join(" - ");
 
       try {
         await navigator.clipboard.writeText(clipboardText);
