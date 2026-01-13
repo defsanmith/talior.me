@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowUpCircleIcon, LayoutDashboardIcon } from "lucide-react";
+import { ArrowUpCircleIcon, LayoutDashboardIcon, UserIcon } from "lucide-react";
 import * as React from "react";
 
 import { NavMain } from "@/components/layout/nav-main";
@@ -29,26 +29,11 @@ const data = {
       url: Router.DASHBOARD,
       icon: LayoutDashboardIcon,
     },
-    // {
-    //   title: "Lifecycle",
-    //   url: "#",
-    //   icon: ListIcon,
-    // },
-    // {
-    //   title: "Analytics",
-    //   url: "#",
-    //   icon: BarChartIcon,
-    // },
-    // {
-    //   title: "Projects",
-    //   url: "#",
-    //   icon: FolderIcon,
-    // },
-    // {
-    //   title: "Team",
-    //   url: "#",
-    //   icon: UsersIcon,
-    // },
+    {
+      title: "Profile",
+      url: Router.PROFILE,
+      icon: UserIcon,
+    },
   ],
 };
 

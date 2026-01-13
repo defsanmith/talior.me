@@ -20,7 +20,8 @@ export const CreateJobDtoSchema = z.object({
 export type CreateJobDto = z.infer<typeof CreateJobDtoSchema>;
 
 export const CreateBulletDtoSchema = z.object({
-  experienceId: z.string(),
+  experienceId: z.string().optional(),
+  projectId: z.string().optional(),
   content: z.string().min(1),
   tags: z.array(z.string()).optional(),
   tech: z.array(z.string()).optional(),
@@ -154,3 +155,196 @@ export const ReorderItemsDtoSchema = z.object({
   itemIds: z.array(z.string()),
 });
 export type ReorderItemsDto = z.infer<typeof ReorderItemsDtoSchema>;
+
+// ============================================
+// Profile CRUD DTOs
+// ============================================
+
+// User DTOs
+export const UpdateUserDtoSchema = z.object({
+  name: z.string().min(1).optional(),
+  email: z.string().email().optional(),
+  phone: z.string().nullable().optional(),
+  location: z.string().nullable().optional(),
+  website: z.string().nullable().optional(),
+  linkedin: z.string().nullable().optional(),
+});
+export type UpdateUserDto = z.infer<typeof UpdateUserDtoSchema>;
+
+// Profile Experience DTOs (maps to Prisma Experience model)
+export const CreateProfileExperienceDtoSchema = z.object({
+  company: z.string().min(1),
+  title: z.string().min(1),
+  location: z.string().nullable().optional(),
+  startDate: z.string(),
+  endDate: z.string().nullable().optional(),
+  description: z.string().nullable().optional(),
+});
+export type CreateProfileExperienceDto = z.infer<typeof CreateProfileExperienceDtoSchema>;
+
+export const UpdateProfileExperienceDtoSchema = CreateProfileExperienceDtoSchema.partial();
+export type UpdateProfileExperienceDto = z.infer<typeof UpdateProfileExperienceDtoSchema>;
+
+// Profile Education DTOs (maps to Prisma Education model)
+export const CreateProfileEducationDtoSchema = z.object({
+  institution: z.string().min(1),
+  degree: z.string().min(1),
+  location: z.string().nullable().optional(),
+  graduationDate: z.string().nullable().optional(),
+});
+export type CreateProfileEducationDto = z.infer<typeof CreateProfileEducationDtoSchema>;
+
+export const UpdateProfileEducationDtoSchema = CreateProfileEducationDtoSchema.partial();
+export type UpdateProfileEducationDto = z.infer<typeof UpdateProfileEducationDtoSchema>;
+
+// Profile Project DTOs (maps to Prisma Project model)
+export const CreateProfileProjectDtoSchema = z.object({
+  name: z.string().min(1),
+  date: z.string().nullable().optional(),
+  url: z.string().nullable().optional(),
+});
+export type CreateProfileProjectDto = z.infer<typeof CreateProfileProjectDtoSchema>;
+
+export const UpdateProfileProjectDtoSchema = CreateProfileProjectDtoSchema.partial();
+export type UpdateProfileProjectDto = z.infer<typeof UpdateProfileProjectDtoSchema>;
+
+// Update Project Skills DTO
+export const UpdateProjectSkillsDtoSchema = z.object({
+  skillIds: z.array(z.string()),
+});
+export type UpdateProjectSkillsDto = z.infer<typeof UpdateProjectSkillsDtoSchema>;
+
+// Profile Skill Category DTOs (maps to Prisma SkillCategory model)
+export const CreateProfileSkillCategoryDtoSchema = z.object({
+  name: z.string().min(1),
+});
+export type CreateProfileSkillCategoryDto = z.infer<typeof CreateProfileSkillCategoryDtoSchema>;
+
+export const UpdateProfileSkillCategoryDtoSchema = CreateProfileSkillCategoryDtoSchema.partial();
+export type UpdateProfileSkillCategoryDto = z.infer<typeof UpdateProfileSkillCategoryDtoSchema>;
+
+// Profile Skill DTOs (maps to Prisma Skill model)
+export const CreateProfileSkillDtoSchema = z.object({
+  name: z.string().min(1),
+  categoryId: z.string().nullable().optional(),
+});
+export type CreateProfileSkillDto = z.infer<typeof CreateProfileSkillDtoSchema>;
+
+export const UpdateProfileSkillDtoSchema = CreateProfileSkillDtoSchema.partial();
+export type UpdateProfileSkillDto = z.infer<typeof UpdateProfileSkillDtoSchema>;
+
+// Profile Bullet DTOs (maps to Prisma Bullet model)
+export const UpdateProfileBulletDtoSchema = z.object({
+  content: z.string().min(1).optional(),
+  tags: z.array(z.string()).optional(),
+});
+export type UpdateProfileBulletDto = z.infer<typeof UpdateProfileBulletDtoSchema>;
+
+// Update Bullet Skills DTO
+export const UpdateBulletSkillsDtoSchema = z.object({
+  skillIds: z.array(z.string()),
+});
+export type UpdateBulletSkillsDto = z.infer<typeof UpdateBulletSkillsDtoSchema>;
+
+// Profile Response Types
+export interface ProfileUser {
+  id: string;
+  email: string;
+  name: string;
+  phone: string | null;
+  location: string | null;
+  website: string | null;
+  linkedin: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface ProfileBulletSkill {
+  id: string;
+  bulletId: string;
+  skillId: string;
+  skill: ProfileSkill;
+}
+
+export interface ProfileBullet {
+  id: string;
+  experienceId: string | null;
+  projectId: string | null;
+  content: string;
+  tags: string[];
+  skills: ProfileBulletSkill[];
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface ProfileExperience {
+  id: string;
+  userId: string;
+  company: string;
+  title: string;
+  location: string | null;
+  startDate: string;
+  endDate: string | null;
+  description: string | null;
+  bullets: ProfileBullet[];
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface ProfileEducation {
+  id: string;
+  userId: string;
+  institution: string;
+  degree: string;
+  location: string | null;
+  graduationDate: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface ProfileProjectSkill {
+  id: string;
+  projectId: string;
+  skillId: string;
+  skill: ProfileSkill;
+}
+
+export interface ProfileProject {
+  id: string;
+  userId: string;
+  name: string;
+  date: string | null;
+  url: string | null;
+  bullets: ProfileBullet[];
+  skills: ProfileProjectSkill[];
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface ProfileSkillCategory {
+  id: string;
+  userId: string;
+  name: string;
+  skills: ProfileSkill[];
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface ProfileSkill {
+  id: string;
+  userId: string;
+  name: string;
+  categoryId: string | null;
+  category: ProfileSkillCategory | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface GetProfileResponse {
+  user: ProfileUser | null;
+  experiences: ProfileExperience[];
+  education: ProfileEducation[];
+  projects: ProfileProject[];
+  skills: ProfileSkill[];
+  skillCategories: ProfileSkillCategory[];
+}

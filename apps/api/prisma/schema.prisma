@@ -11,16 +11,21 @@ datasource db {
 }
 
 model User {
-  id          String       @id @default(cuid())
-  email       String       @unique
-  name        String
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
-  experiences Experience[]
-  education   Education[]
-  projects    Project[]
-  skills      Skill[]
-  resumeJobs  ResumeJob[]
+  id              String          @id @default(cuid())
+  email           String          @unique
+  name            String
+  phone           String?
+  location        String?
+  website         String?
+  linkedin        String?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  experiences     Experience[]
+  education       Education[]
+  projects        Project[]
+  skills          Skill[]
+  resumeJobs      ResumeJob[]
+  skillCategories SkillCategory[]
 
   @@map("users")
 }
@@ -30,6 +35,7 @@ model Experience {
   userId      String
   company     String
   title       String
+  location    String?
   startDate   String
   endDate     String?
   description String?
@@ -45,20 +51,37 @@ model Experience {
 
 model Bullet {
   id           String   @id @default(cuid())
-  experienceId String
+  experienceId String?
+  projectId    String?
   content      String
   tags         String[] @default([])
-  tech         String[] @default([])
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  experience       Experience        @relation(fields: [experienceId], references: [id], onDelete: Cascade)
+  experience       Experience?       @relation(fields: [experienceId], references: [id], onDelete: Cascade)
+  project          Project?          @relation(fields: [projectId], references: [id], onDelete: Cascade)
   resumeJobBullets ResumeJobBullet[]
+  skills           BulletSkill[]
 
   @@index([experienceId])
+  @@index([projectId])
   @@index([tags])
-  @@index([tech])
   @@map("bullets")
+}
+
+model BulletSkill {
+  id        String   @id @default(cuid())
+  bulletId  String
+  skillId   String
+  createdAt DateTime @default(now())
+
+  bullet Bullet @relation(fields: [bulletId], references: [id], onDelete: Cascade)
+  skill  Skill  @relation(fields: [skillId], references: [id], onDelete: Cascade)
+
+  @@unique([bulletId, skillId])
+  @@index([bulletId])
+  @@index([skillId])
+  @@map("bullet_skills")
 }
 
 model Education {
@@ -66,6 +89,7 @@ model Education {
   userId         String
   institution    String
   degree         String
+  location       String?
   graduationDate String?
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
@@ -77,32 +101,67 @@ model Education {
 }
 
 model Project {
-  id          String   @id @default(cuid())
-  userId      String
-  name        String
-  description String
-  tech        String[] @default([])
-  url         String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id        String   @id @default(cuid())
+  userId    String
+  name      String
+  date      String?
+  url       String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user    User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  bullets Bullet[]
+  skills  ProjectSkill[]
 
   @@index([userId])
   @@map("projects")
 }
 
-model Skill {
+model ProjectSkill {
+  id        String   @id @default(cuid())
+  projectId String
+  skillId   String
+  createdAt DateTime @default(now())
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  skill   Skill   @relation(fields: [skillId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, skillId])
+  @@index([projectId])
+  @@index([skillId])
+  @@map("project_skills")
+}
+
+model SkillCategory {
   id        String   @id @default(cuid())
   userId    String
   name      String
-  category  String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  skills Skill[]
+
+  @@unique([userId, name])
+  @@index([userId])
+  @@map("skill_categories")
+}
+
+model Skill {
+  id         String   @id @default(cuid())
+  userId     String
+  name       String
+  categoryId String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  user     User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category SkillCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  bullets  BulletSkill[]
+  projects ProjectSkill[]
 
   @@index([userId])
+  @@index([categoryId])
   @@map("skills")
 }
 

@@ -12,6 +12,10 @@ async function main() {
     create: {
       email: "demo@tailor.me",
       name: "Demo User",
+      phone: "+1 (555) 123-4567",
+      location: "San Francisco, CA",
+      website: "https://demo.tailor.me",
+      linkedin: "https://linkedin.com/in/demouser",
     },
   });
 
@@ -23,6 +27,7 @@ async function main() {
       userId: user.id,
       company: "TechCorp Inc",
       title: "Senior Software Engineer",
+      location: "San Francisco, CA",
       startDate: "2022-01",
       endDate: null,
       description: "Building scalable web applications",
@@ -34,6 +39,7 @@ async function main() {
       userId: user.id,
       company: "StartupXYZ",
       title: "Full Stack Developer",
+      location: "Remote",
       startDate: "2020-06",
       endDate: "2021-12",
       description: "Developed features for SaaS platform",
@@ -148,38 +154,78 @@ async function main() {
 
   console.log("✅ Created education");
 
-  // Create projects
-  await prisma.project.create({
+  // Create project
+  const project = await prisma.project.create({
     data: {
       userId: user.id,
       name: "Open Source Contribution - React Query",
-      description: "Added TypeScript support and bug fixes",
-      tech: ["TypeScript", "React", "Testing"],
+      url: "https://github.com/tanstack/query",
+    },
+  });
+
+  // Create project bullets
+  await prisma.bullet.create({
+    data: {
+      projectId: project.id,
+      content: "Added TypeScript support for new query hooks, improving type safety across 50+ consumers",
+      tags: ["typescript", "open-source"],
+    },
+  });
+
+  await prisma.bullet.create({
+    data: {
+      projectId: project.id,
+      content: "Fixed critical caching bug affecting 10K+ users, merged in v4.0 release",
+      tags: ["bug-fix", "caching"],
     },
   });
 
   console.log("✅ Created projects");
 
-  // Create skills
+  // Create skill categories
+  const categories = [
+    { name: "Languages" },
+    { name: "Frontend" },
+    { name: "Backend" },
+    { name: "Databases" },
+    { name: "DevOps" },
+    { name: "Cloud" },
+  ];
+
+  const createdCategories: Record<string, string> = {};
+  for (const cat of categories) {
+    const created = await prisma.skillCategory.create({
+      data: {
+        userId: user.id,
+        ...cat,
+      },
+    });
+    createdCategories[cat.name] = created.id;
+  }
+
+  console.log("✅ Created skill categories");
+
+  // Create skills with category references
   const skills = [
-    { name: "TypeScript", category: "Languages" },
-    { name: "JavaScript", category: "Languages" },
-    { name: "Python", category: "Languages" },
-    { name: "React", category: "Frontend" },
-    { name: "Next.js", category: "Frontend" },
-    { name: "Node.js", category: "Backend" },
-    { name: "NestJS", category: "Backend" },
-    { name: "PostgreSQL", category: "Databases" },
-    { name: "Redis", category: "Databases" },
-    { name: "Docker", category: "DevOps" },
-    { name: "AWS", category: "Cloud" },
+    { name: "TypeScript", categoryName: "Languages" },
+    { name: "JavaScript", categoryName: "Languages" },
+    { name: "Python", categoryName: "Languages" },
+    { name: "React", categoryName: "Frontend" },
+    { name: "Next.js", categoryName: "Frontend" },
+    { name: "Node.js", categoryName: "Backend" },
+    { name: "NestJS", categoryName: "Backend" },
+    { name: "PostgreSQL", categoryName: "Databases" },
+    { name: "Redis", categoryName: "Databases" },
+    { name: "Docker", categoryName: "DevOps" },
+    { name: "AWS", categoryName: "Cloud" },
   ];
 
   for (const skill of skills) {
     await prisma.skill.create({
       data: {
         userId: user.id,
-        ...skill,
+        name: skill.name,
+        categoryId: createdCategories[skill.categoryName],
       },
     });
   }
