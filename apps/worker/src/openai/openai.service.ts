@@ -7,6 +7,7 @@ export interface ProfileExperience {
   id: string;
   company: string;
   title: string;
+  location: string | null;
   startDate: string;
   endDate: string | null;
   bullets: Array<{
@@ -19,6 +20,7 @@ export interface ProfileExperience {
 export interface ProfileProject {
   id: string;
   name: string;
+  date: string | null;
   skills: string[];
   bullets: Array<{
     id: string;
@@ -30,6 +32,7 @@ export interface ProfileEducation {
   id: string;
   institution: string;
   degree: string;
+  location: string | null;
   graduationDate: string | null;
   coursework: string[];
 }

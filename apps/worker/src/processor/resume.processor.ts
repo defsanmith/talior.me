@@ -243,6 +243,7 @@ export class ResumeProcessor {
         id: exp.id,
         company: exp.company,
         title: exp.title,
+        location: exp.location,
         startDate: exp.startDate,
         endDate: exp.endDate,
         bullets: exp.bullets.map((b) => ({
@@ -254,6 +255,7 @@ export class ResumeProcessor {
       projects: projects.map((proj) => ({
         id: proj.id,
         name: proj.name,
+        date: proj.date,
         skills: proj.skills.map((ps: any) => ps.skill.name),
         bullets: proj.bullets.map((b) => ({
           id: b.id,
@@ -264,6 +266,7 @@ export class ResumeProcessor {
         id: edu.id,
         institution: edu.institution,
         degree: edu.degree,
+        location: edu.location,
         graduationDate: edu.graduationDate,
         coursework: edu.coursework || [],
       })),
@@ -506,6 +509,7 @@ export class ResumeProcessor {
           id: experience.id,
           company: experience.company,
           title: experience.title,
+          location: experience.location,
           startDate: experience.startDate,
           endDate: experience.endDate,
           bullets,
@@ -540,7 +544,7 @@ export class ResumeProcessor {
         return {
           id: project.id,
           name: project.name,
-          description: bullets.length > 0 ? bullets[0].text : "",
+          date: project.date,
           tech: project.skills,
           bullets,
           visible: true,
@@ -560,6 +564,7 @@ export class ResumeProcessor {
           id: edu.id,
           institution: edu.institution,
           degree: edu.degree,
+          location: edu.location,
           graduationDate: edu.graduationDate,
           coursework: eduSelection.selectedCoursework.map((name, i) => ({
             id: `${edu.id}-cw-${i}`,

@@ -79,7 +79,7 @@ export function ProjectsSection({
     const newItem: ResumeProject = {
       id: generateId("proj"),
       name: "",
-      description: "",
+      date: null,
       tech: [],
       bullets: [],
       visible: true,
@@ -311,11 +311,10 @@ function ProjectItem({
               className="text-lg font-medium"
             />
             <EditableText
-              value={item.description}
-              onChange={(description) => onUpdate({ description })}
-              placeholder="Brief description of the project..."
-              className="text-sm"
-              multiline
+              value={item.date || ""}
+              onChange={(date) => onUpdate({ date: date || null })}
+              placeholder="e.g. Jan 2025"
+              className="text-sm text-muted-foreground"
             />
           </div>
 

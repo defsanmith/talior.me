@@ -241,6 +241,7 @@ function generateEducationSection(resume: EditableResume): string {
     const visibleCoursework = (item.coursework || []).filter((c) => c.visible);
     const degree = escapeLatex(item.degree || "Degree");
     const institution = escapeLatex(item.institution || "Institution");
+    const location = item.location ? escapeLatex(item.location) : "";
     const gradDate = item.graduationDate
       ? escapeLatex(item.graduationDate)
       : "";
@@ -248,7 +249,7 @@ function generateEducationSection(resume: EditableResume): string {
     content += `
     \\resumeEducationHeading
     {${institution}}{${gradDate}}
-    {${degree}}{}
+    {${degree}}{${location}}
 `;
 
     if (visibleCoursework.length > 0) {
@@ -288,13 +289,14 @@ function generateExperienceSection(resume: EditableResume): string {
 
     const title = escapeLatex(item.title || "Position");
     const company = escapeLatex(item.company || "Company");
+    const location = item.location ? escapeLatex(item.location) : "";
     const startDate = escapeLatex(item.startDate || "Start");
     const endDate = item.endDate ? escapeLatex(item.endDate) : "Present";
 
     content += `
     \\resumeSubheading
     {${title}}{${startDate} -- ${endDate}}
-    {${company}}{}
+    {${company}}{${location}}
 `;
 
     if (visibleBullets.length > 0) {
@@ -363,9 +365,10 @@ function generateProjectsSection(resume: EditableResume): string {
 
     const name = escapeLatex(item.name || "Project");
     const tech = (item.tech || []).map((t) => escapeLatex(t)).join(", ");
+    const date = item.date ? escapeLatex(item.date) : "";
 
     content += `    \\resumeProjectHeading
-    {\\textbf{${name}}${tech ? ` $|$ \\emph{${tech}}` : ""}}{}
+    {\\textbf{${name}}${tech ? ` $|$ \\emph{${tech}}` : ""}}{${date}}
 `;
 
     if (visibleBullets.length > 0) {
