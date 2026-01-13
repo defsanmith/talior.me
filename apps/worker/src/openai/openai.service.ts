@@ -21,6 +21,7 @@ export interface ProfileProject {
   id: string;
   name: string;
   date: string | null;
+  url: string | null;
   skills: string[];
   bullets: Array<{
     id: string;
@@ -79,10 +80,6 @@ export interface ContentSelection {
     selectedCoursework: string[];
     relevanceReason: string;
   }>;
-  skills: Array<{
-    categoryId: string;
-    skillIds: string[];
-  }>;
 }
 
 @Injectable()
@@ -97,7 +94,7 @@ export class OpenAIService {
 
   async parseJobDescription(jobDescription: string): Promise<ParsedJD> {
     const completion = await this.client.chat.completions.create({
-      model: "gpt-4o-mini",
+      model: "gpt-5-nano",
       messages: [
         {
           role: "system",
@@ -121,7 +118,7 @@ export class OpenAIService {
     jd: ParsedJD
   ): Promise<RewrittenBullet> {
     const completion = await this.client.chat.completions.create({
-      model: "gpt-4o-mini",
+      model: "gpt-5-nano",
       messages: [
         {
           role: "system",
@@ -207,15 +204,15 @@ ${proj.bullets.map((b) => `    - [${b.id}] ${b.content}`).join("\n")}`
       .join("\n\n");
 
     const completion = await this.client.chat.completions.create({
-      model: "gpt-4o",
+      model: "gpt-5-mini",
       messages: [
         {
           role: "system",
           content: `You are an expert resume curator. Your job is to select the most relevant experiences, projects, education, and skills from a candidate's profile that best match a job description.
 
 SELECTION GUIDELINES:
-- Select 2-4 most relevant experiences with 3-5 bullets each
-- Select 1-3 most relevant projects with their bullets
+- From each experience, choose 2-5 bullets that directly align with the job requirements
+- Select 2-3 most relevant projects with their bullets
 - Select all education entries but only include coursework relevant to the job
 - **Include ALL technical skills from the candidate's profile, sorted by relevance to the job**
   - For each skill category, include ALL skills but order them by relevance (most relevant first)
@@ -292,7 +289,6 @@ Select the most relevant content for this job application.`,
       experiences: result.experiences || [],
       projects: result.projects || [],
       education: result.education || [],
-      skills: result.skills || [],
     };
   }
 }

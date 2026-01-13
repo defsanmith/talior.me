@@ -80,6 +80,7 @@ export function ProjectsSection({
       id: generateId("proj"),
       name: "",
       date: null,
+      url: null,
       tech: [],
       bullets: [],
       visible: true,
@@ -314,6 +315,12 @@ function ProjectItem({
               value={item.date || ""}
               onChange={(date) => onUpdate({ date: date || null })}
               placeholder="e.g. Jan 2025"
+              className="text-sm text-muted-foreground"
+            />
+            <EditableText
+              value={item.url || ""}
+              onChange={(url) => onUpdate({ url: url || null })}
+              placeholder="https://github.com/username/project"
               className="text-sm text-muted-foreground"
             />
           </div>

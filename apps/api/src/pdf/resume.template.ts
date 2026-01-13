@@ -366,9 +366,20 @@ function generateProjectsSection(resume: EditableResume): string {
     const name = escapeLatex(item.name || "Project");
     const tech = (item.tech || []).map((t) => escapeLatex(t)).join(", ");
     const date = item.date ? escapeLatex(item.date) : "";
+    const url = item.url || "";
+
+    // Build project header with optional URL link
+    let projectHeader = `{\\textbf{${name}}`;
+    if (tech) {
+      projectHeader += ` $|$ \\emph{${tech}}`;
+    }
+    if (url) {
+      projectHeader += ` $|$ \\href{${url}}{Link}`;
+    }
+    projectHeader += "}";
 
     content += `    \\resumeProjectHeading
-    {\\textbf{${name}}${tech ? ` $|$ \\emph{${tech}}` : ""}}{${date}}
+    ${projectHeader}{${date}}
 `;
 
     if (visibleBullets.length > 0) {

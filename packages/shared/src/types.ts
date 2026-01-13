@@ -142,6 +142,7 @@ export const ResumeProjectSchema = z.object({
   id: z.string(),
   name: z.string(),
   date: z.string().nullable().optional(),
+  url: z.string().nullable().optional(),
   tech: z.array(z.string()).default([]),
   bullets: z.array(ResumeBulletSchema).default([]),
   visible: z.boolean().default(true),

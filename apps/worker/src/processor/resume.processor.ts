@@ -148,7 +148,14 @@ export class ResumeProcessor {
         rewrittenBullets
       );
 
-      // Step G: Assemble resume
+      // Step G: Sort skills manually based on selected bullets
+      const sortedSkills = this.sortSkillsByRelevance(
+        profileData,
+        contentSelection,
+        parsedJd
+      );
+
+      // Step H: Assemble resume
       await this.updateJobStatus(
         jobId,
         JobStatus.PROCESSING,
@@ -160,7 +167,8 @@ export class ResumeProcessor {
       const resume = this.assembleResumeFromSelection(
         profileData,
         contentSelection,
-        verifiedBullets
+        verifiedBullets,
+        sortedSkills
       );
 
       // Step H: Save results
@@ -256,6 +264,7 @@ export class ResumeProcessor {
         id: proj.id,
         name: proj.name,
         date: proj.date,
+        url: proj.url,
         skills: proj.skills.map((ps: any) => ps.skill.name),
         bullets: proj.bullets.map((b) => ({
           id: b.id,
@@ -382,6 +391,99 @@ export class ResumeProcessor {
     return rewritten;
   }
 
+  /**
+   * Sorts all skills by relevance based on:
+   * 1. Skills mentioned in selected bullets
+   * 2. Skills matching job requirements
+   * 3. Remaining skills in original order
+   */
+  private sortSkillsByRelevance(
+    profileData: ProfileData,
+    selection: ContentSelection,
+    parsedJd: ParsedJD
+  ): Array<{ categoryId: string; skillIds: string[] }> {
+    // Collect all skills mentioned in selected bullets
+    const bulletSkills = new Set<string>();
+
+    // From experiences
+    for (const expSelection of selection.experiences) {
+      const experience = profileData.experiences.find(
+        (e) => e.id === expSelection.id
+      );
+      if (!experience) continue;
+
+      for (const bulletId of expSelection.bulletIds) {
+        const bullet = experience.bullets.find((b) => b.id === bulletId);
+        if (bullet) {
+          bullet.skills.forEach((skill) =>
+            bulletSkills.add(skill.toLowerCase())
+          );
+        }
+      }
+    }
+
+    // From projects
+    for (const projSelection of selection.projects) {
+      const project = profileData.projects.find(
+        (p) => p.id === projSelection.id
+      );
+      if (project) {
+        project.skills.forEach((skill) =>
+          bulletSkills.add(skill.toLowerCase())
+        );
+      }
+    }
+
+    // Normalize job requirements for matching
+    const jobRequirements = new Set<string>();
+    [
+      ...parsedJd.required_skills,
+      ...parsedJd.nice_to_have,
+      ...parsedJd.keywords,
+    ].forEach((skill) => jobRequirements.add(skill.toLowerCase()));
+
+    // Sort skills within each category
+    const sortedCategories = profileData.skillCategories.map((category) => {
+      const sortedSkillIds = [...category.skills].sort((a, b) => {
+        const aName = a.name.toLowerCase();
+        const bName = b.name.toLowerCase();
+
+        // Priority 1: Skills in both selected bullets AND job requirements
+        const aInBothBulletAndJob =
+          bulletSkills.has(aName) && jobRequirements.has(aName);
+        const bInBothBulletAndJob =
+          bulletSkills.has(bName) && jobRequirements.has(bName);
+        if (aInBothBulletAndJob !== bInBothBulletAndJob) {
+          return aInBothBulletAndJob ? -1 : 1;
+        }
+
+        // Priority 2: Skills in selected bullets
+        const aInBullets = bulletSkills.has(aName);
+        const bInBullets = bulletSkills.has(bName);
+        if (aInBullets !== bInBullets) {
+          return aInBullets ? -1 : 1;
+        }
+
+        // Priority 3: Skills matching job requirements
+        const aInJob = jobRequirements.has(aName);
+        const bInJob = jobRequirements.has(bName);
+        if (aInJob !== bInJob) {
+          return aInJob ? -1 : 1;
+        }
+
+        // Priority 4: Keep original order (maintain stability)
+        return 0;
+      });
+
+      return {
+        categoryId: category.id,
+        skillIds: sortedSkillIds.map((s) => s.id),
+      };
+    });
+
+    return sortedCategories;
+  }
+
   private verifyBullets(
     originalBullets: SelectedBullet[],
     rewrittenMap: Map<string, any>
@@ -482,7 +584,11 @@ export class ResumeProcessor {
   private assembleResumeFromSelection(
     profileData: ProfileData,
     selection: ContentSelection,
-    verifiedBullets: Map<string, { text: string; verifierNote: string | null }>
+    verifiedBullets: Map<string, { text: string; verifierNote: string | null }>,
+    sortedSkills: Array<{
+      categoryId: string;
+      skillIds: string[];
+    }>
   ): EditableResume {
     // Build experience sections from AI selection with relevance reasons
     const experiences = selection.experiences
@@ -545,6 +651,7 @@ export class ResumeProcessor {
           id: project.id,
           name: project.name,
           date: project.date,
+          url: project.url,
           tech: project.skills,
           bullets,
           visible: true,
@@ -578,8 +685,8 @@ export class ResumeProcessor {
       })
       .filter((e): e is NonNullable<typeof e> => e !== null);
 
-    // Build skill categories from AI selection (properly categorized)
-    const skillCategories = selection.skills
+    // Build skill categories from manually sorted skills
+    const skillCategories = sortedSkills
       .map((skillSelection, index) => {
         const category = profileData.skillCategories.find(
           (c) => c.id === skillSelection.categoryId
