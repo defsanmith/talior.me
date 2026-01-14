@@ -208,6 +208,7 @@ export interface JobResponse {
   companyName?: string | null;
   jobPosition?: string | null;
   teamName?: string | null;
+  parsedJd?: ParsedJD | null;
   status: string;
   stage: string;
   progress: number;

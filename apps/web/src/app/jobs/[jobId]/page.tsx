@@ -40,6 +40,7 @@ import {
   useGetJobByIdQuery,
   useUpdateJobResumeMutation,
 } from "@/store/api/jobs/queries";
+import { JobResponse } from "@tailor.me/shared";
 
 // Default empty resume structure
 const defaultResume: EditableResume = {
@@ -187,7 +188,7 @@ export default function JobDetailPage() {
 interface ResumeBuilderEditorProps {
   jobId: string;
   initialResume: EditableResume;
-  job: any;
+  job: JobResponse;
 }
 
 function ResumeBuilderEditor({
@@ -353,10 +354,10 @@ function ResumeBuilderEditor({
 
   const handleDownload = async () => {
     // Copy company name and team name to clipboard
-    if (job?.companyName) {
-      const clipboardText = [job.companyName, job.jobPosition, job.teamName]
-        .filter(Boolean)
-        .join(" - ");
+    if (job?.companyName || job?.jobPosition || job?.teamName) {
+      const clipboardText = `${job.companyName || ""}${
+        job.jobPosition ? ` - ${job.jobPosition}` : ""
+      }${job.teamName ? ` (${job.teamName})` : ""}`;
 
       try {
         await navigator.clipboard.writeText(clipboardText);
@@ -379,18 +380,18 @@ function ResumeBuilderEditor({
       <div>
         <div className="flex items-center justify-between py-4 pr-4">
           <div>
-            <h1>Resume Builder</h1>
             {(job?.companyName || job?.jobPosition) && (
-              <div className="mt-1 flex items-center gap-2 text-sm text-muted-foreground">
-                {job.jobPosition && <span>{job.jobPosition}</span>}
-                {job.jobPosition && job.companyName && <span>•</span>}
-                {job.companyName && <span>{job.companyName}</span>}
-                {job.teamName && (
-                  <>
-                    <span>•</span>
-                    <span>{job.teamName}</span>
-                  </>
-                )}
+              <div>
+                <h1>
+                  {job.companyName && <span>{job.companyName}</span>}
+                  {job.teamName && (
+                    <>
+                      <span> - </span>
+                      <span>{job.teamName}</span>
+                    </>
+                  )}
+                </h1>
+                <h2>{job.jobPosition}</h2>
               </div>
             )}
           </div>
@@ -413,6 +414,82 @@ function ResumeBuilderEditor({
       <div className="flex h-[calc(100vh-156px)]">
         {/* Left Panel - Editor */}
         <div className="w-1/2 overflow-y-auto p-4 pl-0">
+          {/* Job Description Info */}
+          {job?.parsedJd && (
+            <div className="mb-6 rounded-lg border bg-card p-4">
+              <h3 className="mb-3 text-sm font-semibold">Job Details</h3>
+              <div className="space-y-3 text-sm">
+                {job.parsedJd?.required_skills &&
+                  job.parsedJd.required_skills.length > 0 && (
+                    <div>
+                      <div className="mb-1 text-muted-foreground">
+                        Required Skills:
+                      </div>
+                      <div className="flex flex-wrap gap-1">
+                        {job.parsedJd.required_skills.map((skill, idx) => (
+                          <span
+                            key={idx}
+                            className="rounded-md bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary"
+                          >
+                            {skill}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                {job.parsedJd?.nice_to_have &&
+                  job.parsedJd.nice_to_have.length > 0 && (
+                    <div>
+                      <div className="mb-1 text-muted-foreground">
+                        Nice to Have:
+                      </div>
+                      <div className="flex flex-wrap gap-1">
+                        {job.parsedJd.nice_to_have.map((skill, idx) => (
+                          <span
+                            key={idx}
+                            className="rounded-md bg-muted px-2 py-0.5 text-xs"
+                          >
+                            {skill}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                {job.parsedJd?.keywords && job.parsedJd.keywords.length > 0 && (
+                  <div>
+                    <div className="mb-1 text-muted-foreground">Keywords:</div>
+                    <div className="flex flex-wrap gap-1">
+                      {job.parsedJd.keywords.map((keyword, idx) => (
+                        <span
+                          key={idx}
+                          className="rounded-md bg-accent px-2 py-0.5 text-xs"
+                        >
+                          {keyword}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {job.parsedJd?.responsibilities &&
+                  job.parsedJd.responsibilities.length > 0 && (
+                    <div>
+                      <div className="mb-1 text-muted-foreground">
+                        Key Responsibilities:
+                      </div>
+                      <ul className="ml-4 list-disc space-y-0.5 text-xs">
+                        {job.parsedJd.responsibilities.map((resp, idx) => (
+                          <li key={idx}>{resp}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+              </div>
+            </div>
+          )}
+
           <div className="mb-4">
             <p className="text-sm">
               Drag sections to reorder. Click the eye icon to show/hide content.
