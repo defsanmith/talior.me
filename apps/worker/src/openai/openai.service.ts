@@ -86,21 +86,26 @@ export interface ContentSelection {
 @Injectable()
 export class OpenAIService {
   private client: OpenAI;
+  private readonly parseModel: string;
+  private readonly rewriteModel: string;
+  private readonly selectionModel: string;
 
   constructor() {
     this.client = new OpenAI({
       apiKey: process.env.OPENAI_API_KEY,
     });
+    this.parseModel = process.env.OPENAI_PARSE_MODEL || "gpt-4o-mini";
+    this.rewriteModel = process.env.OPENAI_REWRITE_MODEL || "gpt-4o-mini";
+    this.selectionModel = process.env.OPENAI_SELECTION_MODEL || "gpt-4o-mini";
   }
 
   async parseJobDescription(jobDescription: string): Promise<ParsedJD> {
     const completion = await this.client.chat.completions.create({
-      model: "gpt-5-nano",
+      model: this.parseModel,
       messages: [
         {
           role: "system",
-          content:
-            "You are a job description parser. Extract required skills, nice-to-have skills, responsibilities, keywords, and job metadata from the job description. Return only valid JSON.",
+          content: `You are a job description parser. Extract required skills, nice-to-have skills, responsibilities, keywords, and job metadata from the job description. Return only valid JSON.`,
         },
         {
           role: "user",
@@ -119,7 +124,7 @@ export class OpenAIService {
     jd: ParsedJD
   ): Promise<RewrittenBullet> {
     const completion = await this.client.chat.completions.create({
-      model: "gpt-5-nano",
+      model: this.rewriteModel,
       messages: [
         {
           role: "system",
@@ -206,7 +211,7 @@ ${proj.bullets.map((b) => `    - [${b.id}] ${b.content}`).join("\n")}`
       .join("\n\n");
 
     const completion = await this.client.chat.completions.create({
-      model: "gpt-5-mini",
+      model: this.selectionModel,
       messages: [
         {
           role: "system",
