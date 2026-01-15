@@ -79,6 +79,14 @@ export const UpdateJobDetailsDtoSchema = z.object({
 
 export type UpdateJobDetailsDto = z.infer<typeof UpdateJobDetailsDtoSchema>;
 
+export const UpdateJobMetadataDtoSchema = z.object({
+  companyName: z.string().min(1).optional(),
+  positionTitle: z.string().min(1).optional(),
+  teamName: z.string().min(1).optional(),
+});
+
+export type UpdateJobMetadataDto = z.infer<typeof UpdateJobMetadataDtoSchema>;
+
 export const CreateBulletDtoSchema = z.object({
   experienceId: z.string().optional(),
   projectId: z.string().optional(),

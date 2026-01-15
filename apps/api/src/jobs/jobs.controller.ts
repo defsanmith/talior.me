@@ -16,6 +16,7 @@ import {
   EditableResume,
   GetJobResponse,
   GetJobsResponse,
+  UpdateJobMetadataDto,
   UpdateResumeDto,
 } from "@tailor.me/shared";
 import { PdfService } from "../pdf/pdf.service";
@@ -113,6 +114,18 @@ export class JobsController {
   ): Promise<{ resume: EditableResume | null }> {
     const resume = await this.jobsService.getJobResume(jobId);
     return { resume };
+  }
+
+  @Patch(":jobId/metadata")
+  async updateJobMetadata(
+    @Param("jobId") jobId: string,
+    @Body() updateMetadataDto: UpdateJobMetadataDto
+  ): Promise<any> {
+    const job = await this.jobsService.updateJobMetadata(
+      jobId,
+      updateMetadataDto
+    );
+    return { job };
   }
 
   @Get(":jobId/resume/pdf")

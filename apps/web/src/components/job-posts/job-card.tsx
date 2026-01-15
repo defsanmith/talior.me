@@ -15,11 +15,13 @@ export default function JobCard({
   job,
   onClick,
   showApplicationStatus = false,
+  showGenerationStatus = false,
   onArchive,
 }: {
   job: JobResponse;
   onClick: () => void;
   showApplicationStatus?: boolean;
+  showGenerationStatus?: boolean;
   onArchive?: (jobId: string) => void;
 }) {
   const getStatusColor = (status: string) => {
@@ -84,22 +86,24 @@ export default function JobCard({
 
   return (
     <Card
-      className="cursor-pointer transition-shadow hover:shadow-md"
+      className="group cursor-pointer transition-shadow hover:shadow-md"
       onClick={onClick}
     >
       <CardHeader>
-        <div className="flex items-start justify-between gap-2">
+        <div className="relative flex items-start justify-between gap-2">
           <div className="flex-1 space-y-1">
             <CardTitle className="text-lg">
               {job.company?.name && job.position?.title
                 ? `${job.position.title} at ${job.company.name}`
-                : new Date(job.createdAt).toLocaleDateString(undefined, {
-                    year: "numeric",
-                    month: "long",
-                    day: "numeric",
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  })}
+                : job.company?.name || job.position?.title
+                  ? job.company?.name || job.position?.title
+                  : new Date(job.createdAt).toLocaleDateString(undefined, {
+                      year: "numeric",
+                      month: "long",
+                      day: "numeric",
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
             </CardTitle>
             {job.team?.name && (
               <div className="text-sm text-muted-foreground">
@@ -117,15 +121,15 @@ export default function JobCard({
               >
                 {getApplicationStatusLabel(job.applicationStatus)}
               </Badge>
-            ) : (
+            ) : showGenerationStatus && job.status ? (
               <Badge className={getStatusColor(job.status)}>{job.status}</Badge>
-            )}
+            ) : null}
             {onArchive &&
               job.applicationStatus !== ApplicationStatus.ARCHIVED && (
                 <Button
-                  variant="ghost"
+                  variant="outline"
                   size="icon"
-                  className="h-8 w-8 shrink-0"
+                  className="absolute right-0 top-0 hidden h-8 w-8 shrink-0 p-0 group-hover:flex"
                   onClick={handleArchive}
                   title="Archive"
                 >

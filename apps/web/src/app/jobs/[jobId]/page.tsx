@@ -21,6 +21,7 @@ import { useParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { DraggableItem } from "@/components/resume-builder/draggable-item";
+import { EditableText } from "@/components/resume-builder/editable-text";
 import { EducationSection } from "@/components/resume-builder/education-section";
 import { ExperienceSection } from "@/components/resume-builder/experience-section";
 import { PdfPreview } from "@/components/resume-builder/pdf-preview";
@@ -38,6 +39,7 @@ import { Button } from "@/components/ui/button";
 import { Config } from "@/lib/config";
 import {
   useGetJobByIdQuery,
+  useUpdateJobMetadataMutation,
   useUpdateJobResumeMutation,
 } from "@/store/api/jobs/queries";
 import { JobResponse } from "@tailor.me/shared";
@@ -197,6 +199,7 @@ function ResumeBuilderEditor({
   job,
 }: ResumeBuilderEditorProps) {
   const [updateResume, { isLoading: isSaving }] = useUpdateJobResumeMutation();
+  const [updateMetadata] = useUpdateJobMetadataMutation();
 
   // Local state for the resume - initialized with the data from API
   const [resume, setResume] = useState<EditableResume>(initialResume);
@@ -277,6 +280,40 @@ function ResumeBuilderEditor({
         (s: SectionOrder, i: number): SectionOrder => ({ ...s, order: i }),
       );
       handleResumeUpdate({ sectionOrder: reordered });
+    }
+  };
+
+  // Metadata update handlers
+  const handleCompanyNameChange = async (newName: string) => {
+    try {
+      await updateMetadata({
+        jobId,
+        metadata: { companyName: newName || undefined },
+      }).unwrap();
+    } catch (err) {
+      console.error("Failed to update company name:", err);
+    }
+  };
+
+  const handlePositionTitleChange = async (newTitle: string) => {
+    try {
+      await updateMetadata({
+        jobId,
+        metadata: { positionTitle: newTitle || undefined },
+      }).unwrap();
+    } catch (err) {
+      console.error("Failed to update position title:", err);
+    }
+  };
+
+  const handleTeamNameChange = async (newName: string) => {
+    try {
+      await updateMetadata({
+        jobId,
+        metadata: { teamName: newName || undefined },
+      }).unwrap();
+    } catch (err) {
+      console.error("Failed to update team name:", err);
     }
   };
 
@@ -361,7 +398,6 @@ function ResumeBuilderEditor({
 
       try {
         await navigator.clipboard.writeText(clipboardText);
-        console.log("Copied to clipboard:", clipboardText);
       } catch (err) {
         console.error("Failed to copy to clipboard:", err);
       }
@@ -379,21 +415,48 @@ function ResumeBuilderEditor({
       {/* Header with save status */}
       <div>
         <div className="flex items-center justify-between py-4 pr-4">
-          <div>
-            {(job?.company?.name || job?.position?.title) && (
-              <div>
-                <h1>
-                  {job.company?.name && <span>{job.company.name}</span>}
-                  {job.team?.name && (
-                    <>
-                      <span> - </span>
-                      <span>{job.team.name}</span>
-                    </>
-                  )}
-                </h1>
-                <h2>{job.position?.title}</h2>
-              </div>
-            )}
+          <div className="flex-1">
+            <div className="flex items-center gap-2">
+              <EditableText
+                value={job?.company?.name || ""}
+                onChange={handleCompanyNameChange}
+                placeholder="Company Name"
+                className="text-2xl font-bold"
+                inputClassName="w-fit"
+              />
+              {job?.team?.name && (
+                <>
+                  <span className="text-2xl font-bold">-</span>
+                  <EditableText
+                    value={job.team.name}
+                    onChange={handleTeamNameChange}
+                    placeholder="Team Name"
+                    className="text-2xl font-bold"
+                    inputClassName="w-fit"
+                  />
+                </>
+              )}
+              {!job?.team?.name && (
+                <>
+                  <span className="text-2xl font-bold text-muted-foreground/30">
+                    -
+                  </span>
+                  <EditableText
+                    value=""
+                    onChange={handleTeamNameChange}
+                    placeholder="Add Team Name"
+                    className="text-2xl font-bold italic text-muted-foreground/50"
+                    inputClassName="w-fit"
+                  />
+                </>
+              )}
+            </div>
+            <EditableText
+              value={job?.position?.title || ""}
+              onChange={handlePositionTitleChange}
+              placeholder="Job Title"
+              className="text-lg text-muted-foreground"
+            />
           </div>
           <div className="flex items-center gap-4">
             <SaveStatus status={saveStatus} isSaving={isSaving} />

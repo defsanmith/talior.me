@@ -136,7 +136,8 @@ CRITICAL RULES:
 - DO NOT add scope words like "led", "owned", "architected" unless already present
 - DO NOT make new claims about impact or responsibility
 - ONLY rephrase and reorder existing information to emphasize relevance
-- Make sure every bullet in an experience starts with a different action word
+- ALWAYS start a bullet in the same experience with a DIFFERENT word than other bullets in that experience
+- ALWAYS keep the tone technical and avoid flattery
 
 Return JSON with:
 - bulletId: the bullet ID

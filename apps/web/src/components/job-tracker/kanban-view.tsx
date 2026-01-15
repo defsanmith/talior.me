@@ -191,7 +191,7 @@ function KanbanColumn({
   companyFilter,
   positionFilter,
   sortBy = "createdAt",
-  sortOrder = "desc",
+  sortOrder = "asc",
   onJobClick,
   onArchive,
   activeId,
@@ -243,7 +243,7 @@ function KanbanColumn({
     accumulatedJobs.filters.sortOrder !== sortOrder;
 
   // Update accumulated jobs when new data arrives
-  if (newJobs.length > 0 && currentPage !== accumulatedJobs.lastPage) {
+  if (currentPage !== accumulatedJobs.lastPage || filtersChanged) {
     if (filtersChanged || currentPage === 1) {
       // Reset on filter change or page 1
       setAccumulatedJobs({
@@ -254,7 +254,7 @@ function KanbanColumn({
       if (filtersChanged && page !== 1) {
         setPage(1);
       }
-    } else if (currentPage > 1) {
+    } else if (currentPage > 1 && newJobs.length > 0) {
       // Append new jobs, avoiding duplicates
       const existingIds = new Set(accumulatedJobs.jobs.map((j) => j.id));
       const uniqueNewJobs = newJobs.filter((j) => !existingIds.has(j.id));
@@ -266,6 +266,29 @@ function KanbanColumn({
           filters: { companyFilter, positionFilter, sortBy, sortOrder },
         });
       }
+    }
+  } else if (
+    currentPage === 1 &&
+    accumulatedJobs.lastPage === 1 &&
+    !filtersChanged
+  ) {
+    // If we're on page 1 and data has been refetched (e.g., after mutation),
+    // update the accumulated jobs to reflect the latest data
+    const currentIds = new Set(accumulatedJobs.jobs.map((j) => j.id));
+    const newIds = new Set(newJobs.map((j) => j.id));
+
+    // Check if the job lists are different (job was added/removed)
+    const hasChanges =
+      currentIds.size !== newIds.size ||
+      Array.from(currentIds).some((id) => !newIds.has(id)) ||
+      Array.from(newIds).some((id) => !currentIds.has(id));
+
+    if (hasChanges) {
+      setAccumulatedJobs({
+        jobs: newJobs,
+        lastPage: currentPage,
+        filters: { companyFilter, positionFilter, sortBy, sortOrder },
+      });
     }
   }
 
@@ -384,7 +407,7 @@ function DraggableJobCard({
       <JobCard
         job={job}
         onClick={onClick}
-        showApplicationStatus
+        showApplicationStatus={false}
         onArchive={onArchive}
       />
     </div>

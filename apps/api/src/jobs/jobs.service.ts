@@ -1,5 +1,10 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
-import { EditableResume, JobStatus, UpdateResumeDto } from "@tailor.me/shared";
+import {
+  EditableResume,
+  JobStatus,
+  UpdateJobMetadataDto,
+  UpdateResumeDto,
+} from "@tailor.me/shared";
 import { PrismaService } from "../prisma/prisma.service";
 import { QueueService } from "../queue/queue.service";
 
@@ -50,6 +55,11 @@ export class JobsService {
 
   async getAllJobs() {
     return this.prisma.resumeJob.findMany({
+      include: {
+        company: true,
+        position: true,
+        team: true,
+      },
       orderBy: {
         createdAt: "desc",
       },
@@ -59,6 +69,11 @@ export class JobsService {
   async getJobById(jobId: string) {
     return this.prisma.resumeJob.findUnique({
       where: { id: jobId },
+      include: {
+        company: true,
+        position: true,
+        team: true,
+      },
     });
   }
 
@@ -77,6 +92,11 @@ export class JobsService {
   ): Promise<EditableResume> {
     const job = await this.prisma.resumeJob.findUnique({
       where: { id: jobId },
+      include: {
+        company: true,
+        position: true,
+        team: true,
+      },
     });
 
     if (!job) {
@@ -119,6 +139,9 @@ export class JobsService {
       where: { id: jobId },
       include: {
         user: true,
+        company: true,
+        position: true,
+        team: true,
       },
     });
 
@@ -146,5 +169,112 @@ export class JobsService {
         linkedin: job.user.linkedin || undefined,
       },
     };
+  }
+
+  async updateJobMetadata(
+    jobId: string,
+    updateDto: UpdateJobMetadataDto
+  ): Promise<any> {
+    // Get current user
+    const job = await this.prisma.resumeJob.findUnique({
+      where: { id: jobId },
+      include: {
+        company: true,
+        position: true,
+        team: true,
+      },
+    });
+
+    if (!job) {
+      throw new NotFoundException(`Job with id ${jobId} not found`);
+    }
+
+    const userId = job.userId;
+
+    // Handle company upsert
+    let companyId = job.companyId;
+    if (updateDto.companyName !== undefined) {
+      if (updateDto.companyName) {
+        const company = await this.prisma.company.upsert({
+          where: {
+            userId_name: {
+              userId,
+              name: updateDto.companyName,
+            },
+          },
+          create: {
+            userId,
+            name: updateDto.companyName,
+          },
+          update: {},
+        });
+        companyId = company.id;
+      } else {
+        companyId = null;
+      }
+    }
+
+    // Handle position upsert
+    let positionId = job.positionId;
+    if (updateDto.positionTitle !== undefined) {
+      if (updateDto.positionTitle) {
+        const position = await this.prisma.position.upsert({
+          where: {
+            userId_title: {
+              userId,
+              title: updateDto.positionTitle,
+            },
+          },
+          create: {
+            userId,
+            title: updateDto.positionTitle,
+          },
+          update: {},
+        });
+        positionId = position.id;
+      } else {
+        positionId = null;
+      }
+    }
+
+    // Handle team upsert
+    let teamId = job.teamId;
+    if (updateDto.teamName !== undefined) {
+      if (updateDto.teamName) {
+        const team = await this.prisma.team.upsert({
+          where: {
+            userId_name: {
+              userId,
+              name: updateDto.teamName,
+            },
+          },
+          create: {
+            userId,
+            name: updateDto.teamName,
+          },
+          update: {},
+        });
+        teamId = team.id;
+      } else {
+        teamId = null;
+      }
+    }
+
+    // Update the job with new relations
+    const updatedJob = await this.prisma.resumeJob.update({
+      where: { id: jobId },
+      data: {
+        companyId,
+        positionId,
+        teamId,
+      },
+      include: {
+        company: true,
+        position: true,
+        team: true,
+      },
+    });
+
+    return updatedJob;
   }
 }
