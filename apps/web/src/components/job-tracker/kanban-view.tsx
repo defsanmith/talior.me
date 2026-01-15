@@ -144,7 +144,7 @@ export function KanbanView({
       onDragEnd={handleDragEnd}
       onDragCancel={handleDragCancel}
     >
-      <div className="flex gap-4 overflow-x-auto pb-4">
+      <div className="flex max-h-[calc(100vh-248px)] gap-4 overflow-x-auto pb-4">
         {STATUS_COLUMNS.map((column) => (
           <KanbanColumn
             key={column.id}
@@ -345,7 +345,7 @@ function KanbanColumn({
             {hasMore && (
               <Button
                 variant="outline"
-                size="sm"
+                // size="sm"
                 onClick={handleLoadMore}
                 disabled={isFetchingMore}
                 className="mt-2"

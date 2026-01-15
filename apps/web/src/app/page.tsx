@@ -1,9 +1,8 @@
 "use client";
 
-import { CompanyCombobox } from "@/components/job-tracker/company-combobox";
+import { JobFilters } from "@/components/job-tracker/job-filters";
 import { KanbanView } from "@/components/job-tracker/kanban-view";
 import { ListView } from "@/components/job-tracker/list-view";
-import { PositionCombobox } from "@/components/job-tracker/position-combobox";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import {
@@ -15,13 +14,6 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { useSocket } from "@/hooks/useSocket";
@@ -29,7 +21,7 @@ import { storage, StorageKeys } from "@/lib/storage";
 import { useAppDispatch } from "@/store";
 import { jobApi, useCreateJobMutation } from "@/store/api/jobs/queries";
 import { useGetTrackerJobsQuery } from "@/store/api/tracker/queries";
-import { ApplicationStatus, JobStatus } from "@tailor.me/shared";
+import { JobStatus } from "@tailor.me/shared";
 import { Plus } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -223,86 +215,22 @@ export default function DashboardPage() {
         </Dialog>
       </div>
 
-      {/* Filters */}
-
-      <div className="mb-4 grid grid-cols-1 gap-4 md:grid-cols-4">
-        <div className="space-y-2">
-          <Label>Status</Label>
-          <Select
-            value={statusFilter}
-            onValueChange={(value) => updateFilter("status", value)}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="All statuses" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All statuses</SelectItem>
-              <SelectItem value={ApplicationStatus.READY_TO_APPLY}>
-                Ready to Apply
-              </SelectItem>
-              <SelectItem value={ApplicationStatus.APPLIED}>Applied</SelectItem>
-              <SelectItem value={ApplicationStatus.INTERVIEWING}>
-                Interviewing
-              </SelectItem>
-              <SelectItem value={ApplicationStatus.ACCEPTED}>
-                Accepted
-              </SelectItem>
-              <SelectItem value={ApplicationStatus.REJECTED}>
-                Rejected
-              </SelectItem>
-              <SelectItem value={ApplicationStatus.NOT_MOVING_FORWARD}>
-                Not Moving Forward
-              </SelectItem>
-              <SelectItem value={ApplicationStatus.ARCHIVED}>
-                Archived
-              </SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-
-        <div className="space-y-2">
-          <Label>Company</Label>
-          <CompanyCombobox
-            value={companyFilter}
-            onChange={(value) => updateFilter("company", value || "")}
-            className="w-full"
-          />
-        </div>
-
-        <div className="space-y-2">
-          <Label>Position</Label>
-          <PositionCombobox
-            value={positionFilter}
-            onChange={(value) => updateFilter("position", value || "")}
-            className="w-full"
-          />
-        </div>
-
-        <div className="space-y-2">
-          <Label>Sort By</Label>
-          <Select
-            value={sortBy}
-            onValueChange={(value) => updateFilter("sortBy", value)}
-          >
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="createdAt">Created Date</SelectItem>
-              <SelectItem value="applicationDate">Application Date</SelectItem>
-              <SelectItem value="updatedAt">Updated Date</SelectItem>
-              <SelectItem value="priority">Priority</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
-
       {/* Views */}
       <Tabs value={view} onValueChange={handleViewChange}>
-        <TabsList className="mb-4">
-          <TabsTrigger value="kanban">Kanban</TabsTrigger>
-          <TabsTrigger value="list">List</TabsTrigger>
-        </TabsList>
+        <div className="mb-4 flex items-start justify-between gap-4">
+          <TabsList>
+            <TabsTrigger value="kanban">Kanban</TabsTrigger>
+            <TabsTrigger value="list">List</TabsTrigger>
+          </TabsList>
+
+          <JobFilters
+            statusFilter={statusFilter}
+            companyFilter={companyFilter}
+            positionFilter={positionFilter}
+            sortBy={sortBy}
+            onFilterChange={updateFilter}
+          />
+        </div>
 
         <TabsContent value="kanban">
           <KanbanView
