@@ -6,7 +6,6 @@ import { ListView } from "@/components/job-tracker/list-view";
 import { PositionCombobox } from "@/components/job-tracker/position-combobox";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -60,14 +59,19 @@ export default function DashboardPage() {
   const sortBy = searchParams.get("sortBy") || "createdAt";
   const sortOrder = searchParams.get("sortOrder") || "desc";
 
-  // Fetch jobs with filters
-  const { data, isLoading } = useGetTrackerJobsQuery({
-    status: statusFilter === "all" ? "" : statusFilter,
-    companyId: companyFilter,
-    positionId: positionFilter,
-    sortBy: sortBy as any,
-    sortOrder: sortOrder as any,
-  });
+  // Only fetch for list view - kanban handles its own fetching per column
+  const { data, isLoading } = useGetTrackerJobsQuery(
+    {
+      status: statusFilter === "all" ? "" : statusFilter,
+      companyId: companyFilter,
+      positionId: positionFilter,
+      sortBy: sortBy as any,
+      sortOrder: sortOrder as any,
+    },
+    {
+      skip: view === "kanban", // Skip this query when in kanban view
+    },
+  );
 
   const jobs = data?.data?.jobs || [];
 
@@ -140,7 +144,8 @@ export default function DashboardPage() {
     }
   };
 
-  if (isLoading) {
+  // Show loading only for list view
+  if (view === "list" && isLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <div className="text-xl">Loading...</div>
@@ -149,7 +154,7 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="container mx-auto py-6">
+    <div>
       {/* Header */}
       <div className="mb-6 flex items-center justify-between">
         <div>
@@ -219,88 +224,78 @@ export default function DashboardPage() {
       </div>
 
       {/* Filters */}
-      <Card className="mb-6">
-        <CardHeader>
-          <CardTitle className="text-lg">Filters</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
-            <div className="space-y-2">
-              <Label>Status</Label>
-              <Select
-                value={statusFilter}
-                onValueChange={(value) => updateFilter("status", value)}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="All statuses" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All statuses</SelectItem>
-                  <SelectItem value={ApplicationStatus.READY_TO_APPLY}>
-                    Ready to Apply
-                  </SelectItem>
-                  <SelectItem value={ApplicationStatus.APPLIED}>
-                    Applied
-                  </SelectItem>
-                  <SelectItem value={ApplicationStatus.INTERVIEWING}>
-                    Interviewing
-                  </SelectItem>
-                  <SelectItem value={ApplicationStatus.ACCEPTED}>
-                    Accepted
-                  </SelectItem>
-                  <SelectItem value={ApplicationStatus.REJECTED}>
-                    Rejected
-                  </SelectItem>
-                  <SelectItem value={ApplicationStatus.NOT_MOVING_FORWARD}>
-                    Not Moving Forward
-                  </SelectItem>
-                  <SelectItem value={ApplicationStatus.ARCHIVED}>
-                    Archived
-                  </SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
 
-            <div className="space-y-2">
-              <Label>Company</Label>
-              <CompanyCombobox
-                value={companyFilter}
-                onChange={(value) => updateFilter("company", value || "")}
-                className="w-full"
-              />
-            </div>
+      <div className="mb-4 grid grid-cols-1 gap-4 md:grid-cols-4">
+        <div className="space-y-2">
+          <Label>Status</Label>
+          <Select
+            value={statusFilter}
+            onValueChange={(value) => updateFilter("status", value)}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="All statuses" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All statuses</SelectItem>
+              <SelectItem value={ApplicationStatus.READY_TO_APPLY}>
+                Ready to Apply
+              </SelectItem>
+              <SelectItem value={ApplicationStatus.APPLIED}>Applied</SelectItem>
+              <SelectItem value={ApplicationStatus.INTERVIEWING}>
+                Interviewing
+              </SelectItem>
+              <SelectItem value={ApplicationStatus.ACCEPTED}>
+                Accepted
+              </SelectItem>
+              <SelectItem value={ApplicationStatus.REJECTED}>
+                Rejected
+              </SelectItem>
+              <SelectItem value={ApplicationStatus.NOT_MOVING_FORWARD}>
+                Not Moving Forward
+              </SelectItem>
+              <SelectItem value={ApplicationStatus.ARCHIVED}>
+                Archived
+              </SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
 
-            <div className="space-y-2">
-              <Label>Position</Label>
-              <PositionCombobox
-                value={positionFilter}
-                onChange={(value) => updateFilter("position", value || "")}
-                className="w-full"
-              />
-            </div>
+        <div className="space-y-2">
+          <Label>Company</Label>
+          <CompanyCombobox
+            value={companyFilter}
+            onChange={(value) => updateFilter("company", value || "")}
+            className="w-full"
+          />
+        </div>
 
-            <div className="space-y-2">
-              <Label>Sort By</Label>
-              <Select
-                value={sortBy}
-                onValueChange={(value) => updateFilter("sortBy", value)}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="createdAt">Created Date</SelectItem>
-                  <SelectItem value="applicationDate">
-                    Application Date
-                  </SelectItem>
-                  <SelectItem value="updatedAt">Updated Date</SelectItem>
-                  <SelectItem value="priority">Priority</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+        <div className="space-y-2">
+          <Label>Position</Label>
+          <PositionCombobox
+            value={positionFilter}
+            onChange={(value) => updateFilter("position", value || "")}
+            className="w-full"
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label>Sort By</Label>
+          <Select
+            value={sortBy}
+            onValueChange={(value) => updateFilter("sortBy", value)}
+          >
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="createdAt">Created Date</SelectItem>
+              <SelectItem value="applicationDate">Application Date</SelectItem>
+              <SelectItem value="updatedAt">Updated Date</SelectItem>
+              <SelectItem value="priority">Priority</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
 
       {/* Views */}
       <Tabs value={view} onValueChange={handleViewChange}>
@@ -310,7 +305,12 @@ export default function DashboardPage() {
         </TabsList>
 
         <TabsContent value="kanban">
-          <KanbanView jobs={jobs} />
+          <KanbanView
+            companyFilter={companyFilter}
+            positionFilter={positionFilter}
+            sortBy={sortBy}
+            sortOrder={sortOrder}
+          />
         </TabsContent>
 
         <TabsContent value="list">
@@ -318,8 +318,8 @@ export default function DashboardPage() {
         </TabsContent>
       </Tabs>
 
-      {/* Empty State */}
-      {jobs.length === 0 && (
+      {/* Empty State - only for list view */}
+      {view === "list" && jobs.length === 0 && (
         <div className="rounded-lg border-2 border-dashed p-12 text-center">
           <h3 className="mb-2 text-lg font-semibold">No jobs yet</h3>
           <p className="mb-4 text-muted-foreground">

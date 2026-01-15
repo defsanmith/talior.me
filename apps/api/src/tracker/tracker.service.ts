@@ -165,6 +165,10 @@ export class TrackerService {
       limit = 50,
     } = query;
 
+    // Convert page and limit to numbers (they come as strings from query params)
+    const pageNum = typeof page === "string" ? parseInt(page, 10) : page;
+    const limitNum = typeof limit === "string" ? parseInt(limit, 10) : limit;
+
     // Build where clause
     const where: any = {
       userId: user.id,
@@ -187,7 +191,7 @@ export class TrackerService {
     }
 
     // Calculate pagination
-    const skip = (page - 1) * limit;
+    const skip = (pageNum - 1) * limitNum;
 
     // Get total count
     const total = await this.prisma.resumeJob.count({ where });
@@ -204,10 +208,10 @@ export class TrackerService {
         [sortBy]: sortOrder,
       },
       skip,
-      take: limit,
+      take: limitNum,
     });
 
-    return { jobs, total, page, limit };
+    return { jobs, total, page: pageNum, limit: limitNum };
   }
 
   async updateJobStatus(id: string, dto: UpdateJobStatusDto) {

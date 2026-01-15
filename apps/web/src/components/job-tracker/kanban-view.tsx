@@ -1,8 +1,10 @@
 "use client";
 
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import Router from "@/lib/router";
 import { useUpdateJobStatusMutation } from "@/store/api/tracker/mutations";
+import { useGetTrackerJobsQuery } from "@/store/api/tracker/queries";
 import {
   closestCenter,
   DndContext,
@@ -16,12 +18,16 @@ import {
   useSensors,
 } from "@dnd-kit/core";
 import { ApplicationStatus } from "@tailor.me/shared";
+import { Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import JobCard from "../job-posts/job-card";
 
 interface KanbanViewProps {
-  jobs: any[]; // Replace with proper type
+  companyFilter?: string;
+  positionFilter?: string;
+  sortBy?: string;
+  sortOrder?: string;
 }
 
 const STATUS_COLUMNS = [
@@ -62,8 +68,14 @@ const STATUS_COLUMNS = [
   },
 ] as const;
 
-export function KanbanView({ jobs }: KanbanViewProps) {
+export function KanbanView({
+  companyFilter,
+  positionFilter,
+  sortBy = "createdAt",
+  sortOrder = "desc",
+}: KanbanViewProps) {
   const [activeId, setActiveId] = useState<string | null>(null);
+  const [activeJob, setActiveJob] = useState<any>(null);
   const [updateJobStatus] = useUpdateJobStatusMutation();
   const router = useRouter();
 
@@ -75,46 +87,25 @@ export function KanbanView({ jobs }: KanbanViewProps) {
     }),
   );
 
-  // Group jobs by status
-  const jobsByStatus = useMemo(() => {
-    const grouped: Record<string, any[]> = {};
-    STATUS_COLUMNS.forEach((column) => {
-      grouped[column.id] = [];
-    });
-
-    jobs.forEach((job) => {
-      const status = job.applicationStatus || ApplicationStatus.READY_TO_APPLY;
-      if (grouped[status]) {
-        grouped[status].push(job);
-      }
-    });
-
-    return grouped;
-  }, [jobs]);
-
-  const activeJob = useMemo(() => {
-    if (!activeId) return null;
-    return jobs.find((job) => job.id === activeId);
-  }, [activeId, jobs]);
-
   const handleDragStart = (event: DragStartEvent) => {
     setActiveId(event.active.id as string);
+    // Active job will be set by the column that owns it
   };
 
   const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event;
     setActiveId(null);
+    setActiveJob(null);
 
     if (!over) return;
 
     const jobId = active.id as string;
     const newStatus = over.id as string;
+    const currentStatus = activeJob?.applicationStatus;
 
-    // Find the job to get its current status
-    const job = jobs.find((j) => j.id === jobId);
-    if (!job || job.applicationStatus === newStatus) return;
+    if (!currentStatus || currentStatus === newStatus) return;
 
-    // Optimistically update the job status
+    // Update the job status
     try {
       await updateJobStatus({
         id: jobId,
@@ -127,6 +118,7 @@ export function KanbanView({ jobs }: KanbanViewProps) {
 
   const handleDragCancel = () => {
     setActiveId(null);
+    setActiveJob(null);
   };
 
   const handleJobClick = (jobId: string) => {
@@ -157,9 +149,14 @@ export function KanbanView({ jobs }: KanbanViewProps) {
           <KanbanColumn
             key={column.id}
             column={column}
-            jobs={jobsByStatus[column.id] || []}
+            companyFilter={companyFilter}
+            positionFilter={positionFilter}
+            sortBy={sortBy}
+            sortOrder={sortOrder}
             onJobClick={handleJobClick}
             onArchive={handleArchive}
+            activeId={activeId}
+            onSetActiveJob={setActiveJob}
           />
         ))}
       </div>
@@ -177,23 +174,111 @@ export function KanbanView({ jobs }: KanbanViewProps) {
 
 interface KanbanColumnProps {
   column: (typeof STATUS_COLUMNS)[number];
-  jobs: any[];
+  companyFilter?: string;
+  positionFilter?: string;
+  sortBy?: string;
+  sortOrder?: string;
   onJobClick: (jobId: string) => void;
   onArchive: (jobId: string) => void;
+  activeId: string | null;
+  onSetActiveJob: (job: any) => void;
 }
+
+const ITEMS_PER_PAGE = 10;
 
 function KanbanColumn({
   column,
-  jobs,
+  companyFilter,
+  positionFilter,
+  sortBy = "createdAt",
+  sortOrder = "desc",
   onJobClick,
   onArchive,
+  activeId,
+  onSetActiveJob,
 }: KanbanColumnProps) {
-  //   const { useDroppable } = require("@dnd-kit/core");
-  //   const { useSortable } = require("@dnd-kit/sortable");
+  const [page, setPage] = useState(1);
+  const [accumulatedJobs, setAccumulatedJobs] = useState<{
+    jobs: any[];
+    lastPage: number;
+    filters: {
+      companyFilter?: string;
+      positionFilter?: string;
+      sortBy?: string;
+      sortOrder?: string;
+    };
+  }>({
+    jobs: [],
+    lastPage: 0,
+    filters: { companyFilter, positionFilter, sortBy, sortOrder },
+  });
 
   const { setNodeRef } = useDroppable({
     id: column.id,
   });
+
+  // Fetch jobs for this column
+  const { data, isLoading, isFetching } = useGetTrackerJobsQuery({
+    status: column.id,
+    companyId: companyFilter,
+    positionId: positionFilter,
+    sortBy: sortBy as any,
+    sortOrder: sortOrder as any,
+    page,
+    limit: ITEMS_PER_PAGE,
+  });
+
+  const newJobs = data?.data?.jobs || [];
+  const total = data?.data?.total || 0;
+  const currentPage = data?.data?.page || 1;
+  const limit = data?.data?.limit || ITEMS_PER_PAGE;
+  const hasMore = currentPage * limit < total;
+  const isFetchingMore = isFetching && currentPage > 1;
+
+  // Check if filters changed
+  const filtersChanged =
+    accumulatedJobs.filters.companyFilter !== companyFilter ||
+    accumulatedJobs.filters.positionFilter !== positionFilter ||
+    accumulatedJobs.filters.sortBy !== sortBy ||
+    accumulatedJobs.filters.sortOrder !== sortOrder;
+
+  // Update accumulated jobs when new data arrives
+  if (newJobs.length > 0 && currentPage !== accumulatedJobs.lastPage) {
+    if (filtersChanged || currentPage === 1) {
+      // Reset on filter change or page 1
+      setAccumulatedJobs({
+        jobs: newJobs,
+        lastPage: currentPage,
+        filters: { companyFilter, positionFilter, sortBy, sortOrder },
+      });
+      if (filtersChanged && page !== 1) {
+        setPage(1);
+      }
+    } else if (currentPage > 1) {
+      // Append new jobs, avoiding duplicates
+      const existingIds = new Set(accumulatedJobs.jobs.map((j) => j.id));
+      const uniqueNewJobs = newJobs.filter((j) => !existingIds.has(j.id));
+
+      if (uniqueNewJobs.length > 0) {
+        setAccumulatedJobs({
+          jobs: [...accumulatedJobs.jobs, ...uniqueNewJobs],
+          lastPage: currentPage,
+          filters: { companyFilter, positionFilter, sortBy, sortOrder },
+        });
+      }
+    }
+  }
+
+  const allJobs = accumulatedJobs.jobs;
+
+  // Update active job when dragging starts from this column
+  const handleDragStart = (job: any) => {
+    onSetActiveJob(job);
+  };
+
+  const handleLoadMore = () => {
+    setPage((prev) => prev + 1);
+  };
 
   return (
     <div
@@ -205,26 +290,54 @@ function KanbanColumn({
         <div className="flex items-center gap-2">
           <h3 className="font-semibold">{column.label}</h3>
           <Badge variant="secondary" className="h-6">
-            {jobs.length}
+            {total}
           </Badge>
         </div>
       </div>
 
       {/* Jobs List */}
-      <div className="flex flex-col gap-3">
-        {jobs.length === 0 ? (
+      <div className="flex flex-1 flex-col gap-3 overflow-y-auto">
+        {isLoading && allJobs.length === 0 ? (
+          <div className="flex items-center justify-center p-8">
+            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          </div>
+        ) : allJobs.length === 0 ? (
           <div className="rounded-lg border-2 border-dashed border-muted-foreground/20 p-8 text-center text-sm text-muted-foreground">
             No jobs
           </div>
         ) : (
-          jobs.map((job) => (
-            <DraggableJobCard
-              key={job.id}
-              job={job}
-              onClick={() => onJobClick(job.id)}
-              onArchive={onArchive}
-            />
-          ))
+          <>
+            {allJobs.map((job) => (
+              <DraggableJobCard
+                key={job.id}
+                job={job}
+                onClick={() => onJobClick(job.id)}
+                onArchive={onArchive}
+                onDragStart={() => handleDragStart(job)}
+                isActive={activeId === job.id}
+              />
+            ))}
+
+            {/* Load More Button */}
+            {hasMore && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleLoadMore}
+                disabled={isFetchingMore}
+                className="mt-2"
+              >
+                {isFetchingMore ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Loading...
+                  </>
+                ) : (
+                  `Load More (${total - allJobs.length} remaining)`
+                )}
+              </Button>
+            )}
+          </>
         )}
       </div>
     </div>
@@ -235,11 +348,22 @@ interface DraggableJobCardProps {
   job: any;
   onClick: () => void;
   onArchive: (jobId: string) => void;
+  onDragStart: () => void;
+  isActive: boolean;
 }
 
-function DraggableJobCard({ job, onClick, onArchive }: DraggableJobCardProps) {
+function DraggableJobCard({
+  job,
+  onClick,
+  onArchive,
+  onDragStart,
+  isActive,
+}: DraggableJobCardProps) {
   const { attributes, listeners, setNodeRef, transform, isDragging } =
-    useDraggable({ id: job.id });
+    useDraggable({
+      id: job.id,
+      data: job,
+    });
 
   const style = {
     transform: transform
@@ -249,7 +373,14 @@ function DraggableJobCard({ job, onClick, onArchive }: DraggableJobCardProps) {
   };
 
   return (
-    <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
+    <div
+      ref={setNodeRef}
+      style={style}
+      {...attributes}
+      {...listeners}
+      onMouseDown={onDragStart}
+      onTouchStart={onDragStart}
+    >
       <JobCard
         job={job}
         onClick={onClick}
