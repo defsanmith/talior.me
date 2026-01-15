@@ -76,14 +76,70 @@ export class ResumeProcessor {
 
       const parsedJd = await this.openai.parseJobDescription(jobDescription);
 
-      // Update job with parsed JD and metadata
+      // Upsert company, position, and team from parsed metadata
+      let companyId: string | null = null;
+      let positionId: string | null = null;
+      let teamId: string | null = null;
+
+      if (parsedJd.companyName) {
+        const company = await this.prisma.company.upsert({
+          where: {
+            userId_name: {
+              userId,
+              name: parsedJd.companyName,
+            },
+          },
+          create: {
+            userId,
+            name: parsedJd.companyName,
+          },
+          update: {},
+        });
+        companyId = company.id;
+      }
+
+      if (parsedJd.jobPosition) {
+        const position = await this.prisma.position.upsert({
+          where: {
+            userId_title: {
+              userId,
+              title: parsedJd.jobPosition,
+            },
+          },
+          create: {
+            userId,
+            title: parsedJd.jobPosition,
+          },
+          update: {},
+        });
+        positionId = position.id;
+      }
+
+      if (parsedJd.teamName) {
+        const team = await this.prisma.team.upsert({
+          where: {
+            userId_name: {
+              userId,
+              name: parsedJd.teamName,
+            },
+          },
+          create: {
+            userId,
+            name: parsedJd.teamName,
+          },
+          update: {},
+        });
+        teamId = team.id;
+      }
+
+      // Update job with parsed JD and linked metadata
       await this.prisma.resumeJob.update({
         where: { id: jobId },
         data: {
           parsedJd: parsedJd as any,
-          companyName: parsedJd.companyName || null,
-          jobPosition: parsedJd.jobPosition || null,
-          teamName: parsedJd.teamName || null,
+          companyId,
+          positionId,
+          teamId,
         },
       });
 

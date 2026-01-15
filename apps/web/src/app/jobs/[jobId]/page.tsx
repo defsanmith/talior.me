@@ -354,10 +354,10 @@ function ResumeBuilderEditor({
 
   const handleDownload = async () => {
     // Copy company name and team name to clipboard
-    if (job?.companyName || job?.jobPosition || job?.teamName) {
-      const clipboardText = `${job.companyName || ""}${
-        job.jobPosition ? ` - ${job.jobPosition}` : ""
-      }${job.teamName ? ` (${job.teamName})` : ""}`;
+    if (job?.company?.name || job?.position?.title || job?.team?.name) {
+      const clipboardText = `${job.company?.name || ""}${
+        job.position?.title ? ` - ${job.position.title}` : ""
+      }${job.team?.name ? ` (${job.team.name})` : ""}`;
 
       try {
         await navigator.clipboard.writeText(clipboardText);
@@ -380,18 +380,18 @@ function ResumeBuilderEditor({
       <div>
         <div className="flex items-center justify-between py-4 pr-4">
           <div>
-            {(job?.companyName || job?.jobPosition) && (
+            {(job?.company?.name || job?.position?.title) && (
               <div>
                 <h1>
-                  {job.companyName && <span>{job.companyName}</span>}
-                  {job.teamName && (
+                  {job.company?.name && <span>{job.company.name}</span>}
+                  {job.team?.name && (
                     <>
                       <span> - </span>
-                      <span>{job.teamName}</span>
+                      <span>{job.team.name}</span>
                     </>
                   )}
                 </h1>
-                <h2>{job.jobPosition}</h2>
+                <h2>{job.position?.title}</h2>
               </div>
             )}
           </div>

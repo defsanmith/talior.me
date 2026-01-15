@@ -15,3 +15,13 @@ export enum JobStage {
   COMPLETED = "Completed",
   FAILED = "Failed",
 }
+
+export enum ApplicationStatus {
+  READY_TO_APPLY = "READY_TO_APPLY",
+  APPLIED = "APPLIED",
+  INTERVIEWING = "INTERVIEWING",
+  ACCEPTED = "ACCEPTED",
+  REJECTED = "REJECTED",
+  NOT_MOVING_FORWARD = "NOT_MOVING_FORWARD",
+  ARCHIVED = "ARCHIVED",
+}
