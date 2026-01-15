@@ -20,8 +20,10 @@ import { AlertCircle, Check, Download, Loader2 } from "lucide-react";
 import { useParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
+import { InlineCompanyCombobox } from "@/components/job-tracker/inline-company-combobox";
+import { InlinePositionCombobox } from "@/components/job-tracker/inline-position-combobox";
+import { InlineTeamCombobox } from "@/components/job-tracker/inline-team-combobox";
 import { DraggableItem } from "@/components/resume-builder/draggable-item";
-import { EditableText } from "@/components/resume-builder/editable-text";
 import { EducationSection } from "@/components/resume-builder/education-section";
 import { ExperienceSection } from "@/components/resume-builder/experience-section";
 import { PdfPreview } from "@/components/resume-builder/pdf-preview";
@@ -39,9 +41,9 @@ import { Button } from "@/components/ui/button";
 import { Config } from "@/lib/config";
 import {
   useGetJobByIdQuery,
-  useUpdateJobMetadataMutation,
   useUpdateJobResumeMutation,
 } from "@/store/api/jobs/queries";
+import { useUpdateJobDetailsMutation } from "@/store/api/tracker/mutations";
 import { JobResponse } from "@tailor.me/shared";
 
 // Default empty resume structure
@@ -199,7 +201,7 @@ function ResumeBuilderEditor({
   job,
 }: ResumeBuilderEditorProps) {
   const [updateResume, { isLoading: isSaving }] = useUpdateJobResumeMutation();
-  const [updateMetadata] = useUpdateJobMetadataMutation();
+  const [updateJobDetails] = useUpdateJobDetailsMutation();
 
   // Local state for the resume - initialized with the data from API
   const [resume, setResume] = useState<EditableResume>(initialResume);
@@ -284,36 +286,36 @@ function ResumeBuilderEditor({
   };
 
   // Metadata update handlers
-  const handleCompanyNameChange = async (newName: string) => {
+  const handleCompanyChange = async (companyId: string | undefined) => {
     try {
-      await updateMetadata({
-        jobId,
-        metadata: { companyName: newName || undefined },
+      await updateJobDetails({
+        id: jobId,
+        data: { companyId: companyId || null },
       }).unwrap();
     } catch (err) {
-      console.error("Failed to update company name:", err);
+      console.error("Failed to update company:", err);
     }
   };
 
-  const handlePositionTitleChange = async (newTitle: string) => {
+  const handlePositionChange = async (positionId: string | undefined) => {
     try {
-      await updateMetadata({
-        jobId,
-        metadata: { positionTitle: newTitle || undefined },
+      await updateJobDetails({
+        id: jobId,
+        data: { positionId: positionId || null },
       }).unwrap();
     } catch (err) {
-      console.error("Failed to update position title:", err);
+      console.error("Failed to update position:", err);
     }
   };
 
-  const handleTeamNameChange = async (newName: string) => {
+  const handleTeamChange = async (teamId: string | undefined) => {
     try {
-      await updateMetadata({
-        jobId,
-        metadata: { teamName: newName || undefined },
+      await updateJobDetails({
+        id: jobId,
+        data: { teamId: teamId || null },
       }).unwrap();
     } catch (err) {
-      console.error("Failed to update team name:", err);
+      console.error("Failed to update team:", err);
     }
   };
 
@@ -417,46 +419,30 @@ function ResumeBuilderEditor({
         <div className="flex items-center justify-between py-4 pr-4">
           <div className="flex-1">
             <div className="flex items-center gap-2">
-              <EditableText
-                value={job?.company?.name || ""}
-                onChange={handleCompanyNameChange}
+              <InlineCompanyCombobox
+                value={job?.companyId || undefined}
+                onChange={handleCompanyChange}
                 placeholder="Company Name"
                 className="text-2xl font-bold"
-                inputClassName="w-fit"
               />
-              {job?.team?.name && (
-                <>
-                  <span className="text-2xl font-bold">-</span>
-                  <EditableText
-                    value={job.team.name}
-                    onChange={handleTeamNameChange}
-                    placeholder="Team Name"
-                    className="text-2xl font-bold"
-                    inputClassName="w-fit"
-                  />
-                </>
-              )}
-              {!job?.team?.name && (
-                <>
-                  <span className="text-2xl font-bold text-muted-foreground/30">
-                    -
-                  </span>
-                  <EditableText
-                    value=""
-                    onChange={handleTeamNameChange}
-                    placeholder="Add Team Name"
-                    className="text-2xl font-bold italic text-muted-foreground/50"
-                    inputClassName="w-fit"
-                  />
-                </>
-              )}
+              <span className="text-2xl font-bold text-muted-foreground/50">
+                -
+              </span>
+              <InlineTeamCombobox
+                value={job?.teamId || undefined}
+                onChange={handleTeamChange}
+                placeholder="Team Name"
+                className="text-2xl font-bold"
+              />
             </div>
-            <EditableText
-              value={job?.position?.title || ""}
-              onChange={handlePositionTitleChange}
-              placeholder="Job Title"
-              className="text-lg text-muted-foreground"
-            />
+            <div className="mt-1">
+              <InlinePositionCombobox
+                value={job?.positionId || undefined}
+                onChange={handlePositionChange}
+                placeholder="Job Title"
+                className="text-lg text-muted-foreground"
+              />
+            </div>
           </div>
           <div className="flex items-center gap-4">
             <SaveStatus status={saveStatus} isSaving={isSaving} />

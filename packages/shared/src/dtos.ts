@@ -72,9 +72,9 @@ export const UpdateJobDetailsDtoSchema = z.object({
   priority: z.number().int().optional(),
   salaryRange: z.string().optional(),
   applicationUrl: z.string().optional(),
-  companyId: z.string().optional(),
-  positionId: z.string().optional(),
-  teamId: z.string().optional(),
+  companyId: z.string().nullable().optional(),
+  positionId: z.string().nullable().optional(),
+  teamId: z.string().nullable().optional(),
 });
 
 export type UpdateJobDetailsDto = z.infer<typeof UpdateJobDetailsDtoSchema>;
