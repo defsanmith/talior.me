@@ -20,8 +20,10 @@ import { useSocket } from "@/hooks/useSocket";
 import { storage, StorageKeys } from "@/lib/storage";
 import { useAppDispatch } from "@/store";
 import { jobApi, useCreateJobMutation } from "@/store/api/jobs/queries";
-import { useGetTrackerJobsQuery } from "@/store/api/tracker/queries";
-import { JobStatus } from "@tailor.me/shared";
+import {
+  trackerApi,
+  useGetTrackerJobsQuery,
+} from "@/store/api/tracker/queries";
 import { Plus } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -72,30 +74,20 @@ export default function DashboardPage() {
     if (!socket) return;
 
     socket.on("job.progress", ({ jobId, progress, stage }: any) => {
-      dispatch(
-        jobApi.util.updateQueryData("getJobs", undefined, (draft) => {
-          const job = draft?.data?.jobs.find((j) => j.id === jobId);
-          if (job) {
-            job.progress = progress;
-            job.stage = stage;
-          }
-        }),
-      );
+      // Invalidate all tracker job queries to refetch with updated data
+      console.log("Job progress event received", { jobId, progress, stage });
+      dispatch(trackerApi.util.invalidateTags(["Jobs"]));
     });
 
     socket.on("job.completed", () => {
+      // Invalidate both job creation and tracker queries
       dispatch(jobApi.util.invalidateTags(["Jobs"]));
+      dispatch(trackerApi.util.invalidateTags(["Jobs"]));
     });
 
     socket.on("job.failed", ({ jobId }: any) => {
-      dispatch(
-        jobApi.util.updateQueryData("getJobs", undefined, (draft) => {
-          const job = draft?.data?.jobs.find((j) => j.id === jobId);
-          if (job) {
-            job.status = JobStatus.FAILED;
-          }
-        }),
-      );
+      // Invalidate tracker queries to refetch with updated status
+      dispatch(trackerApi.util.invalidateTags(["Jobs"]));
     });
 
     return () => {

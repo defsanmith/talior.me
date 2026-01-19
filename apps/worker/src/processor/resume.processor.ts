@@ -181,21 +181,34 @@ export class ResumeProcessor {
       );
 
       // Step E: Rewrite bullets
-      await this.updateJobStatus(
-        jobId,
-        JobStatus.PROCESSING,
-        JobStage.REWRITING_BULLETS,
-        50
-      );
-      await job.updateProgress({
-        progress: 50,
-        stage: JobStage.REWRITING_BULLETS,
-      });
+      let rewrittenBullets: Map<string, any>;
+      const skipRewriteBullets = process.env.SKIP_REWRITE_BULLETS === "true";
 
-      const rewrittenBullets = await this.rewriteBullets(
-        selectedBullets,
-        parsedJd
-      );
+      if (skipRewriteBullets) {
+        // Skip rewriting and use original bullets
+        rewrittenBullets = new Map();
+        for (const bullet of selectedBullets) {
+          rewrittenBullets.set(bullet.id, {
+            bulletId: bullet.id,
+            rewrittenText: bullet.content,
+            evidenceBulletIds: [bullet.id],
+            riskFlags: [],
+          });
+        }
+      } else {
+        await this.updateJobStatus(
+          jobId,
+          JobStatus.PROCESSING,
+          JobStage.REWRITING_BULLETS,
+          50
+        );
+        await job.updateProgress({
+          progress: 50,
+          stage: JobStage.REWRITING_BULLETS,
+        });
+
+        rewrittenBullets = await this.rewriteBullets(selectedBullets, parsedJd);
+      }
 
       // Step F: Verify
       await this.updateJobStatus(

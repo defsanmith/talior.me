@@ -272,16 +272,27 @@ function KanbanColumn({
     accumulatedJobs.lastPage === 1 &&
     !filtersChanged
   ) {
-    // If we're on page 1 and data has been refetched (e.g., after mutation),
+    // If we're on page 1 and data has been refetched (e.g., after mutation or WebSocket update),
     // update the accumulated jobs to reflect the latest data
-    const currentIds = new Set(accumulatedJobs.jobs.map((j) => j.id));
-    const newIds = new Set(newJobs.map((j) => j.id));
+    const currentJobsMap = new Map(accumulatedJobs.jobs.map((j) => [j.id, j]));
+    const newJobsMap = new Map(newJobs.map((j) => [j.id, j]));
 
-    // Check if the job lists are different (job was added/removed)
+    // Check if the job lists are different (job was added/removed/updated)
     const hasChanges =
-      currentIds.size !== newIds.size ||
-      Array.from(currentIds).some((id) => !newIds.has(id)) ||
-      Array.from(newIds).some((id) => !currentIds.has(id));
+      currentJobsMap.size !== newJobsMap.size ||
+      Array.from(currentJobsMap.keys()).some((id) => !newJobsMap.has(id)) ||
+      Array.from(newJobsMap.keys()).some((id) => !currentJobsMap.has(id)) ||
+      // Check if any job data has changed (progress, stage, etc.)
+      Array.from(newJobsMap.entries()).some(([id, newJob]) => {
+        const currentJob = currentJobsMap.get(id);
+        return (
+          currentJob &&
+          (currentJob.progress !== newJob.progress ||
+            currentJob.stage !== newJob.stage ||
+            currentJob.status !== newJob.status ||
+            currentJob.applicationStatus !== newJob.applicationStatus)
+        );
+      });
 
     if (hasChanges) {
       setAccumulatedJobs({
