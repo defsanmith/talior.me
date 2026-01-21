@@ -1,5 +1,6 @@
 import {
   ApiResponse,
+  ApplyAndGetNextResponse,
   Company,
   CreateCompanyDto,
   CreatePositionDto,
@@ -109,6 +110,17 @@ export const trackerApi = appApi.injectEndpoints({
       }),
       invalidatesTags: ["Jobs"],
     }),
+
+    applyAndGetNext: build.mutation<
+      ApiResponse<ApplyAndGetNextResponse>,
+      string
+    >({
+      query: (id) => ({
+        url: `/tracker/jobs/${id}/apply-and-next`,
+        method: "POST",
+      }),
+      invalidatesTags: ["Jobs"],
+    }),
   }),
 });
 
@@ -121,4 +133,5 @@ export const {
   useDeleteTeamMutation,
   useUpdateJobStatusMutation,
   useUpdateJobDetailsMutation,
+  useApplyAndGetNextMutation,
 } = trackerApi;

@@ -239,6 +239,47 @@ export class TrackerService {
     });
   }
 
+  async applyAndGetNext(id: string) {
+    const user = await this.getUser();
+    if (!user) throw new NotFoundException("User not found");
+
+    // Verify the job exists and belongs to user
+    const job = await this.prisma.resumeJob.findFirst({
+      where: { id, userId: user.id },
+    });
+
+    if (!job) {
+      throw new NotFoundException("Job not found");
+    }
+
+    // Update current job to APPLIED
+    await this.prisma.resumeJob.update({
+      where: { id },
+      data: {
+        applicationStatus: "APPLIED",
+        applicationDate: new Date(),
+      },
+    });
+
+    // Get next pending job (READY_TO_APPLY status)
+    const nextJob = await this.prisma.resumeJob.findFirst({
+      where: {
+        userId: user.id,
+        applicationStatus: "READY_TO_APPLY",
+      },
+      include: {
+        company: true,
+        position: true,
+        team: true,
+      },
+      orderBy: {
+        createdAt: "asc",
+      },
+    });
+
+    return { nextJob };
+  }
+
   async updateJobDetails(id: string, dto: UpdateJobDetailsDto) {
     const user = await this.getUser();
     if (!user) throw new NotFoundException("User not found");

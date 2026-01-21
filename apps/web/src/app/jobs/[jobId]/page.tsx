@@ -16,8 +16,14 @@ import {
   sortableKeyboardCoordinates,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
-import { AlertCircle, Check, Download, Loader2 } from "lucide-react";
-import { useParams } from "next/navigation";
+import {
+  AlertCircle,
+  Check,
+  CheckCircle,
+  Download,
+  Loader2,
+} from "lucide-react";
+import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { InlineCompanyCombobox } from "@/components/job-tracker/inline-company-combobox";
@@ -39,12 +45,16 @@ import {
 } from "@/components/resume-builder/types";
 import { Button } from "@/components/ui/button";
 import { Config } from "@/lib/config";
+import Router from "@/lib/router";
 import {
   useGetJobByIdQuery,
   useUpdateJobResumeMutation,
 } from "@/store/api/jobs/queries";
-import { useUpdateJobDetailsMutation } from "@/store/api/tracker/mutations";
-import { JobResponse } from "@tailor.me/shared";
+import {
+  useApplyAndGetNextMutation,
+  useUpdateJobDetailsMutation,
+} from "@/store/api/tracker/mutations";
+import { ApplicationStatus, JobResponse } from "@tailor.me/shared";
 
 // Default empty resume structure
 const defaultResume: EditableResume = {
@@ -200,8 +210,11 @@ function ResumeBuilderEditor({
   initialResume,
   job,
 }: ResumeBuilderEditorProps) {
+  const router = useRouter();
   const [updateResume, { isLoading: isSaving }] = useUpdateJobResumeMutation();
   const [updateJobDetails] = useUpdateJobDetailsMutation();
+  const [applyAndGetNext, { isLoading: isApplying }] =
+    useApplyAndGetNextMutation();
 
   // Local state for the resume - initialized with the data from API
   const [resume, setResume] = useState<EditableResume>(initialResume);
@@ -391,6 +404,23 @@ function ResumeBuilderEditor({
     }
   };
 
+  const handleApplyAndNext = async () => {
+    try {
+      // Call the consolidated endpoint that updates status and returns next job
+      const response = await applyAndGetNext(jobId).unwrap();
+
+      // Navigate to next job or home
+      if (response?.data?.nextJob) {
+        router.push(Router.jobDetails(response.data.nextJob.id));
+      } else {
+        router.push(Router.DASHBOARD);
+      }
+    } catch (error) {
+      console.error("Failed to apply and navigate:", error);
+      setSaveStatus("error");
+    }
+  };
+
   const handleDownload = async () => {
     // Copy company name and team name to clipboard
     if (job?.company?.name || job?.position?.title || job?.team?.name) {
@@ -446,6 +476,22 @@ function ResumeBuilderEditor({
           </div>
           <div className="flex items-center gap-4">
             <SaveStatus status={saveStatus} isSaving={isSaving} />
+            {job?.applicationStatus === ApplicationStatus.READY_TO_APPLY && (
+              <Button
+                onClick={handleApplyAndNext}
+                variant="default"
+                size="sm"
+                className="gap-2"
+                disabled={isApplying}
+              >
+                {isApplying ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <CheckCircle className="h-4 w-4" />
+                )}
+                {isApplying ? "Applying..." : "Apply & Next"}
+              </Button>
+            )}
             <Button
               onClick={handleDownload}
               variant="outline"

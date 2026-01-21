@@ -158,21 +158,45 @@ export class ResumeProcessor {
       const profileData = await this.fetchFullProfile(userId);
 
       // Step C: AI-based content selection
-      await this.updateJobStatus(
-        jobId,
-        JobStatus.PROCESSING,
-        JobStage.SELECTING_BULLETS,
-        35
-      );
-      await job.updateProgress({
-        progress: 35,
-        stage: JobStage.SELECTING_BULLETS,
-      });
+      let contentSelection: ContentSelection;
+      const skipSelection = process.env.SKIP_CONTENT_SELECTION === "true";
 
-      const contentSelection = await this.openai.selectRelevantContent(
-        profileData,
-        parsedJd
-      );
+      if (skipSelection) {
+        // Skip AI selection and include all experiences/projects with no bullets
+        contentSelection = {
+          experiences: profileData.experiences.map((exp) => ({
+            id: exp.id,
+            bulletIds: [],
+            relevanceReason: "All experiences included (selection disabled)",
+          })),
+          projects: profileData.projects.map((proj) => ({
+            id: proj.id,
+            bulletIds: [],
+            relevanceReason: "All projects included (selection disabled)",
+          })),
+          education: profileData.education.map((edu) => ({
+            id: edu.id,
+            selectedCoursework: [],
+            relevanceReason: "All education included (selection disabled)",
+          })),
+        };
+      } else {
+        await this.updateJobStatus(
+          jobId,
+          JobStatus.PROCESSING,
+          JobStage.SELECTING_BULLETS,
+          35
+        );
+        await job.updateProgress({
+          progress: 35,
+          stage: JobStage.SELECTING_BULLETS,
+        });
+
+        contentSelection = await this.openai.selectRelevantContent(
+          profileData,
+          parsedJd
+        );
+      }
 
       // Step D: Extract selected bullets for rewriting
       const selectedBullets = this.extractSelectedBullets(

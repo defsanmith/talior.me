@@ -96,6 +96,11 @@ export class TrackerController {
     return this.trackerService.updateJobStatus(id, dto);
   }
 
+  @Post("jobs/:id/apply-and-next")
+  async applyAndGetNext(@Param("id") id: string) {
+    return this.trackerService.applyAndGetNext(id);
+  }
+
   @Patch("jobs/:id")
   async updateJobDetails(
     @Param("id") id: string,

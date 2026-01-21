@@ -79,6 +79,14 @@ export const UpdateJobDetailsDtoSchema = z.object({
 
 export type UpdateJobDetailsDto = z.infer<typeof UpdateJobDetailsDtoSchema>;
 
+export const ApplyAndGetNextResponseSchema = z.object({
+  nextJob: z.any().nullable(),
+});
+
+export type ApplyAndGetNextResponse = z.infer<
+  typeof ApplyAndGetNextResponseSchema
+>;
+
 export const UpdateJobMetadataDtoSchema = z.object({
   companyName: z.string().min(1).optional(),
   positionTitle: z.string().min(1).optional(),
