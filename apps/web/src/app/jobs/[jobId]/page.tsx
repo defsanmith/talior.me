@@ -16,10 +16,19 @@ import {
   sortableKeyboardCoordinates,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
-import { AlertCircle, Check, Download, Loader2 } from "lucide-react";
-import { useParams } from "next/navigation";
+import {
+  AlertCircle,
+  Check,
+  CheckCircle,
+  Download,
+  Loader2,
+} from "lucide-react";
+import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
+import { InlineCompanyCombobox } from "@/components/job-tracker/inline-company-combobox";
+import { InlinePositionCombobox } from "@/components/job-tracker/inline-position-combobox";
+import { InlineTeamCombobox } from "@/components/job-tracker/inline-team-combobox";
 import { DraggableItem } from "@/components/resume-builder/draggable-item";
 import { EducationSection } from "@/components/resume-builder/education-section";
 import { ExperienceSection } from "@/components/resume-builder/experience-section";
@@ -36,11 +45,16 @@ import {
 } from "@/components/resume-builder/types";
 import { Button } from "@/components/ui/button";
 import { Config } from "@/lib/config";
+import Router from "@/lib/router";
 import {
   useGetJobByIdQuery,
   useUpdateJobResumeMutation,
 } from "@/store/api/jobs/queries";
-import { JobResponse } from "@tailor.me/shared";
+import {
+  useApplyAndGetNextMutation,
+  useUpdateJobDetailsMutation,
+} from "@/store/api/tracker/mutations";
+import { ApplicationStatus, JobResponse } from "@tailor.me/shared";
 
 // Default empty resume structure
 const defaultResume: EditableResume = {
@@ -196,7 +210,11 @@ function ResumeBuilderEditor({
   initialResume,
   job,
 }: ResumeBuilderEditorProps) {
+  const router = useRouter();
   const [updateResume, { isLoading: isSaving }] = useUpdateJobResumeMutation();
+  const [updateJobDetails] = useUpdateJobDetailsMutation();
+  const [applyAndGetNext, { isLoading: isApplying }] =
+    useApplyAndGetNextMutation();
 
   // Local state for the resume - initialized with the data from API
   const [resume, setResume] = useState<EditableResume>(initialResume);
@@ -280,6 +298,40 @@ function ResumeBuilderEditor({
     }
   };
 
+  // Metadata update handlers
+  const handleCompanyChange = async (companyId: string | undefined) => {
+    try {
+      await updateJobDetails({
+        id: jobId,
+        data: { companyId: companyId || null },
+      }).unwrap();
+    } catch (err) {
+      console.error("Failed to update company:", err);
+    }
+  };
+
+  const handlePositionChange = async (positionId: string | undefined) => {
+    try {
+      await updateJobDetails({
+        id: jobId,
+        data: { positionId: positionId || null },
+      }).unwrap();
+    } catch (err) {
+      console.error("Failed to update position:", err);
+    }
+  };
+
+  const handleTeamChange = async (teamId: string | undefined) => {
+    try {
+      await updateJobDetails({
+        id: jobId,
+        data: { teamId: teamId || null },
+      }).unwrap();
+    } catch (err) {
+      console.error("Failed to update team:", err);
+    }
+  };
+
   // Sorted sections for rendering
   const sortedSections = useMemo(
     () => [...resume.sectionOrder].sort((a, b) => a.order - b.order),
@@ -352,16 +404,32 @@ function ResumeBuilderEditor({
     }
   };
 
+  const handleApplyAndNext = async () => {
+    try {
+      // Call the consolidated endpoint that updates status and returns next job
+      const response = await applyAndGetNext(jobId).unwrap();
+
+      // Navigate to next job or home
+      if (response?.data?.nextJob) {
+        router.push(Router.jobDetails(response.data.nextJob.id));
+      } else {
+        router.push(Router.DASHBOARD);
+      }
+    } catch (error) {
+      console.error("Failed to apply and navigate:", error);
+      setSaveStatus("error");
+    }
+  };
+
   const handleDownload = async () => {
     // Copy company name and team name to clipboard
-    if (job?.companyName || job?.jobPosition || job?.teamName) {
-      const clipboardText = `${job.companyName || ""}${
-        job.jobPosition ? ` - ${job.jobPosition}` : ""
-      }${job.teamName ? ` (${job.teamName})` : ""}`;
+    if (job?.company?.name || job?.position?.title || job?.team?.name) {
+      const clipboardText = `${job.company?.name || ""}${
+        job.position?.title ? ` - ${job.position.title}` : ""
+      }${job.team?.name ? ` (${job.team.name})` : ""}`;
 
       try {
         await navigator.clipboard.writeText(clipboardText);
-        console.log("Copied to clipboard:", clipboardText);
       } catch (err) {
         console.error("Failed to copy to clipboard:", err);
       }
@@ -379,24 +447,51 @@ function ResumeBuilderEditor({
       {/* Header with save status */}
       <div>
         <div className="flex items-center justify-between py-4 pr-4">
-          <div>
-            {(job?.companyName || job?.jobPosition) && (
-              <div>
-                <h1>
-                  {job.companyName && <span>{job.companyName}</span>}
-                  {job.teamName && (
-                    <>
-                      <span> - </span>
-                      <span>{job.teamName}</span>
-                    </>
-                  )}
-                </h1>
-                <h2>{job.jobPosition}</h2>
-              </div>
-            )}
+          <div className="flex-1">
+            <div className="flex items-center gap-2">
+              <InlineCompanyCombobox
+                value={job?.companyId || undefined}
+                onChange={handleCompanyChange}
+                placeholder="Company Name"
+                className="text-2xl font-bold"
+              />
+              <span className="text-2xl font-bold text-muted-foreground/50">
+                -
+              </span>
+              <InlineTeamCombobox
+                value={job?.teamId || undefined}
+                onChange={handleTeamChange}
+                placeholder="Team Name"
+                className="text-2xl font-bold"
+              />
+            </div>
+            <div className="mt-1">
+              <InlinePositionCombobox
+                value={job?.positionId || undefined}
+                onChange={handlePositionChange}
+                placeholder="Job Title"
+                className="text-lg text-muted-foreground"
+              />
+            </div>
           </div>
           <div className="flex items-center gap-4">
             <SaveStatus status={saveStatus} isSaving={isSaving} />
+            {job?.applicationStatus === ApplicationStatus.READY_TO_APPLY && (
+              <Button
+                onClick={handleApplyAndNext}
+                variant="default"
+                size="sm"
+                className="gap-2"
+                disabled={isApplying}
+              >
+                {isApplying ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <CheckCircle className="h-4 w-4" />
+                )}
+                {isApplying ? "Applying..." : "Apply & Next"}
+              </Button>
+            )}
             <Button
               onClick={handleDownload}
               variant="outline"

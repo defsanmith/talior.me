@@ -22,6 +22,79 @@ export const CreateJobDtoSchema = z.object({
 
 export type CreateJobDto = z.infer<typeof CreateJobDtoSchema>;
 
+// ============================================
+// Job Tracker DTOs
+// ============================================
+
+export const CreateCompanyDtoSchema = z.object({
+  name: z.string().min(1, "Company name is required"),
+});
+
+export type CreateCompanyDto = z.infer<typeof CreateCompanyDtoSchema>;
+
+export const CreatePositionDtoSchema = z.object({
+  title: z.string().min(1, "Position title is required"),
+});
+
+export type CreatePositionDto = z.infer<typeof CreatePositionDtoSchema>;
+
+export const CreateTeamDtoSchema = z.object({
+  name: z.string().min(1, "Team name is required"),
+});
+
+export type CreateTeamDto = z.infer<typeof CreateTeamDtoSchema>;
+
+export const GetJobsQueryDtoSchema = z.object({
+  status: z.string().optional(),
+  companyId: z.string().optional(),
+  positionId: z.string().optional(),
+  teamId: z.string().optional(),
+  sortBy: z
+    .enum(["createdAt", "applicationDate", "updatedAt", "priority"])
+    .optional(),
+  sortOrder: z.enum(["asc", "desc"]).optional(),
+  page: z.number().int().positive().optional(),
+  limit: z.number().int().positive().optional(),
+});
+
+export type GetJobsQueryDto = z.infer<typeof GetJobsQueryDtoSchema>;
+
+export const UpdateJobStatusDtoSchema = z.object({
+  applicationStatus: z.string(),
+});
+
+export type UpdateJobStatusDto = z.infer<typeof UpdateJobStatusDtoSchema>;
+
+export const UpdateJobDetailsDtoSchema = z.object({
+  notes: z.string().optional(),
+  applicationDate: z.string().optional(),
+  interviewDate: z.string().optional(),
+  priority: z.number().int().optional(),
+  salaryRange: z.string().optional(),
+  applicationUrl: z.string().optional(),
+  companyId: z.string().nullable().optional(),
+  positionId: z.string().nullable().optional(),
+  teamId: z.string().nullable().optional(),
+});
+
+export type UpdateJobDetailsDto = z.infer<typeof UpdateJobDetailsDtoSchema>;
+
+export const ApplyAndGetNextResponseSchema = z.object({
+  nextJob: z.any().nullable(),
+});
+
+export type ApplyAndGetNextResponse = z.infer<
+  typeof ApplyAndGetNextResponseSchema
+>;
+
+export const UpdateJobMetadataDtoSchema = z.object({
+  companyName: z.string().min(1).optional(),
+  positionTitle: z.string().min(1).optional(),
+  teamName: z.string().min(1).optional(),
+});
+
+export type UpdateJobMetadataDto = z.infer<typeof UpdateJobMetadataDtoSchema>;
+
 export const CreateBulletDtoSchema = z.object({
   experienceId: z.string().optional(),
   projectId: z.string().optional(),

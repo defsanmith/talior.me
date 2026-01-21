@@ -20,6 +20,34 @@ export const ParsedJDSchema = z.object({
 
 export type ParsedJD = z.infer<typeof ParsedJDSchema>;
 
+// ============================================
+// Job Tracker Types
+// ============================================
+
+export interface Company {
+  id: string;
+  userId: string;
+  name: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface Position {
+  id: string;
+  userId: string;
+  title: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface Team {
+  id: string;
+  userId: string;
+  name: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 export const RewrittenBulletSchema = z.object({
   bulletId: z.string(),
   rewrittenText: z.string(),
@@ -205,9 +233,17 @@ export interface JobResponse {
   id: string;
   userId: string;
   jobDescription: string;
-  companyName?: string | null;
-  jobPosition?: string | null;
-  teamName?: string | null;
+  companyId?: string | null;
+  positionId?: string | null;
+  teamId?: string | null;
+  company?: Company | null;
+  position?: Position | null;
+  team?: Team | null;
+  applicationStatus?: string | null;
+  applicationDate?: Date | null;
+  interviewDate?: Date | null;
+  notes?: string | null;
+  priority?: number | null;
   parsedJd?: ParsedJD | null;
   status: string;
   stage: string;

@@ -27,6 +27,9 @@ model User {
   skills          Skill[]
   resumeJobs      ResumeJob[]
   skillCategories SkillCategory[]
+  companies       Company[]
+  positions       Position[]
+  teams           Team[]
 
   @@map("users")
 }
@@ -168,27 +171,41 @@ model Skill {
 }
 
 model ResumeJob {
-  id             String    @id @default(cuid())
-  userId         String
-  jobDescription String
-  companyName    String?
-  jobPosition    String?
-  teamName       String?
-  parsedJd       Json?
-  status         String    @default("QUEUED")
-  stage          String    @default("Queued")
-  progress       Int       @default(0)
-  errorMessage   String?
-  resultResume   Json?
-  createdAt      DateTime  @default(now())
-  completedAt    DateTime?
-  updatedAt      DateTime  @updatedAt
+  id                String    @id @default(cuid())
+  userId            String
+  jobDescription    String
+  companyId         String?
+  positionId        String?
+  teamId            String?
+  parsedJd          Json?
+  status            String    @default("QUEUED") // Resume generation status
+  stage             String    @default("Queued")
+  progress          Int       @default(0)
+  errorMessage      String?
+  resultResume      Json?
+  applicationStatus String    @default("READY_TO_APPLY") // Application tracking status
+  applicationDate   DateTime?
+  interviewDate     DateTime?
+  notes             String?
+  priority          Int       @default(0)
+  salaryRange       String?
+  applicationUrl    String?
+  createdAt         DateTime  @default(now())
+  completedAt       DateTime?
+  updatedAt         DateTime  @updatedAt
 
-  user    User              @relation(fields: [userId], references: [id], onDelete: Cascade)
-  bullets ResumeJobBullet[]
+  user     User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  company  Company?          @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  position Position?         @relation(fields: [positionId], references: [id], onDelete: SetNull)
+  team     Team?             @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  bullets  ResumeJobBullet[]
 
   @@index([userId])
   @@index([status])
+  @@index([applicationStatus])
+  @@index([companyId])
+  @@index([positionId])
+  @@index([teamId])
   @@index([createdAt])
   @@map("resume_jobs")
 }
@@ -208,4 +225,49 @@ model ResumeJobBullet {
   @@index([resumeJobId])
   @@index([bulletId])
   @@map("resume_job_bullets")
+}
+
+model Company {
+  id        String      @id @default(cuid())
+  userId    String
+  name      String
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+  jobs      ResumeJob[]
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, name])
+  @@index([userId])
+  @@map("companies")
+}
+
+model Position {
+  id        String      @id @default(cuid())
+  userId    String
+  title     String
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+  jobs      ResumeJob[]
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, title])
+  @@index([userId])
+  @@map("positions")
+}
+
+model Team {
+  id        String      @id @default(cuid())
+  userId    String
+  name      String
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+  jobs      ResumeJob[]
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, name])
+  @@index([userId])
+  @@map("teams")
 }

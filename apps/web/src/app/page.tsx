@@ -1,71 +1,93 @@
 "use client";
 
-import JobCard from "@/components/job-posts/job-card";
+import { JobFilters } from "@/components/job-tracker/job-filters";
+import { KanbanView } from "@/components/job-tracker/kanban-view";
+import { ListView } from "@/components/job-tracker/list-view";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { useSocket } from "@/hooks/useSocket";
-import Router from "@/lib/router";
+import { storage, StorageKeys } from "@/lib/storage";
 import { useAppDispatch } from "@/store";
+import { jobApi, useCreateJobMutation } from "@/store/api/jobs/queries";
 import {
-  jobApi,
-  useCreateJobMutation,
-  useGetJobsQuery,
-} from "@/store/api/jobs/queries";
-import { JobStatus } from "@tailor.me/shared";
-import { useRouter } from "next/navigation";
+  trackerApi,
+  useGetTrackerJobsQuery,
+} from "@/store/api/tracker/queries";
+import { Plus } from "lucide-react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 
 export default function DashboardPage() {
-  const { data, error, isLoading } = useGetJobsQuery();
   const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const socket = useSocket();
   const dispatch = useAppDispatch();
+
+  // Dialog state
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [jobDescription, setJobDescription] = useState("");
   const [createJob, { isLoading: isCreating, error: createError }] =
     useCreateJobMutation();
 
+  // View preference from localStorage
+  const [view, setView] = useState<"kanban" | "list">(() =>
+    storage.get(StorageKeys.JOBS_VIEW, "kanban"),
+  );
+
+  // Filters from URL
+  const statusFilter = searchParams.get("status") || "all";
+  const companyFilter = searchParams.get("company") || "";
+  const positionFilter = searchParams.get("position") || "";
+  const sortBy = searchParams.get("sortBy") || "createdAt";
+  const sortOrder = searchParams.get("sortOrder") || "desc";
+
+  // Only fetch for list view - kanban handles its own fetching per column
+  const { data, isLoading } = useGetTrackerJobsQuery(
+    {
+      status: statusFilter === "all" ? "" : statusFilter,
+      companyId: companyFilter,
+      positionId: positionFilter,
+      sortBy: sortBy as any,
+      sortOrder: sortOrder as any,
+    },
+    {
+      skip: view === "kanban", // Skip this query when in kanban view
+    },
+  );
+
   const jobs = data?.data?.jobs || [];
 
+  // WebSocket listeners for real-time updates
   useEffect(() => {
     if (!socket) return;
 
     socket.on("job.progress", ({ jobId, progress, stage }: any) => {
-      // Manually update RTK Query cache
-      dispatch(
-        jobApi.util.updateQueryData("getJobs", undefined, (draft) => {
-          const job = draft?.data?.jobs.find((j) => j.id === jobId);
-          if (job) {
-            job.progress = progress;
-            job.stage = stage;
-          }
-        }),
-      );
+      // Invalidate all tracker job queries to refetch with updated data
+      console.log("Job progress event received", { jobId, progress, stage });
+      dispatch(trackerApi.util.invalidateTags(["Jobs"]));
     });
 
     socket.on("job.completed", () => {
-      // Invalidate and refetch to get final state
+      // Invalidate both job creation and tracker queries
       dispatch(jobApi.util.invalidateTags(["Jobs"]));
+      dispatch(trackerApi.util.invalidateTags(["Jobs"]));
     });
 
     socket.on("job.failed", ({ jobId }: any) => {
-      // Manually update RTK Query cache
-      dispatch(
-        jobApi.util.updateQueryData("getJobs", undefined, (draft) => {
-          const job = draft?.data?.jobs.find((j) => j.id === jobId);
-          if (job) {
-            job.status = JobStatus.FAILED;
-          }
-        }),
-      );
+      // Invalidate tracker queries to refetch with updated status
+      dispatch(trackerApi.util.invalidateTags(["Jobs"]));
     });
 
     return () => {
@@ -75,24 +97,39 @@ export default function DashboardPage() {
     };
   }, [socket, dispatch]);
 
-  const activeJobs = jobs.filter(
-    (j) => j.status === JobStatus.QUEUED || j.status === JobStatus.PROCESSING,
-  );
+  // Handle view change
+  const handleViewChange = (newView: string) => {
+    const typedView = newView as "kanban" | "list";
+    setView(typedView);
+    storage.set(StorageKeys.JOBS_VIEW, typedView);
+  };
 
-  const queuedJobs = jobs.filter((j) => j.status === JobStatus.QUEUED);
+  // Update URL params
+  const updateFilter = (key: string, value: string) => {
+    const params = new URLSearchParams(searchParams);
+    if (value && value !== "all") {
+      params.set(key, value);
+    } else {
+      params.delete(key);
+    }
+    router.push(`${pathname}?${params.toString()}`);
+  };
 
+  // Handle create resume
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     try {
       await createJob({ jobDescription }).unwrap();
       setJobDescription("");
+      setIsCreateDialogOpen(false);
     } catch (err) {
       console.error("Failed to create job:", err);
     }
   };
 
-  if (isLoading) {
+  // Show loading only for list view
+  if (view === "list" && isLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <div className="text-xl">Loading...</div>
@@ -100,105 +137,120 @@ export default function DashboardPage() {
     );
   }
 
-  if (error) {
-    return (
-      <div className="flex min-h-screen items-center justify-center">
-        <div className="text-xl text-red-600">Error loading jobs</div>
-      </div>
-    );
-  }
-
   return (
     <div>
-      <div>
-        <div className="mb-8">
-          <h1 className="mb-8">Resume Dashboard</h1>
-
-          {/* Create Resume Form */}
-          <Card className="mb-8">
-            <CardHeader>
-              <CardTitle>Create Resume</CardTitle>
-              <CardDescription>
-                Paste the job description to get started
-                {queuedJobs.length > 0 && (
-                  <span className="ml-2 font-semibold text-blue-600">
-                    • {queuedJobs.length}{" "}
-                    {queuedJobs.length === 1 ? "job" : "jobs"} queued
-                  </span>
-                )}
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <form onSubmit={handleSubmit} className="space-y-6">
-                <div className="space-y-2">
-                  <Label htmlFor="jd">Job Description</Label>
-                  <Textarea
-                    id="jd"
-                    value={jobDescription}
-                    onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) =>
-                      setJobDescription(e.target.value)
-                    }
-                    className="h-48 resize-none"
-                    placeholder="Paste the full job description here..."
-                    required
-                    minLength={10}
-                  />
-                </div>
-
-                {createError && (
-                  <Alert variant="destructive">
-                    <AlertDescription>
-                      {"data" in createError &&
-                      typeof createError.data === "object" &&
-                      createError.data &&
-                      "message" in createError.data
-                        ? String(createError.data.message)
-                        : "Failed to create job"}
-                    </AlertDescription>
-                  </Alert>
-                )}
-
-                <Button
-                  type="submit"
-                  disabled={isCreating || activeJobs.length >= 10}
-                  className="w-full"
-                >
-                  {isCreating ? "Creating..." : "Build Resume"}
-                </Button>
-              </form>
-            </CardContent>
-          </Card>
+      {/* Header */}
+      <div className="mb-6 flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold">Job Application Tracker</h1>
+          <p className="text-muted-foreground">
+            Track your job applications and manage your resumes
+          </p>
         </div>
 
-        {activeJobs.length >= 10 && (
-          <div className="mb-6 rounded-lg border border-yellow-200 bg-yellow-50 px-4 py-3 text-yellow-800">
-            ⚠️ Maximum of 10 concurrent jobs reached. Please wait for some jobs
-            to complete.
-          </div>
-        )}
-
-        {/* Resume List */}
-        {jobs.length > 0 && (
-          <div className="mb-8">
-            <h2 className="mb-4 text-2xl font-semibold">Your Resumes</h2>
-            <div className="space-y-4">
-              {jobs.map((job) => (
-                <JobCard
-                  key={job.id}
-                  job={job}
-                  onClick={() => router.push(Router.jobDetails(job.id))}
+        {/* Create Resume Button */}
+        <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+          <DialogTrigger asChild>
+            <Button>
+              <Plus className="mr-2 h-4 w-4" />
+              Create Resume
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>Create New Resume</DialogTitle>
+              <DialogDescription>
+                Paste the job description to generate a tailored resume
+              </DialogDescription>
+            </DialogHeader>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="jd">Job Description</Label>
+                <Textarea
+                  id="jd"
+                  value={jobDescription}
+                  onChange={(e) => setJobDescription(e.target.value)}
+                  className="h-64 resize-none"
+                  placeholder="Paste the full job description here..."
+                  required
+                  minLength={10}
                 />
-              ))}
-            </div>
-          </div>
-        )}
+              </div>
 
-        {jobs.length === 0 && (
-          <div className="py-12 text-center text-gray-500">
-            No jobs yet. Create your first resume above!
-          </div>
-        )}
+              {createError && (
+                <Alert variant="destructive">
+                  <AlertDescription>
+                    {"data" in createError &&
+                    typeof createError.data === "object" &&
+                    createError.data &&
+                    "message" in createError.data
+                      ? String(createError.data.message)
+                      : "Failed to create job"}
+                  </AlertDescription>
+                </Alert>
+              )}
+
+              <div className="flex justify-end gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setIsCreateDialogOpen(false)}
+                >
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={isCreating}>
+                  {isCreating ? "Creating..." : "Generate Resume"}
+                </Button>
+              </div>
+            </form>
+          </DialogContent>
+        </Dialog>
       </div>
+
+      {/* Views */}
+      <Tabs value={view} onValueChange={handleViewChange}>
+        <div className="mb-4 flex items-start justify-between gap-4">
+          <TabsList>
+            <TabsTrigger value="kanban">Kanban</TabsTrigger>
+            <TabsTrigger value="list">List</TabsTrigger>
+          </TabsList>
+
+          <JobFilters
+            statusFilter={statusFilter}
+            companyFilter={companyFilter}
+            positionFilter={positionFilter}
+            sortBy={sortBy}
+            onFilterChange={updateFilter}
+          />
+        </div>
+
+        <TabsContent value="kanban">
+          <KanbanView
+            companyFilter={companyFilter}
+            positionFilter={positionFilter}
+            sortBy={sortBy}
+            sortOrder={sortOrder}
+          />
+        </TabsContent>
+
+        <TabsContent value="list">
+          <ListView jobs={jobs} />
+        </TabsContent>
+      </Tabs>
+
+      {/* Empty State - only for list view */}
+      {view === "list" && jobs.length === 0 && (
+        <div className="rounded-lg border-2 border-dashed p-12 text-center">
+          <h3 className="mb-2 text-lg font-semibold">No jobs yet</h3>
+          <p className="mb-4 text-muted-foreground">
+            Get started by creating your first tailored resume
+          </p>
+          <Button onClick={() => setIsCreateDialogOpen(true)}>
+            <Plus className="mr-2 h-4 w-4" />
+            Create Resume
+          </Button>
+        </div>
+      )}
     </div>
   );
 }

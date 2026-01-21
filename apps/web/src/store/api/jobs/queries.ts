@@ -3,6 +3,8 @@ import {
   EditableResume,
   GetJobResponse,
   GetJobsResponse,
+  JobResponse,
+  UpdateJobMetadataDto,
   UpdateResumeDto,
 } from "@tailor.me/shared";
 import { appApi } from "..";
@@ -22,6 +24,15 @@ interface CreateJobArgs {
 
 interface CreateJobResponse {
   jobId: string;
+}
+
+interface UpdateJobMetadataArgs {
+  jobId: string;
+  metadata: UpdateJobMetadataDto;
+}
+
+interface UpdateJobMetadataResponse {
+  job: JobResponse;
 }
 
 export const jobApi = appApi.injectEndpoints({
@@ -69,6 +80,19 @@ export const jobApi = appApi.injectEndpoints({
         { type: "Jobs", id: jobId },
       ],
     }),
+    updateJobMetadata: build.mutation<
+      ApiResponse<UpdateJobMetadataResponse>,
+      UpdateJobMetadataArgs
+    >({
+      query: ({ jobId, metadata }) => ({
+        url: `/jobs/${jobId}/metadata`,
+        method: "PATCH",
+        body: metadata,
+      }),
+      invalidatesTags: (result, error, { jobId }) => [
+        { type: "Jobs", id: jobId },
+      ],
+    }),
     getResumePdf: build.query<Blob, string>({
       query: (jobId) => ({
         url: `/jobs/${jobId}/resume/pdf`,
@@ -88,5 +112,6 @@ export const {
   useGetJobByIdQuery,
   useGetJobResumeQuery,
   useUpdateJobResumeMutation,
+  useUpdateJobMetadataMutation,
   useLazyGetResumePdfQuery,
 } = jobApi;

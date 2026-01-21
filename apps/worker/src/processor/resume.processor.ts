@@ -76,14 +76,70 @@ export class ResumeProcessor {
 
       const parsedJd = await this.openai.parseJobDescription(jobDescription);
 
-      // Update job with parsed JD and metadata
+      // Upsert company, position, and team from parsed metadata
+      let companyId: string | null = null;
+      let positionId: string | null = null;
+      let teamId: string | null = null;
+
+      if (parsedJd.companyName) {
+        const company = await this.prisma.company.upsert({
+          where: {
+            userId_name: {
+              userId,
+              name: parsedJd.companyName,
+            },
+          },
+          create: {
+            userId,
+            name: parsedJd.companyName,
+          },
+          update: {},
+        });
+        companyId = company.id;
+      }
+
+      if (parsedJd.jobPosition) {
+        const position = await this.prisma.position.upsert({
+          where: {
+            userId_title: {
+              userId,
+              title: parsedJd.jobPosition,
+            },
+          },
+          create: {
+            userId,
+            title: parsedJd.jobPosition,
+          },
+          update: {},
+        });
+        positionId = position.id;
+      }
+
+      if (parsedJd.teamName) {
+        const team = await this.prisma.team.upsert({
+          where: {
+            userId_name: {
+              userId,
+              name: parsedJd.teamName,
+            },
+          },
+          create: {
+            userId,
+            name: parsedJd.teamName,
+          },
+          update: {},
+        });
+        teamId = team.id;
+      }
+
+      // Update job with parsed JD and linked metadata
       await this.prisma.resumeJob.update({
         where: { id: jobId },
         data: {
           parsedJd: parsedJd as any,
-          companyName: parsedJd.companyName || null,
-          jobPosition: parsedJd.jobPosition || null,
-          teamName: parsedJd.teamName || null,
+          companyId,
+          positionId,
+          teamId,
         },
       });
 
@@ -102,21 +158,45 @@ export class ResumeProcessor {
       const profileData = await this.fetchFullProfile(userId);
 
       // Step C: AI-based content selection
-      await this.updateJobStatus(
-        jobId,
-        JobStatus.PROCESSING,
-        JobStage.SELECTING_BULLETS,
-        35
-      );
-      await job.updateProgress({
-        progress: 35,
-        stage: JobStage.SELECTING_BULLETS,
-      });
+      let contentSelection: ContentSelection;
+      const skipSelection = process.env.SKIP_CONTENT_SELECTION === "true";
 
-      const contentSelection = await this.openai.selectRelevantContent(
-        profileData,
-        parsedJd
-      );
+      if (skipSelection) {
+        // Skip AI selection and include all experiences/projects with no bullets
+        contentSelection = {
+          experiences: profileData.experiences.map((exp) => ({
+            id: exp.id,
+            bulletIds: [],
+            relevanceReason: "All experiences included (selection disabled)",
+          })),
+          projects: profileData.projects.map((proj) => ({
+            id: proj.id,
+            bulletIds: [],
+            relevanceReason: "All projects included (selection disabled)",
+          })),
+          education: profileData.education.map((edu) => ({
+            id: edu.id,
+            selectedCoursework: [],
+            relevanceReason: "All education included (selection disabled)",
+          })),
+        };
+      } else {
+        await this.updateJobStatus(
+          jobId,
+          JobStatus.PROCESSING,
+          JobStage.SELECTING_BULLETS,
+          35
+        );
+        await job.updateProgress({
+          progress: 35,
+          stage: JobStage.SELECTING_BULLETS,
+        });
+
+        contentSelection = await this.openai.selectRelevantContent(
+          profileData,
+          parsedJd
+        );
+      }
 
       // Step D: Extract selected bullets for rewriting
       const selectedBullets = this.extractSelectedBullets(
@@ -125,21 +205,34 @@ export class ResumeProcessor {
       );
 
       // Step E: Rewrite bullets
-      await this.updateJobStatus(
-        jobId,
-        JobStatus.PROCESSING,
-        JobStage.REWRITING_BULLETS,
-        50
-      );
-      await job.updateProgress({
-        progress: 50,
-        stage: JobStage.REWRITING_BULLETS,
-      });
+      let rewrittenBullets: Map<string, any>;
+      const skipRewriteBullets = process.env.SKIP_REWRITE_BULLETS === "true";
 
-      const rewrittenBullets = await this.rewriteBullets(
-        selectedBullets,
-        parsedJd
-      );
+      if (skipRewriteBullets) {
+        // Skip rewriting and use original bullets
+        rewrittenBullets = new Map();
+        for (const bullet of selectedBullets) {
+          rewrittenBullets.set(bullet.id, {
+            bulletId: bullet.id,
+            rewrittenText: bullet.content,
+            evidenceBulletIds: [bullet.id],
+            riskFlags: [],
+          });
+        }
+      } else {
+        await this.updateJobStatus(
+          jobId,
+          JobStatus.PROCESSING,
+          JobStage.REWRITING_BULLETS,
+          50
+        );
+        await job.updateProgress({
+          progress: 50,
+          stage: JobStage.REWRITING_BULLETS,
+        });
+
+        rewrittenBullets = await this.rewriteBullets(selectedBullets, parsedJd);
+      }
 
       // Step F: Verify
       await this.updateJobStatus(
