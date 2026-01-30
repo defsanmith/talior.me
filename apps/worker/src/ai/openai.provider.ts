@@ -1,90 +1,15 @@
-import { Injectable } from "@nestjs/common";
+import { Injectable, Logger } from "@nestjs/common";
 import { ParsedJD, ParsedJDSchema, RewrittenBullet } from "@tailor.me/shared";
 import OpenAI from "openai";
-
-// Types for AI content selection
-export interface ProfileExperience {
-  id: string;
-  company: string;
-  title: string;
-  location: string | null;
-  startDate: string;
-  endDate: string | null;
-  bullets: Array<{
-    id: string;
-    content: string;
-    skills: string[];
-  }>;
-}
-
-export interface ProfileProject {
-  id: string;
-  name: string;
-  date: string | null;
-  url: string | null;
-  skills: string[];
-  bullets: Array<{
-    id: string;
-    content: string;
-  }>;
-}
-
-export interface ProfileEducation {
-  id: string;
-  institution: string;
-  degree: string;
-  location: string | null;
-  graduationDate: string | null;
-  coursework: string[];
-}
-
-export interface ProfileSkillCategory {
-  id: string;
-  name: string;
-  skills: Array<{
-    id: string;
-    name: string;
-  }>;
-}
-
-export interface ProfileUser {
-  firstName: string | null;
-  lastName: string | null;
-  email: string | null;
-  phone: string | null;
-  location: string | null;
-  website: string | null;
-  linkedin: string | null;
-}
-
-export interface ProfileData {
-  user: ProfileUser | null;
-  experiences: ProfileExperience[];
-  projects: ProfileProject[];
-  education: ProfileEducation[];
-  skillCategories: ProfileSkillCategory[];
-}
-
-export interface ContentSelection {
-  experiences: Array<{
-    id: string;
-    bulletIds: string[];
-    relevanceReason: string;
-  }>;
-  projects: Array<{
-    id: string;
-    bulletIds: string[];
-    relevanceReason: string;
-  }>;
-  education: Array<{
-    id: string;
-    selectedCoursework: string[];
-    relevanceReason: string;
-  }>;
-}
+import {
+  ContentSelection,
+  IAIProvider,
+  ProfileData,
+} from "./ai-provider.interface";
 
 @Injectable()
-export class OpenAIService {
+export class OpenAIProvider implements IAIProvider {
+  private readonly logger = new Logger(OpenAIProvider.name);
   private client: OpenAI;
   private readonly parseModel: string;
   private readonly rewriteModel: string;
@@ -99,13 +24,44 @@ export class OpenAIService {
     this.selectionModel = process.env.OPENAI_SELECTION_MODEL || "gpt-4o-mini";
   }
 
+  private handleError(error: any, operation: string): never {
+    this.logger.error(`OpenAI API error during ${operation}:`, error.message);
+
+    if (error.status === 429) {
+      throw new Error(
+        `OpenAI API rate limit exceeded during ${operation}. ` +
+          `Please check your OpenAI API plan or wait before retrying. ` +
+          `Error: ${error.message}`,
+      );
+    }
+
+    if (error.status === 401 || error.status === 403) {
+      throw new Error(
+        `OpenAI API authentication failed during ${operation}. ` +
+          `Please check your OPENAI_API_KEY. Error: ${error.message}`,
+      );
+    }
+
+    if (error.code === "insufficient_quota") {
+      throw new Error(
+        `OpenAI API quota exceeded during ${operation}. ` +
+          `Please add credits to your OpenAI account. Error: ${error.message}`,
+      );
+    }
+
+    throw new Error(
+      `OpenAI API request failed during ${operation}: ${error.message}`,
+    );
+  }
+
   async parseJobDescription(jobDescription: string): Promise<ParsedJD> {
-    const completion = await this.client.chat.completions.create({
-      model: this.parseModel,
-      messages: [
-        {
-          role: "system",
-          content: `You are an expert career coach specializing in helping software engineers analyze job opportunities.
+    try {
+      const completion = await this.client.chat.completions.create({
+        model: this.parseModel,
+        messages: [
+          {
+            role: "system",
+            content: `You are an expert career coach specializing in helping software engineers analyze job opportunities.
 
 Your task is to extract and categorize job requirements with hiring manager precision:
 
@@ -117,29 +73,33 @@ Your task is to extract and categorize job requirements with hiring manager prec
 
 Extract with precision - categorize skills accurately to help candidates understand what truly matters.
 Return only valid JSON.`,
-        },
-        {
-          role: "user",
-          content: `Parse this job description:\n\n${jobDescription}\n\nReturn JSON with:\n- required_skills (array)\n- nice_to_have (array)\n- responsibilities (array)\n- keywords (array)\n- companyName: the company name (string or null)\n- jobPosition: the job title/position (string or null)\n- teamName: the team name if mentioned (string or null)`,
-        },
-      ],
-      response_format: { type: "json_object" },
-    });
+          },
+          {
+            role: "user",
+            content: `Parse this job description:\n\n${jobDescription}\n\nReturn JSON with:\n- required_skills (array)\n- nice_to_have (array)\n- responsibilities (array)\n- keywords (array)\n- companyName: the company name (string or null)\n- jobPosition: the job title/position (string or null)\n- teamName: the team name if mentioned (string or null)`,
+          },
+        ],
+        response_format: { type: "json_object" },
+      });
 
-    const result = JSON.parse(completion.choices[0].message.content || "{}");
-    return ParsedJDSchema.parse(result);
+      const result = JSON.parse(completion.choices[0].message.content || "{}");
+      return ParsedJDSchema.parse(result);
+    } catch (error) {
+      this.handleError(error, "parseJobDescription");
+    }
   }
 
   async rewriteBullet(
     bullet: { id: string; content: string; tags: string[]; skills: string[] },
-    jd: ParsedJD
+    jd: ParsedJD,
   ): Promise<RewrittenBullet> {
-    const completion = await this.client.chat.completions.create({
-      model: this.rewriteModel,
-      messages: [
-        {
-          role: "system",
-          content: `You are a professional career coach who helps software engineers optimize resume bullets for specific job opportunities.
+    try {
+      const completion = await this.client.chat.completions.create({
+        model: this.rewriteModel,
+        messages: [
+          {
+            role: "system",
+            content: `You are a professional career coach who helps software engineers optimize resume bullets for specific job opportunities.
 
 Your task: Rework experience and project bullet points to align with the target job description while maintaining authenticity.
 
@@ -163,79 +123,79 @@ Return JSON with:
 - rewrittenText: the optimized text (grounded in original)
 - evidenceBulletIds: [bulletId] (always just the original bullet)
 - riskFlags: array of any concerns (empty if none)`,
-        },
-        {
-          role: "user",
-          content: `Original bullet: "${bullet.content}"
+          },
+          {
+            role: "user",
+            content: `Original bullet: "${bullet.content}"
 Skills/Tags: ${[...bullet.skills, ...bullet.tags].join(", ")}
 
 Job requires: ${jd.required_skills.join(", ")}
 Keywords: ${jd.keywords.join(", ")}
 
 Rewrite to emphasize relevance while staying 100% grounded in the original content.`,
-        },
-      ],
-      response_format: { type: "json_object" },
-    });
+          },
+        ],
+        response_format: { type: "json_object" },
+      });
 
-    const result = JSON.parse(completion.choices[0].message.content || "{}");
-    return {
-      bulletId: bullet.id,
-      rewrittenText: result.rewrittenText || bullet.content,
-      evidenceBulletIds: [bullet.id],
-      riskFlags: result.riskFlags || [],
-    };
+      const result = JSON.parse(completion.choices[0].message.content || "{}");
+      return {
+        bulletId: bullet.id,
+        rewrittenText: result.rewrittenText || bullet.content,
+        evidenceBulletIds: [bullet.id],
+        riskFlags: result.riskFlags || [],
+      };
+    } catch (error) {
+      this.handleError(error, `rewriteBullet (${bullet.id})`);
+    }
   }
 
-  /**
-   * Uses AI to select the most relevant content from the user's profile
-   * based on the job description.
-   */
   async selectRelevantContent(
     profile: ProfileData,
-    parsedJd: ParsedJD
+    parsedJd: ParsedJD,
   ): Promise<ContentSelection> {
-    // Format profile data for the prompt
-    const experiencesText = profile.experiences
-      .map(
-        (exp) =>
-          `Experience [${exp.id}]: ${exp.title} at ${exp.company} (${exp.startDate} - ${exp.endDate || "Present"})
+    try {
+      // Format profile data for the prompt
+      const experiencesText = profile.experiences
+        .map(
+          (exp) =>
+            `Experience [${exp.id}]: ${exp.title} at ${exp.company} (${exp.startDate} - ${exp.endDate || "Present"})
   Bullets:
-${exp.bullets.map((b) => `    - [${b.id}] ${b.content} (Skills: ${b.skills.join(", ") || "none"})`).join("\n")}`
-      )
-      .join("\n\n");
+${exp.bullets.map((b) => `    - [${b.id}] ${b.content} (Skills: ${b.skills.join(", ") || "none"})`).join("\n")}`,
+        )
+        .join("\n\n");
 
-    const projectsText = profile.projects
-      .map(
-        (proj) =>
-          `Project [${proj.id}]: ${proj.name} (Skills: ${proj.skills.join(", ") || "none"})
+      const projectsText = profile.projects
+        .map(
+          (proj) =>
+            `Project [${proj.id}]: ${proj.name} (Skills: ${proj.skills.join(", ") || "none"})
   Bullets:
-${proj.bullets.map((b) => `    - [${b.id}] ${b.content}`).join("\n")}`
-      )
-      .join("\n\n");
+${proj.bullets.map((b) => `    - [${b.id}] ${b.content}`).join("\n")}`,
+        )
+        .join("\n\n");
 
-    const educationText = profile.education
-      .map(
-        (edu) =>
-          `Education [${edu.id}]: ${edu.degree} at ${edu.institution} (${edu.graduationDate || "N/A"})
-  Coursework: ${edu.coursework.join(", ") || "none"}`
-      )
-      .join("\n\n");
+      const educationText = profile.education
+        .map(
+          (edu) =>
+            `Education [${edu.id}]: ${edu.degree} at ${edu.institution} (${edu.graduationDate || "N/A"})
+  Coursework: ${edu.coursework.join(", ") || "none"}`,
+        )
+        .join("\n\n");
 
-    const skillsText = profile.skillCategories
-      .map(
-        (cat) =>
-          `Category [${cat.id}]: ${cat.name}
-  Skills: ${cat.skills.map((s) => `[${s.id}] ${s.name}`).join(", ")}`
-      )
-      .join("\n\n");
+      const skillsText = profile.skillCategories
+        .map(
+          (cat) =>
+            `Category [${cat.id}]: ${cat.name}
+  Skills: ${cat.skills.map((s) => `[${s.id}] ${s.name}`).join(", ")}`,
+        )
+        .join("\n\n");
 
-    const completion = await this.client.chat.completions.create({
-      model: this.selectionModel,
-      messages: [
-        {
-          role: "system",
-          content: `You are a professional career coach with hiring manager expertise, helping software engineers strategically select resume content for specific job opportunities.
+      const completion = await this.client.chat.completions.create({
+        model: this.selectionModel,
+        messages: [
+          {
+            role: "system",
+            content: `You are a professional career coach with hiring manager expertise, helping software engineers strategically select resume content for specific job opportunities.
 
 Your task: Analyze the job requirements from a hiring manager's perspective and recommend which experiences from the master resume should be prioritized to maximize interview chances.
 
@@ -282,10 +242,10 @@ Return a JSON object with this exact structure:
     }
   ]
 }`,
-        },
-        {
-          role: "user",
-          content: `JOB REQUIREMENTS:
+          },
+          {
+            role: "user",
+            content: `JOB REQUIREMENTS:
 Required Skills: ${parsedJd.required_skills.join(", ")}
 Nice to Have: ${parsedJd.nice_to_have.join(", ")}
 Responsibilities: ${parsedJd.responsibilities.join("; ")}
@@ -306,18 +266,21 @@ ${educationText || "No education listed"}
 ${skillsText || "No skills listed"}
 
 Select the most relevant content for this job application.`,
-        },
-      ],
-      response_format: { type: "json_object" },
-    });
+          },
+        ],
+        response_format: { type: "json_object" },
+      });
 
-    const result = JSON.parse(completion.choices[0].message.content || "{}");
+      const result = JSON.parse(completion.choices[0].message.content || "{}");
 
-    // Validate and return with defaults
-    return {
-      experiences: result.experiences || [],
-      projects: result.projects || [],
-      education: result.education || [],
-    };
+      // Validate and return with defaults
+      return {
+        experiences: result.experiences || [],
+        projects: result.projects || [],
+        education: result.education || [],
+      };
+    } catch (error) {
+      this.handleError(error, "selectRelevantContent");
+    }
   }
 }
