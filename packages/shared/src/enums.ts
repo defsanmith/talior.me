@@ -5,6 +5,11 @@ export enum JobStatus {
   FAILED = "FAILED",
 }
 
+export enum AIProvider {
+  OPENAI = "OPENAI",
+  GEMINI = "GEMINI",
+}
+
 export enum JobStage {
   PARSING_JD = "Parsing job description",
   RETRIEVING_BULLETS = "Retrieving candidate bullets",

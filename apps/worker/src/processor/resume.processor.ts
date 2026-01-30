@@ -6,11 +6,8 @@ import {
   ParsedJD,
 } from "@tailor.me/shared";
 import { Job, Worker } from "bullmq";
-import {
-  ContentSelection,
-  OpenAIService,
-  ProfileData,
-} from "../openai/openai.service";
+import { ContentSelection, ProfileData } from "../ai/ai-provider.interface";
+import { AIService } from "../ai/ai.service";
 import { PrismaService } from "../prisma/prisma.service";
 
 interface JobData {
@@ -34,7 +31,7 @@ export class ResumeProcessor {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly openai: OpenAIService
+    private readonly ai: AIService,
   ) {
     this.initializeWorker();
   }
@@ -51,7 +48,7 @@ export class ResumeProcessor {
       {
         connection,
         concurrency: parseInt(process.env.WORKER_CONCURRENCY || "10"),
-      }
+      },
     );
 
     this.worker.on("failed", (job, err) => {
@@ -70,11 +67,11 @@ export class ResumeProcessor {
         jobId,
         JobStatus.PROCESSING,
         JobStage.PARSING_JD,
-        10
+        10,
       );
       await job.updateProgress({ progress: 10, stage: JobStage.PARSING_JD });
 
-      const parsedJd = await this.openai.parseJobDescription(jobDescription);
+      const parsedJd = await this.ai.parseJobDescription(jobDescription);
 
       // Upsert company, position, and team from parsed metadata
       let companyId: string | null = null;
@@ -148,7 +145,7 @@ export class ResumeProcessor {
         jobId,
         JobStatus.PROCESSING,
         JobStage.RETRIEVING_BULLETS,
-        20
+        20,
       );
       await job.updateProgress({
         progress: 20,
@@ -185,23 +182,23 @@ export class ResumeProcessor {
           jobId,
           JobStatus.PROCESSING,
           JobStage.SELECTING_BULLETS,
-          35
+          35,
         );
         await job.updateProgress({
           progress: 35,
           stage: JobStage.SELECTING_BULLETS,
         });
 
-        contentSelection = await this.openai.selectRelevantContent(
+        contentSelection = await this.ai.selectRelevantContent(
           profileData,
-          parsedJd
+          parsedJd,
         );
       }
 
       // Step D: Extract selected bullets for rewriting
       const selectedBullets = this.extractSelectedBullets(
         profileData,
-        contentSelection
+        contentSelection,
       );
 
       // Step E: Rewrite bullets
@@ -224,7 +221,7 @@ export class ResumeProcessor {
           jobId,
           JobStatus.PROCESSING,
           JobStage.REWRITING_BULLETS,
-          50
+          50,
         );
         await job.updateProgress({
           progress: 50,
@@ -239,20 +236,20 @@ export class ResumeProcessor {
         jobId,
         JobStatus.PROCESSING,
         JobStage.VERIFYING,
-        70
+        70,
       );
       await job.updateProgress({ progress: 70, stage: JobStage.VERIFYING });
 
       const verifiedBullets = this.verifyBullets(
         selectedBullets,
-        rewrittenBullets
+        rewrittenBullets,
       );
 
       // Step G: Sort skills manually based on selected bullets
       const sortedSkills = this.sortSkillsByRelevance(
         profileData,
         contentSelection,
-        parsedJd
+        parsedJd,
       );
 
       // Step H: Assemble resume
@@ -260,7 +257,7 @@ export class ResumeProcessor {
         jobId,
         JobStatus.PROCESSING,
         JobStage.ASSEMBLING,
-        85
+        85,
       );
       await job.updateProgress({ progress: 85, stage: JobStage.ASSEMBLING });
 
@@ -268,7 +265,7 @@ export class ResumeProcessor {
         profileData,
         contentSelection,
         verifiedBullets,
-        sortedSkills
+        sortedSkills,
       );
 
       // Step H: Save results
@@ -278,7 +275,7 @@ export class ResumeProcessor {
         jobId,
         JobStatus.COMPLETED,
         JobStage.COMPLETED,
-        100
+        100,
       );
       await job.updateProgress({ progress: 100, stage: JobStage.COMPLETED });
     } catch (error) {
@@ -288,7 +285,7 @@ export class ResumeProcessor {
         JobStatus.FAILED,
         JobStage.FAILED,
         0,
-        error instanceof Error ? error.message : "Unknown error"
+        error instanceof Error ? error.message : "Unknown error",
       );
       throw error;
     }
@@ -396,14 +393,14 @@ export class ResumeProcessor {
    */
   private extractSelectedBullets(
     profileData: ProfileData,
-    selection: ContentSelection
+    selection: ContentSelection,
   ): SelectedBullet[] {
     const bullets: SelectedBullet[] = [];
 
     // Extract experience bullets
     for (const expSelection of selection.experiences) {
       const experience = profileData.experiences.find(
-        (e) => e.id === expSelection.id
+        (e) => e.id === expSelection.id,
       );
       if (!experience) continue;
 
@@ -425,7 +422,7 @@ export class ResumeProcessor {
     // Extract project bullets
     for (const projSelection of selection.projects) {
       const project = profileData.projects.find(
-        (p) => p.id === projSelection.id
+        (p) => p.id === projSelection.id,
       );
       if (!project) continue;
 
@@ -449,7 +446,7 @@ export class ResumeProcessor {
 
   private async rewriteBullets(
     bullets: SelectedBullet[],
-    parsedJd: ParsedJD
+    parsedJd: ParsedJD,
   ): Promise<Map<string, any>> {
     const rewritten = new Map();
 
@@ -457,14 +454,14 @@ export class ResumeProcessor {
     const results = await Promise.allSettled(
       bullets.map(async (bullet) => {
         try {
-          const result = await this.openai.rewriteBullet(
+          const result = await this.ai.rewriteBullet(
             {
               id: bullet.id,
               content: bullet.content,
               tags: bullet.tags,
               skills: bullet.skills,
             },
-            parsedJd
+            parsedJd,
           );
           return { id: bullet.id, result, success: true };
         } catch (error) {
@@ -480,7 +477,7 @@ export class ResumeProcessor {
             success: false,
           };
         }
-      })
+      }),
     );
 
     for (const res of results) {
@@ -501,7 +498,7 @@ export class ResumeProcessor {
   private sortSkillsByRelevance(
     profileData: ProfileData,
     selection: ContentSelection,
-    parsedJd: ParsedJD
+    parsedJd: ParsedJD,
   ): Array<{ categoryId: string; skillIds: string[] }> {
     // Collect all skills mentioned in selected bullets
     const bulletSkills = new Set<string>();
@@ -509,7 +506,7 @@ export class ResumeProcessor {
     // From experiences
     for (const expSelection of selection.experiences) {
       const experience = profileData.experiences.find(
-        (e) => e.id === expSelection.id
+        (e) => e.id === expSelection.id,
       );
       if (!experience) continue;
 
@@ -517,7 +514,7 @@ export class ResumeProcessor {
         const bullet = experience.bullets.find((b) => b.id === bulletId);
         if (bullet) {
           bullet.skills.forEach((skill) =>
-            bulletSkills.add(skill.toLowerCase())
+            bulletSkills.add(skill.toLowerCase()),
           );
         }
       }
@@ -526,11 +523,11 @@ export class ResumeProcessor {
     // From projects
     for (const projSelection of selection.projects) {
       const project = profileData.projects.find(
-        (p) => p.id === projSelection.id
+        (p) => p.id === projSelection.id,
       );
       if (project) {
         project.skills.forEach((skill) =>
-          bulletSkills.add(skill.toLowerCase())
+          bulletSkills.add(skill.toLowerCase()),
         );
       }
     }
@@ -587,7 +584,7 @@ export class ResumeProcessor {
 
   private verifyBullets(
     originalBullets: SelectedBullet[],
-    rewrittenMap: Map<string, any>
+    rewrittenMap: Map<string, any>,
   ): Map<string, { text: string; verifierNote: string | null }> {
     const verified = new Map();
 
@@ -605,7 +602,7 @@ export class ResumeProcessor {
       const originalNumbers: string[] = originalText.match(/\d+/g) || [];
       const rewrittenNumbers: string[] = rewrittenText.match(/\d+/g) || [];
       const newNumbers = rewrittenNumbers.filter(
-        (n) => !originalNumbers.includes(n)
+        (n) => !originalNumbers.includes(n),
       );
       if (newNumbers.length > 0) {
         issues.push(`New numbers added: ${newNumbers.join(", ")}`);
@@ -613,7 +610,7 @@ export class ResumeProcessor {
 
       // Check for new tech (simple keyword check)
       const originalSkills = [...original.skills, ...original.tags].map((t) =>
-        t.toLowerCase()
+        t.toLowerCase(),
       );
       const commonTechWords = [
         "react",
@@ -689,13 +686,13 @@ export class ResumeProcessor {
     sortedSkills: Array<{
       categoryId: string;
       skillIds: string[];
-    }>
+    }>,
   ): EditableResume {
     // Build experience sections from AI selection with relevance reasons
     const experiences = selection.experiences
       .map((expSelection, index) => {
         const experience = profileData.experiences.find(
-          (e) => e.id === expSelection.id
+          (e) => e.id === expSelection.id,
         );
         if (!experience) return null;
 
@@ -731,7 +728,7 @@ export class ResumeProcessor {
     const projects = selection.projects
       .map((projSelection, index) => {
         const project = profileData.projects.find(
-          (p) => p.id === projSelection.id
+          (p) => p.id === projSelection.id,
         );
         if (!project) return null;
 
@@ -790,7 +787,7 @@ export class ResumeProcessor {
     const skillCategories = sortedSkills
       .map((skillSelection, index) => {
         const category = profileData.skillCategories.find(
-          (c) => c.id === skillSelection.categoryId
+          (c) => c.id === skillSelection.categoryId,
         );
         if (!category) return null;
 
@@ -857,7 +854,7 @@ export class ResumeProcessor {
     jobId: string,
     resume: EditableResume,
     selectedBullets: SelectedBullet[],
-    verifiedBullets: Map<string, any>
+    verifiedBullets: Map<string, any>,
   ): Promise<void> {
     // Save resume
     await this.prisma.resumeJob.update({
@@ -884,7 +881,7 @@ export class ResumeProcessor {
             },
           });
         }
-      })
+      }),
     );
   }
 
@@ -893,7 +890,7 @@ export class ResumeProcessor {
     status: JobStatus,
     stage: string,
     progress: number,
-    errorMessage?: string
+    errorMessage?: string,
   ): Promise<void> {
     await this.prisma.resumeJob.update({
       where: { id: jobId },

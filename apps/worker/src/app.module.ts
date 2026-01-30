@@ -1,9 +1,9 @@
 import { Module } from "@nestjs/common";
+import { AIModule } from "./ai/ai.module";
 import { PrismaModule } from "./prisma/prisma.module";
 import { ProcessorModule } from "./processor/processor.module";
-import { OpenAIModule } from "./openai/openai.module";
 
 @Module({
-  imports: [PrismaModule, OpenAIModule, ProcessorModule],
+  imports: [PrismaModule, AIModule, ProcessorModule],
 })
 export class AppModule {}
