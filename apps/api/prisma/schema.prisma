@@ -13,6 +13,7 @@ datasource db {
 model User {
   id              String          @id @default(cuid())
   email           String          @unique
+  password        String?
   firstName       String?
   lastName        String?
   phone           String?
@@ -30,6 +31,7 @@ model User {
   companies       Company[]
   positions       Position[]
   teams           Team[]
+  refreshTokens   RefreshToken[]
 
   @@map("users")
 }
@@ -270,4 +272,17 @@ model Team {
   @@unique([userId, name])
   @@index([userId])
   @@map("teams")
+}
+
+model RefreshToken {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([token])
+  @@map("refresh_tokens")
 }

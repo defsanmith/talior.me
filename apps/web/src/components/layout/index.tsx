@@ -1,6 +1,19 @@
+"use client";
+
+import { usePathname } from "next/navigation";
 import { SiteHeader } from "./site-header";
 
+const publicRoutes = ["/login", "/register"];
+
 export default function AppLayout({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
+  const isPublicRoute = publicRoutes.includes(pathname);
+
+  // Don't show header/layout for public routes
+  if (isPublicRoute) {
+    return <>{children}</>;
+  }
+
   return (
     <div className="flex min-h-screen w-full flex-col">
       <SiteHeader />

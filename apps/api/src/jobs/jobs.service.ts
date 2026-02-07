@@ -15,17 +15,11 @@ export class JobsService {
     private readonly queueService: QueueService
   ) {}
 
-  async createJob(jobDescription: string): Promise<string> {
-    // Get demo user
-    const user = await this.prisma.user.findFirst();
-    if (!user) {
-      throw new Error("No user found. Please run seed script.");
-    }
-
+  async createJob(jobDescription: string, userId: string): Promise<string> {
     // Create job in database
     const job = await this.prisma.resumeJob.create({
       data: {
-        userId: user.id,
+        userId,
         jobDescription,
         status: JobStatus.QUEUED,
         stage: "Queued",
@@ -36,16 +30,17 @@ export class JobsService {
     // Add to queue
     await this.queueService.addJob(job.id, {
       jobId: job.id,
-      userId: user.id,
+      userId,
       jobDescription,
     });
 
     return job.id;
   }
 
-  async getActiveJobCount(): Promise<number> {
+  async getActiveJobCount(userId: string): Promise<number> {
     return this.prisma.resumeJob.count({
       where: {
+        userId,
         status: {
           in: [JobStatus.QUEUED, JobStatus.PROCESSING],
         },
@@ -53,8 +48,11 @@ export class JobsService {
     });
   }
 
-  async getAllJobs() {
+  async getAllJobs(userId: string) {
     return this.prisma.resumeJob.findMany({
+      where: {
+        userId,
+      },
       include: {
         company: true,
         position: true,
@@ -66,8 +64,8 @@ export class JobsService {
     });
   }
 
-  async getJobById(jobId: string) {
-    return this.prisma.resumeJob.findUnique({
+  async getJobById(jobId: string, userId: string) {
+    const job = await this.prisma.resumeJob.findUnique({
       where: { id: jobId },
       include: {
         company: true,
@@ -75,6 +73,12 @@ export class JobsService {
         team: true,
       },
     });
+
+    if (job && job.userId !== userId) {
+      throw new NotFoundException("Job not found");
+    }
+
+    return job;
   }
 
   async getJobBullets(jobId: string) {
@@ -88,7 +92,8 @@ export class JobsService {
 
   async updateJobResume(
     jobId: string,
-    updateDto: UpdateResumeDto
+    updateDto: UpdateResumeDto,
+    userId: string
   ): Promise<EditableResume> {
     const job = await this.prisma.resumeJob.findUnique({
       where: { id: jobId },
@@ -100,6 +105,10 @@ export class JobsService {
     });
 
     if (!job) {
+      throw new NotFoundException(`Job with id ${jobId} not found`);
+    }
+
+    if (job.userId !== userId) {
       throw new NotFoundException(`Job with id ${jobId} not found`);
     }
 
@@ -134,7 +143,7 @@ export class JobsService {
     return updatedJob.resultResume as EditableResume;
   }
 
-  async getJobResume(jobId: string): Promise<EditableResume | null> {
+  async getJobResume(jobId: string, userId: string): Promise<EditableResume | null> {
     const job = await this.prisma.resumeJob.findUnique({
       where: { id: jobId },
       include: {
@@ -146,6 +155,10 @@ export class JobsService {
     });
 
     if (!job) {
+      throw new NotFoundException(`Job with id ${jobId} not found`);
+    }
+
+    if (job.userId !== userId) {
       throw new NotFoundException(`Job with id ${jobId} not found`);
     }
 
@@ -173,9 +186,9 @@ export class JobsService {
 
   async updateJobMetadata(
     jobId: string,
-    updateDto: UpdateJobMetadataDto
+    updateDto: UpdateJobMetadataDto,
+    userId: string
   ): Promise<any> {
-    // Get current user
     const job = await this.prisma.resumeJob.findUnique({
       where: { id: jobId },
       include: {
@@ -189,7 +202,9 @@ export class JobsService {
       throw new NotFoundException(`Job with id ${jobId} not found`);
     }
 
-    const userId = job.userId;
+    if (job.userId !== userId) {
+      throw new NotFoundException(`Job with id ${jobId} not found`);
+    }
 
     // Handle company upsert
     let companyId = job.companyId;

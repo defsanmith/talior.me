@@ -3,11 +3,12 @@
 import {
   ArrowUpCircleIcon,
   LayoutDashboardIcon,
+  LogOutIcon,
   MenuIcon,
   UserIcon,
 } from "lucide-react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -19,8 +20,12 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
+import { useLogoutMutation } from "@/store/api/auth/queries";
+import { useAppSelector, useAppDispatch } from "@/store";
+import { logout } from "@/store/slices/authSlice";
 import Router from "@/lib/router";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 const navigationItems = [
   {
@@ -37,7 +42,24 @@ const navigationItems = [
 
 export function SiteHeader() {
   const pathname = usePathname();
+  const router = useRouter();
+  const dispatch = useAppDispatch();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [logoutMutation] = useLogoutMutation();
+  const user = useAppSelector((state) => state.auth.user);
+
+  const handleLogout = async () => {
+    try {
+      await logoutMutation().unwrap();
+      dispatch(logout());
+      toast.success("Logged out successfully");
+      router.push("/login");
+    } catch (error) {
+      // Even if API call fails, clear local state
+      dispatch(logout());
+      router.push("/login");
+    }
+  };
 
   return (
     <header className="sticky top-0 z-50 flex h-16 w-full items-center border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -72,6 +94,18 @@ export function SiteHeader() {
 
         {/* Spacer */}
         <div className="flex-1" />
+
+        {/* User info and logout */}
+        {user && (
+          <div className="hidden md:flex md:items-center md:gap-2">
+            <span className="text-sm text-muted-foreground">
+              {user.email}
+            </span>
+            <Button variant="ghost" size="icon" onClick={handleLogout}>
+              <LogOutIcon className="h-4 w-4" />
+            </Button>
+          </div>
+        )}
 
         {/* Mobile Menu */}
         <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
@@ -109,6 +143,25 @@ export function SiteHeader() {
                   </Link>
                 );
               })}
+              {user && (
+                <>
+                  <Separator className="my-2" />
+                  <div className="px-2 py-1 text-sm text-muted-foreground">
+                    {user.email}
+                  </div>
+                  <Button
+                    variant="ghost"
+                    className="w-full justify-start gap-2"
+                    onClick={() => {
+                      handleLogout();
+                      setMobileMenuOpen(false);
+                    }}
+                  >
+                    <LogOutIcon className="h-4 w-4" />
+                    Logout
+                  </Button>
+                </>
+              )}
             </div>
           </SheetContent>
         </Sheet>

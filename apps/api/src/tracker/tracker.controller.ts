@@ -16,6 +16,7 @@ import {
   UpdateJobDetailsDto,
   UpdateJobStatusDto,
 } from "@tailor.me/shared";
+import { CurrentUser, JwtPayload } from "../auth/decorators/current-user.decorator";
 import { TrackerService } from "./tracker.service";
 
 @Controller("api/tracker")
@@ -27,18 +28,24 @@ export class TrackerController {
   // ============================================
 
   @Get("companies")
-  async getCompanies() {
-    return this.trackerService.getCompanies();
+  async getCompanies(@CurrentUser() user: JwtPayload) {
+    return this.trackerService.getCompanies(user.userId);
   }
 
   @Post("companies")
-  async createCompany(@Body() dto: CreateCompanyDto) {
-    return this.trackerService.createCompany(dto);
+  async createCompany(
+    @Body() dto: CreateCompanyDto,
+    @CurrentUser() user: JwtPayload
+  ) {
+    return this.trackerService.createCompany(dto, user.userId);
   }
 
   @Delete("companies/:id")
-  async deleteCompany(@Param("id") id: string) {
-    return this.trackerService.deleteCompany(id);
+  async deleteCompany(
+    @Param("id") id: string,
+    @CurrentUser() user: JwtPayload
+  ) {
+    return this.trackerService.deleteCompany(id, user.userId);
   }
 
   // ============================================
@@ -46,18 +53,24 @@ export class TrackerController {
   // ============================================
 
   @Get("positions")
-  async getPositions() {
-    return this.trackerService.getPositions();
+  async getPositions(@CurrentUser() user: JwtPayload) {
+    return this.trackerService.getPositions(user.userId);
   }
 
   @Post("positions")
-  async createPosition(@Body() dto: CreatePositionDto) {
-    return this.trackerService.createPosition(dto);
+  async createPosition(
+    @Body() dto: CreatePositionDto,
+    @CurrentUser() user: JwtPayload
+  ) {
+    return this.trackerService.createPosition(dto, user.userId);
   }
 
   @Delete("positions/:id")
-  async deletePosition(@Param("id") id: string) {
-    return this.trackerService.deletePosition(id);
+  async deletePosition(
+    @Param("id") id: string,
+    @CurrentUser() user: JwtPayload
+  ) {
+    return this.trackerService.deletePosition(id, user.userId);
   }
 
   // ============================================
@@ -65,18 +78,24 @@ export class TrackerController {
   // ============================================
 
   @Get("teams")
-  async getTeams() {
-    return this.trackerService.getTeams();
+  async getTeams(@CurrentUser() user: JwtPayload) {
+    return this.trackerService.getTeams(user.userId);
   }
 
   @Post("teams")
-  async createTeam(@Body() dto: CreateTeamDto) {
-    return this.trackerService.createTeam(dto);
+  async createTeam(
+    @Body() dto: CreateTeamDto,
+    @CurrentUser() user: JwtPayload
+  ) {
+    return this.trackerService.createTeam(dto, user.userId);
   }
 
   @Delete("teams/:id")
-  async deleteTeam(@Param("id") id: string) {
-    return this.trackerService.deleteTeam(id);
+  async deleteTeam(
+    @Param("id") id: string,
+    @CurrentUser() user: JwtPayload
+  ) {
+    return this.trackerService.deleteTeam(id, user.userId);
   }
 
   // ============================================
@@ -84,28 +103,36 @@ export class TrackerController {
   // ============================================
 
   @Get("jobs")
-  async getJobs(@Query() query: GetJobsQueryDto) {
-    return this.trackerService.getJobs(query);
+  async getJobs(
+    @Query() query: GetJobsQueryDto,
+    @CurrentUser() user: JwtPayload
+  ) {
+    return this.trackerService.getJobs(query, user.userId);
   }
 
   @Patch("jobs/:id/status")
   async updateJobStatus(
     @Param("id") id: string,
-    @Body() dto: UpdateJobStatusDto
+    @Body() dto: UpdateJobStatusDto,
+    @CurrentUser() user: JwtPayload
   ) {
-    return this.trackerService.updateJobStatus(id, dto);
+    return this.trackerService.updateJobStatus(id, dto, user.userId);
   }
 
   @Post("jobs/:id/apply-and-next")
-  async applyAndGetNext(@Param("id") id: string) {
-    return this.trackerService.applyAndGetNext(id);
+  async applyAndGetNext(
+    @Param("id") id: string,
+    @CurrentUser() user: JwtPayload
+  ) {
+    return this.trackerService.applyAndGetNext(id, user.userId);
   }
 
   @Patch("jobs/:id")
   async updateJobDetails(
     @Param("id") id: string,
-    @Body() dto: UpdateJobDetailsDto
+    @Body() dto: UpdateJobDetailsDto,
+    @CurrentUser() user: JwtPayload
   ) {
-    return this.trackerService.updateJobDetails(id, dto);
+    return this.trackerService.updateJobDetails(id, dto, user.userId);
   }
 }

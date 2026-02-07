@@ -1,10 +1,14 @@
 import { configureStore } from "@reduxjs/toolkit";
 import { useDispatch, useSelector } from "react-redux";
 import { appApi } from "./api";
+// Import authApi to ensure it's initialized before authSlice uses it
+import "./api/auth/queries";
+import authReducer from "./slices/authSlice";
 
 export const store = configureStore({
   reducer: {
     [appApi.reducerPath]: appApi.reducer,
+    auth: authReducer,
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware().concat(appApi.middleware),
