@@ -1,5 +1,6 @@
 import AppLayout from "@/components/layout";
 import RootProvider from "@/components/providers/root-provider";
+import { ProtectedRoute } from "@/components/auth/protected-route";
 import type { Metadata } from "next";
 import "./globals.css";
 
@@ -17,7 +18,9 @@ export default function RootLayout({
     <html lang="en">
       <body>
         <RootProvider>
-          <AppLayout>{children}</AppLayout>
+          <ProtectedRoute>
+            <AppLayout>{children}</AppLayout>
+          </ProtectedRoute>
         </RootProvider>
       </body>
     </html>

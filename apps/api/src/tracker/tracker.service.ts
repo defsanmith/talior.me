@@ -13,42 +13,29 @@ import { PrismaService } from "../prisma/prisma.service";
 export class TrackerService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async getUser() {
-    return this.prisma.user.findFirst();
-  }
-
   // ============================================
   // Company endpoints
   // ============================================
 
-  async getCompanies() {
-    const user = await this.getUser();
-    if (!user) return [];
-
+  async getCompanies(userId: string) {
     return this.prisma.company.findMany({
-      where: { userId: user.id },
+      where: { userId },
       orderBy: { name: "asc" },
     });
   }
 
-  async createCompany(dto: CreateCompanyDto) {
-    const user = await this.getUser();
-    if (!user) throw new NotFoundException("User not found");
-
+  async createCompany(dto: CreateCompanyDto, userId: string) {
     return this.prisma.company.create({
       data: {
-        userId: user.id,
+        userId,
         name: dto.name,
       },
     });
   }
 
-  async deleteCompany(id: string) {
-    const user = await this.getUser();
-    if (!user) throw new NotFoundException("User not found");
-
+  async deleteCompany(id: string, userId: string) {
     const company = await this.prisma.company.findFirst({
-      where: { id, userId: user.id },
+      where: { id, userId },
     });
 
     if (!company) {
@@ -64,34 +51,25 @@ export class TrackerService {
   // Position endpoints
   // ============================================
 
-  async getPositions() {
-    const user = await this.getUser();
-    if (!user) return [];
-
+  async getPositions(userId: string) {
     return this.prisma.position.findMany({
-      where: { userId: user.id },
+      where: { userId },
       orderBy: { title: "asc" },
     });
   }
 
-  async createPosition(dto: CreatePositionDto) {
-    const user = await this.getUser();
-    if (!user) throw new NotFoundException("User not found");
-
+  async createPosition(dto: CreatePositionDto, userId: string) {
     return this.prisma.position.create({
       data: {
-        userId: user.id,
+        userId,
         title: dto.title,
       },
     });
   }
 
-  async deletePosition(id: string) {
-    const user = await this.getUser();
-    if (!user) throw new NotFoundException("User not found");
-
+  async deletePosition(id: string, userId: string) {
     const position = await this.prisma.position.findFirst({
-      where: { id, userId: user.id },
+      where: { id, userId },
     });
 
     if (!position) {
@@ -107,34 +85,25 @@ export class TrackerService {
   // Team endpoints
   // ============================================
 
-  async getTeams() {
-    const user = await this.getUser();
-    if (!user) return [];
-
+  async getTeams(userId: string) {
     return this.prisma.team.findMany({
-      where: { userId: user.id },
+      where: { userId },
       orderBy: { name: "asc" },
     });
   }
 
-  async createTeam(dto: CreateTeamDto) {
-    const user = await this.getUser();
-    if (!user) throw new NotFoundException("User not found");
-
+  async createTeam(dto: CreateTeamDto, userId: string) {
     return this.prisma.team.create({
       data: {
-        userId: user.id,
+        userId,
         name: dto.name,
       },
     });
   }
 
-  async deleteTeam(id: string) {
-    const user = await this.getUser();
-    if (!user) throw new NotFoundException("User not found");
-
+  async deleteTeam(id: string, userId: string) {
     const team = await this.prisma.team.findFirst({
-      where: { id, userId: user.id },
+      where: { id, userId },
     });
 
     if (!team) {
@@ -150,10 +119,7 @@ export class TrackerService {
   // Job tracking endpoints
   // ============================================
 
-  async getJobs(query: GetJobsQueryDto) {
-    const user = await this.getUser();
-    if (!user) return { jobs: [], total: 0 };
-
+  async getJobs(query: GetJobsQueryDto, userId: string) {
     const {
       status,
       companyId,
@@ -171,7 +137,7 @@ export class TrackerService {
 
     // Build where clause
     const where: any = {
-      userId: user.id,
+      userId,
     };
 
     if (status) {
@@ -214,12 +180,9 @@ export class TrackerService {
     return { jobs, total, page: pageNum, limit: limitNum };
   }
 
-  async updateJobStatus(id: string, dto: UpdateJobStatusDto) {
-    const user = await this.getUser();
-    if (!user) throw new NotFoundException("User not found");
-
+  async updateJobStatus(id: string, dto: UpdateJobStatusDto, userId: string) {
     const job = await this.prisma.resumeJob.findFirst({
-      where: { id, userId: user.id },
+      where: { id, userId },
     });
 
     if (!job) {
@@ -239,13 +202,10 @@ export class TrackerService {
     });
   }
 
-  async applyAndGetNext(id: string) {
-    const user = await this.getUser();
-    if (!user) throw new NotFoundException("User not found");
-
+  async applyAndGetNext(id: string, userId: string) {
     // Verify the job exists and belongs to user
     const job = await this.prisma.resumeJob.findFirst({
-      where: { id, userId: user.id },
+      where: { id, userId },
     });
 
     if (!job) {
@@ -264,7 +224,7 @@ export class TrackerService {
     // Get next pending job (READY_TO_APPLY status)
     const nextJob = await this.prisma.resumeJob.findFirst({
       where: {
-        userId: user.id,
+        userId,
         applicationStatus: "READY_TO_APPLY",
       },
       include: {
@@ -280,12 +240,9 @@ export class TrackerService {
     return { nextJob };
   }
 
-  async updateJobDetails(id: string, dto: UpdateJobDetailsDto) {
-    const user = await this.getUser();
-    if (!user) throw new NotFoundException("User not found");
-
+  async updateJobDetails(id: string, dto: UpdateJobDetailsDto, userId: string) {
     const job = await this.prisma.resumeJob.findFirst({
-      where: { id, userId: user.id },
+      where: { id, userId },
     });
 
     if (!job) {

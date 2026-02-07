@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  ForbiddenException,
   Get,
   HttpException,
   HttpStatus,
@@ -19,6 +20,7 @@ import {
   UpdateJobMetadataDto,
   UpdateResumeDto,
 } from "@tailor.me/shared";
+import { CurrentUser, JwtPayload } from "../auth/decorators/current-user.decorator";
 import { PdfService } from "../pdf/pdf.service";
 import { JobsService } from "./jobs.service";
 
@@ -31,9 +33,10 @@ export class JobsController {
 
   @Post()
   async createJob(
-    @Body() createJobDto: CreateJobDto
+    @Body() createJobDto: CreateJobDto,
+    @CurrentUser() user: JwtPayload
   ): Promise<CreateJobResponse> {
-    const activeCount = await this.jobsService.getActiveJobCount();
+    const activeCount = await this.jobsService.getActiveJobCount(user.userId);
     if (activeCount >= 10) {
       throw new HttpException(
         "Maximum of 10 concurrent jobs allowed. Please wait for some jobs to complete.",
@@ -41,13 +44,13 @@ export class JobsController {
       );
     }
 
-    const jobId = await this.jobsService.createJob(createJobDto.jobDescription);
+    const jobId = await this.jobsService.createJob(createJobDto.jobDescription, user.userId);
     return { jobId };
   }
 
   @Get()
-  async getJobs(): Promise<GetJobsResponse> {
-    const rawJobs = await this.jobsService.getAllJobs();
+  async getJobs(@CurrentUser() user: JwtPayload): Promise<GetJobsResponse> {
+    const rawJobs = await this.jobsService.getAllJobs(user.userId);
     const jobs = rawJobs.map((job) => {
       let parsedJd: any = job.parsedJd;
       try {
@@ -66,8 +69,11 @@ export class JobsController {
   }
 
   @Get(":jobId")
-  async getJob(@Param("jobId") jobId: string): Promise<GetJobResponse> {
-    const job = await this.jobsService.getJobById(jobId);
+  async getJob(
+    @Param("jobId") jobId: string,
+    @CurrentUser() user: JwtPayload
+  ): Promise<GetJobResponse> {
+    const job = await this.jobsService.getJobById(jobId, user.userId);
     if (!job) {
       throw new HttpException("Job not found", HttpStatus.NOT_FOUND);
     }
@@ -99,31 +105,36 @@ export class JobsController {
   @Patch(":jobId/resume")
   async updateJobResume(
     @Param("jobId") jobId: string,
-    @Body() updateResumeDto: UpdateResumeDto
+    @Body() updateResumeDto: UpdateResumeDto,
+    @CurrentUser() user: JwtPayload
   ): Promise<{ resume: EditableResume }> {
     const resume = await this.jobsService.updateJobResume(
       jobId,
-      updateResumeDto
+      updateResumeDto,
+      user.userId
     );
     return { resume };
   }
 
   @Get(":jobId/resume")
   async getJobResume(
-    @Param("jobId") jobId: string
+    @Param("jobId") jobId: string,
+    @CurrentUser() user: JwtPayload
   ): Promise<{ resume: EditableResume | null }> {
-    const resume = await this.jobsService.getJobResume(jobId);
+    const resume = await this.jobsService.getJobResume(jobId, user.userId);
     return { resume };
   }
 
   @Patch(":jobId/metadata")
   async updateJobMetadata(
     @Param("jobId") jobId: string,
-    @Body() updateMetadataDto: UpdateJobMetadataDto
+    @Body() updateMetadataDto: UpdateJobMetadataDto,
+    @CurrentUser() user: JwtPayload
   ): Promise<any> {
     const job = await this.jobsService.updateJobMetadata(
       jobId,
-      updateMetadataDto
+      updateMetadataDto,
+      user.userId
     );
     return { job };
   }
@@ -131,9 +142,10 @@ export class JobsController {
   @Get(":jobId/resume/pdf")
   async getResumePdf(
     @Param("jobId") jobId: string,
-    @Query("download") download: string
+    @Query("download") download: string,
+    @CurrentUser() user: JwtPayload
   ): Promise<StreamableFile> {
-    const resume = await this.jobsService.getJobResume(jobId);
+    const resume = await this.jobsService.getJobResume(jobId, user.userId);
     if (!resume) {
       throw new HttpException("Resume not found", HttpStatus.NOT_FOUND);
     }

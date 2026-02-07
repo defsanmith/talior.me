@@ -51,16 +51,15 @@ const projectInclude = {
 export class ProfileService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async getUser() {
-    return this.prisma.user.findFirst();
+  async getUser(userId: string) {
+    return this.prisma.user.findUnique({
+      where: { id: userId },
+    });
   }
 
-  async getExperiences() {
-    const user = await this.getUser();
-    if (!user) return [];
-
+  async getExperiences(userId: string) {
     return this.prisma.experience.findMany({
-      where: { userId: user.id },
+      where: { userId },
       include: {
         bullets: {
           include: bulletInclude,
@@ -72,24 +71,18 @@ export class ProfileService {
     });
   }
 
-  async getEducation() {
-    const user = await this.getUser();
-    if (!user) return [];
-
+  async getEducation(userId: string) {
     return this.prisma.education.findMany({
-      where: { userId: user.id },
+      where: { userId },
       orderBy: {
         graduationDate: "desc",
       },
     });
   }
 
-  async getProjects() {
-    const user = await this.getUser();
-    if (!user) return [];
-
+  async getProjects(userId: string) {
     return this.prisma.project.findMany({
-      where: { userId: user.id },
+      where: { userId },
       include: projectInclude,
       orderBy: {
         createdAt: "desc",
@@ -97,12 +90,9 @@ export class ProfileService {
     });
   }
 
-  async getSkills() {
-    const user = await this.getUser();
-    if (!user) return [];
-
+  async getSkills(userId: string) {
     return this.prisma.skill.findMany({
-      where: { userId: user.id },
+      where: { userId },
       include: {
         category: true,
       },
@@ -112,12 +102,9 @@ export class ProfileService {
     });
   }
 
-  async getSkillCategories() {
-    const user = await this.getUser();
-    if (!user) return [];
-
+  async getSkillCategories(userId: string) {
     return this.prisma.skillCategory.findMany({
-      where: { userId: user.id },
+      where: { userId },
       include: {
         skills: true,
       },
@@ -131,14 +118,9 @@ export class ProfileService {
   // User methods
   // ============================================
 
-  async updateUser(dto: UpdateUserDto) {
-    const user = await this.getUser();
-    if (!user) {
-      throw new NotFoundException("No user found");
-    }
-
+  async updateUser(dto: UpdateUserDto, userId: string) {
     return this.prisma.user.update({
-      where: { id: user.id },
+      where: { id: userId },
       data: dto,
     });
   }
@@ -147,15 +129,10 @@ export class ProfileService {
   // Experience methods
   // ============================================
 
-  async createExperience(dto: CreateProfileExperienceDto) {
-    const user = await this.getUser();
-    if (!user) {
-      throw new NotFoundException("No user found");
-    }
-
+  async createExperience(dto: CreateProfileExperienceDto, userId: string) {
     return this.prisma.experience.create({
       data: {
-        userId: user.id,
+        userId,
         ...dto,
       },
       include: {
@@ -166,12 +143,16 @@ export class ProfileService {
     });
   }
 
-  async updateExperience(id: string, dto: UpdateProfileExperienceDto) {
+  async updateExperience(id: string, dto: UpdateProfileExperienceDto, userId: string) {
     const experience = await this.prisma.experience.findUnique({
       where: { id },
     });
 
     if (!experience) {
+      throw new NotFoundException(`Experience with id ${id} not found`);
+    }
+
+    if (experience.userId !== userId) {
       throw new NotFoundException(`Experience with id ${id} not found`);
     }
 
@@ -186,12 +167,16 @@ export class ProfileService {
     });
   }
 
-  async deleteExperience(id: string) {
+  async deleteExperience(id: string, userId: string) {
     const experience = await this.prisma.experience.findUnique({
       where: { id },
     });
 
     if (!experience) {
+      throw new NotFoundException(`Experience with id ${id} not found`);
+    }
+
+    if (experience.userId !== userId) {
       throw new NotFoundException(`Experience with id ${id} not found`);
     }
 
@@ -206,19 +191,49 @@ export class ProfileService {
   // Bullet methods
   // ============================================
 
-  async createBullet(dto: CreateBulletDto) {
+  async createBullet(dto: CreateBulletDto, userId: string) {
+    // Verify that the bullet belongs to the user's experience or project
+    if (dto.experienceId) {
+      const experience = await this.prisma.experience.findUnique({
+        where: { id: dto.experienceId },
+      });
+      if (!experience || experience.userId !== userId) {
+        throw new NotFoundException("Experience not found");
+      }
+    }
+    if (dto.projectId) {
+      const project = await this.prisma.project.findUnique({
+        where: { id: dto.projectId },
+      });
+      if (!project || project.userId !== userId) {
+        throw new NotFoundException("Project not found");
+      }
+    }
+
     return this.prisma.bullet.create({
       data: dto,
       include: bulletInclude,
     });
   }
 
-  async updateBullet(id: string, dto: UpdateProfileBulletDto) {
+  async updateBullet(id: string, dto: UpdateProfileBulletDto, userId: string) {
     const bullet = await this.prisma.bullet.findUnique({
       where: { id },
+      include: {
+        experience: true,
+        project: true,
+      },
     });
 
     if (!bullet) {
+      throw new NotFoundException(`Bullet with id ${id} not found`);
+    }
+
+    // Verify ownership through experience or project
+    if (bullet.experience && bullet.experience.userId !== userId) {
+      throw new NotFoundException(`Bullet with id ${id} not found`);
+    }
+    if (bullet.project && bullet.project.userId !== userId) {
       throw new NotFoundException(`Bullet with id ${id} not found`);
     }
 
@@ -229,12 +244,24 @@ export class ProfileService {
     });
   }
 
-  async updateBulletSkills(id: string, dto: UpdateBulletSkillsDto) {
+  async updateBulletSkills(id: string, dto: UpdateBulletSkillsDto, userId: string) {
     const bullet = await this.prisma.bullet.findUnique({
       where: { id },
+      include: {
+        experience: true,
+        project: true,
+      },
     });
 
     if (!bullet) {
+      throw new NotFoundException(`Bullet with id ${id} not found`);
+    }
+
+    // Verify ownership through experience or project
+    if (bullet.experience && bullet.experience.userId !== userId) {
+      throw new NotFoundException(`Bullet with id ${id} not found`);
+    }
+    if (bullet.project && bullet.project.userId !== userId) {
       throw new NotFoundException(`Bullet with id ${id} not found`);
     }
 
@@ -258,12 +285,24 @@ export class ProfileService {
     });
   }
 
-  async deleteBullet(id: string) {
+  async deleteBullet(id: string, userId: string) {
     const bullet = await this.prisma.bullet.findUnique({
       where: { id },
+      include: {
+        experience: true,
+        project: true,
+      },
     });
 
     if (!bullet) {
+      throw new NotFoundException(`Bullet with id ${id} not found`);
+    }
+
+    // Verify ownership through experience or project
+    if (bullet.experience && bullet.experience.userId !== userId) {
+      throw new NotFoundException(`Bullet with id ${id} not found`);
+    }
+    if (bullet.project && bullet.project.userId !== userId) {
       throw new NotFoundException(`Bullet with id ${id} not found`);
     }
 
@@ -278,26 +317,25 @@ export class ProfileService {
   // Education methods
   // ============================================
 
-  async createEducation(dto: CreateProfileEducationDto) {
-    const user = await this.getUser();
-    if (!user) {
-      throw new NotFoundException("No user found");
-    }
-
+  async createEducation(dto: CreateProfileEducationDto, userId: string) {
     return this.prisma.education.create({
       data: {
-        userId: user.id,
+        userId,
         ...dto,
       },
     });
   }
 
-  async updateEducation(id: string, dto: UpdateProfileEducationDto) {
+  async updateEducation(id: string, dto: UpdateProfileEducationDto, userId: string) {
     const education = await this.prisma.education.findUnique({
       where: { id },
     });
 
     if (!education) {
+      throw new NotFoundException(`Education with id ${id} not found`);
+    }
+
+    if (education.userId !== userId) {
       throw new NotFoundException(`Education with id ${id} not found`);
     }
 
@@ -307,12 +345,16 @@ export class ProfileService {
     });
   }
 
-  async deleteEducation(id: string) {
+  async deleteEducation(id: string, userId: string) {
     const education = await this.prisma.education.findUnique({
       where: { id },
     });
 
     if (!education) {
+      throw new NotFoundException(`Education with id ${id} not found`);
+    }
+
+    if (education.userId !== userId) {
       throw new NotFoundException(`Education with id ${id} not found`);
     }
 
@@ -327,27 +369,26 @@ export class ProfileService {
   // Project methods
   // ============================================
 
-  async createProject(dto: CreateProfileProjectDto) {
-    const user = await this.getUser();
-    if (!user) {
-      throw new NotFoundException("No user found");
-    }
-
+  async createProject(dto: CreateProfileProjectDto, userId: string) {
     return this.prisma.project.create({
       data: {
-        userId: user.id,
+        userId,
         ...dto,
       },
       include: projectInclude,
     });
   }
 
-  async updateProject(id: string, dto: UpdateProfileProjectDto) {
+  async updateProject(id: string, dto: UpdateProfileProjectDto, userId: string) {
     const project = await this.prisma.project.findUnique({
       where: { id },
     });
 
     if (!project) {
+      throw new NotFoundException(`Project with id ${id} not found`);
+    }
+
+    if (project.userId !== userId) {
       throw new NotFoundException(`Project with id ${id} not found`);
     }
 
@@ -358,12 +399,16 @@ export class ProfileService {
     });
   }
 
-  async updateProjectSkills(id: string, dto: UpdateProjectSkillsDto) {
+  async updateProjectSkills(id: string, dto: UpdateProjectSkillsDto, userId: string) {
     const project = await this.prisma.project.findUnique({
       where: { id },
     });
 
     if (!project) {
+      throw new NotFoundException(`Project with id ${id} not found`);
+    }
+
+    if (project.userId !== userId) {
       throw new NotFoundException(`Project with id ${id} not found`);
     }
 
@@ -387,12 +432,16 @@ export class ProfileService {
     });
   }
 
-  async deleteProject(id: string) {
+  async deleteProject(id: string, userId: string) {
     const project = await this.prisma.project.findUnique({
       where: { id },
     });
 
     if (!project) {
+      throw new NotFoundException(`Project with id ${id} not found`);
+    }
+
+    if (project.userId !== userId) {
       throw new NotFoundException(`Project with id ${id} not found`);
     }
 
@@ -407,15 +456,10 @@ export class ProfileService {
   // Skill Category methods
   // ============================================
 
-  async createSkillCategory(dto: CreateProfileSkillCategoryDto) {
-    const user = await this.getUser();
-    if (!user) {
-      throw new NotFoundException("No user found");
-    }
-
+  async createSkillCategory(dto: CreateProfileSkillCategoryDto, userId: string) {
     return this.prisma.skillCategory.create({
       data: {
-        userId: user.id,
+        userId,
         ...dto,
       },
       include: {
@@ -424,12 +468,16 @@ export class ProfileService {
     });
   }
 
-  async updateSkillCategory(id: string, dto: UpdateProfileSkillCategoryDto) {
+  async updateSkillCategory(id: string, dto: UpdateProfileSkillCategoryDto, userId: string) {
     const category = await this.prisma.skillCategory.findUnique({
       where: { id },
     });
 
     if (!category) {
+      throw new NotFoundException(`Skill category with id ${id} not found`);
+    }
+
+    if (category.userId !== userId) {
       throw new NotFoundException(`Skill category with id ${id} not found`);
     }
 
@@ -442,12 +490,16 @@ export class ProfileService {
     });
   }
 
-  async deleteSkillCategory(id: string) {
+  async deleteSkillCategory(id: string, userId: string) {
     const category = await this.prisma.skillCategory.findUnique({
       where: { id },
     });
 
     if (!category) {
+      throw new NotFoundException(`Skill category with id ${id} not found`);
+    }
+
+    if (category.userId !== userId) {
       throw new NotFoundException(`Skill category with id ${id} not found`);
     }
 
@@ -462,15 +514,20 @@ export class ProfileService {
   // Skill methods
   // ============================================
 
-  async createSkill(dto: CreateProfileSkillDto) {
-    const user = await this.getUser();
-    if (!user) {
-      throw new NotFoundException("No user found");
+  async createSkill(dto: CreateProfileSkillDto, userId: string) {
+    // Verify category belongs to user if provided
+    if (dto.categoryId) {
+      const category = await this.prisma.skillCategory.findUnique({
+        where: { id: dto.categoryId },
+      });
+      if (!category || category.userId !== userId) {
+        throw new NotFoundException("Skill category not found");
+      }
     }
 
     return this.prisma.skill.create({
       data: {
-        userId: user.id,
+        userId,
         ...dto,
       },
       include: {
@@ -479,13 +536,27 @@ export class ProfileService {
     });
   }
 
-  async updateSkill(id: string, dto: UpdateProfileSkillDto) {
+  async updateSkill(id: string, dto: UpdateProfileSkillDto, userId: string) {
     const skill = await this.prisma.skill.findUnique({
       where: { id },
     });
 
     if (!skill) {
       throw new NotFoundException(`Skill with id ${id} not found`);
+    }
+
+    if (skill.userId !== userId) {
+      throw new NotFoundException(`Skill with id ${id} not found`);
+    }
+
+    // Verify category belongs to user if provided
+    if (dto.categoryId) {
+      const category = await this.prisma.skillCategory.findUnique({
+        where: { id: dto.categoryId },
+      });
+      if (!category || category.userId !== userId) {
+        throw new NotFoundException("Skill category not found");
+      }
     }
 
     return this.prisma.skill.update({
@@ -497,12 +568,16 @@ export class ProfileService {
     });
   }
 
-  async deleteSkill(id: string) {
+  async deleteSkill(id: string, userId: string) {
     const skill = await this.prisma.skill.findUnique({
       where: { id },
     });
 
     if (!skill) {
+      throw new NotFoundException(`Skill with id ${id} not found`);
+    }
+
+    if (skill.userId !== userId) {
       throw new NotFoundException(`Skill with id ${id} not found`);
     }
 
