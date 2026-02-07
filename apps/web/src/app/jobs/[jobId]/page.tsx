@@ -446,7 +446,7 @@ function ResumeBuilderEditor({
     <div>
       {/* Header with save status */}
       <div>
-        <div className="flex items-center justify-between py-4 pr-4">
+        <div className="flex items-center justify-between pr-4">
           <div className="flex-1">
             <div className="flex items-center gap-2">
               <InlineCompanyCombobox
@@ -506,7 +506,7 @@ function ResumeBuilderEditor({
       </div>
 
       {/* Main content - two column layout */}
-      <div className="flex h-[calc(100vh-156px)]">
+      <div className="flex h-[calc(100vh-176px)]">
         {/* Left Panel - Editor */}
         <div className="w-1/2 overflow-y-auto p-4 pl-0">
           {/* Job Description Info */}
