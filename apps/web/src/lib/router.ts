@@ -5,6 +5,8 @@ export default class Router {
   static DASHBOARD = "/";
   static JOBS = "/jobs";
 
+  static LOGIN = "/login";
+
   static jobDetails(jobId: string) {
     return `${Router.JOBS}/${jobId}`;
   }
