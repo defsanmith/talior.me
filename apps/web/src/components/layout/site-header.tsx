@@ -1,31 +1,12 @@
 "use client";
 
-import {
-  ArrowUpCircleIcon,
-  LayoutDashboardIcon,
-  LogOutIcon,
-  MenuIcon,
-  UserIcon,
-} from "lucide-react";
+import { ArrowUpCircleIcon, LayoutDashboardIcon } from "lucide-react";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
-import { useState } from "react";
+import { usePathname } from "next/navigation";
 
-import { Button } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetTrigger,
-} from "@/components/ui/sheet";
-import { useLogoutMutation } from "@/store/api/auth/queries";
-import { useAppSelector, useAppDispatch } from "@/store";
-import { logout } from "@/store/slices/authSlice";
 import Router from "@/lib/router";
 import { cn } from "@/lib/utils";
-import { toast } from "sonner";
+import UserNav from "./user-nav";
 
 const navigationItems = [
   {
@@ -33,33 +14,15 @@ const navigationItems = [
     url: Router.DASHBOARD,
     icon: LayoutDashboardIcon,
   },
-  {
-    title: "Profile",
-    url: Router.PROFILE,
-    icon: UserIcon,
-  },
+  // {
+  //   title: "Profile",
+  //   url: Router.PROFILE,
+  //   icon: UserIcon,
+  // },
 ];
 
 export function SiteHeader() {
   const pathname = usePathname();
-  const router = useRouter();
-  const dispatch = useAppDispatch();
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [logoutMutation] = useLogoutMutation();
-  const user = useAppSelector((state) => state.auth.user);
-
-  const handleLogout = async () => {
-    try {
-      await logoutMutation().unwrap();
-      dispatch(logout());
-      toast.success("Logged out successfully");
-      router.push("/login");
-    } catch (error) {
-      // Even if API call fails, clear local state
-      dispatch(logout());
-      router.push("/login");
-    }
-  };
 
   return (
     <header className="sticky top-0 z-50 flex h-16 w-full items-center border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -71,22 +34,21 @@ export function SiteHeader() {
         </Link>
 
         {/* Desktop Navigation */}
-        <nav className="hidden md:flex md:items-center md:gap-1">
+        <nav className="md:flex md:items-center md:gap-1">
           {navigationItems.map((item) => {
-            const Icon = item.icon;
             const isActive = pathname === item.url;
             return (
-              <Link key={item.url} href={item.url}>
-                <Button
-                  variant="ghost"
-                  className={cn(
-                    "gap-2",
-                    isActive && "bg-accent text-accent-foreground",
-                  )}
-                >
-                  <Icon className="h-4 w-4" />
-                  {item.title}
-                </Button>
+              <Link
+                key={item.url}
+                href={item.url}
+                className={cn(
+                  "text-sm font-medium text-muted-foreground transition-colors",
+                  isActive
+                    ? "text-primary"
+                    : "text-muted-foreground hover:text-primary",
+                )}
+              >
+                {item.title}
               </Link>
             );
           })}
@@ -95,22 +57,22 @@ export function SiteHeader() {
         {/* Spacer */}
         <div className="flex-1" />
 
+        <UserNav />
+
         {/* User info and logout */}
-        {user && (
-          <div className="hidden md:flex md:items-center md:gap-2">
-            <span className="text-sm text-muted-foreground">
-              {user.email}
-            </span>
+        {/* {user && (
+          <div className="md:flex md:items-center md:gap-2">
+            <span className="text-sm text-muted-foreground">{user.email}</span>
             <Button variant="ghost" size="icon" onClick={handleLogout}>
               <LogOutIcon className="h-4 w-4" />
             </Button>
           </div>
-        )}
+        )} */}
 
         {/* Mobile Menu */}
-        <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
+        {/* <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
           <SheetTrigger asChild>
-            <Button variant="ghost" size="icon" className="md:hidden">
+            <Button variant="ghost" size="icon" className="md:">
               <MenuIcon className="h-5 w-5" />
               <span className="sr-only">Toggle menu</span>
             </Button>
@@ -164,7 +126,7 @@ export function SiteHeader() {
               )}
             </div>
           </SheetContent>
-        </Sheet>
+        </Sheet> */}
       </div>
     </header>
   );
