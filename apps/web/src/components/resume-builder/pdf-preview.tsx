@@ -1,7 +1,7 @@
 "use client";
 
-import { Config } from "@/lib/config";
 import { cn } from "@/lib/utils";
+import { useLazyGetResumePdfQuery } from "@/store/api/jobs/queries";
 import { Loader2 } from "lucide-react";
 import dynamic from "next/dynamic";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -27,10 +27,10 @@ interface PdfPreviewProps {
 
 export function PdfPreview({ jobId, resume, className }: PdfPreviewProps) {
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [numPages, setNumPages] = useState<number>(1);
   const [isClient, setIsClient] = useState(false);
+  const [triggerGetPdf, { isLoading }] = useLazyGetResumePdfQuery();
 
   // Only render PDF components on the client
   useEffect(() => {
@@ -49,24 +49,11 @@ export function PdfPreview({ jobId, resume, className }: PdfPreviewProps) {
 
   // Fetch PDF when resume changes (debounced)
   const fetchPdf = useCallback(async () => {
-    setIsLoading(true);
     setError(null);
 
     try {
-      const response = await fetch(
-        `${Config.API_BASE_URL}/jobs/${jobId}/resume/pdf`,
-        {
-          method: "GET",
-          cache: "no-store",
-        },
-      );
-
-      if (!response.ok) {
-        throw new Error(`Failed to generate PDF: ${response.statusText}`);
-      }
-
-      const blob = await response.blob();
-      const url = URL.createObjectURL(blob);
+      const result = await triggerGetPdf(jobId).unwrap();
+      const url = URL.createObjectURL(result);
 
       // Clean up previous URL
       if (pdfUrl) {
@@ -76,10 +63,8 @@ export function PdfPreview({ jobId, resume, className }: PdfPreviewProps) {
       setPdfUrl(url);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load PDF");
-    } finally {
-      setIsLoading(false);
     }
-  }, [jobId, pdfUrl]);
+  }, [jobId, pdfUrl, triggerGetPdf]);
 
   // Debounced fetch when resume changes
   useEffect(() => {

@@ -44,12 +44,13 @@ import {
   SectionOrder,
 } from "@/components/resume-builder/types";
 import { Button } from "@/components/ui/button";
-import { Config } from "@/lib/config";
 import Router from "@/lib/router";
 import {
   useGetJobByIdQuery,
+  useLazyGetResumePdfQuery,
   useUpdateJobResumeMutation,
 } from "@/store/api/jobs/queries";
+import { useGetProfileQuery } from "@/store/api/profile/queries";
 import {
   useApplyAndGetNextMutation,
   useUpdateJobDetailsMutation,
@@ -211,10 +212,12 @@ function ResumeBuilderEditor({
   job,
 }: ResumeBuilderEditorProps) {
   const router = useRouter();
+  const { data: profileResponse } = useGetProfileQuery();
   const [updateResume, { isLoading: isSaving }] = useUpdateJobResumeMutation();
   const [updateJobDetails] = useUpdateJobDetailsMutation();
   const [applyAndGetNext, { isLoading: isApplying }] =
     useApplyAndGetNextMutation();
+  const [triggerGetPdf] = useLazyGetResumePdfQuery();
 
   // Local state for the resume - initialized with the data from API
   const [resume, setResume] = useState<EditableResume>(initialResume);
@@ -222,6 +225,7 @@ function ResumeBuilderEditor({
     "idle" | "saving" | "saved" | "error"
   >("idle");
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
 
   // Auto-save with debounce
   const saveResume = useCallback(
@@ -422,24 +426,42 @@ function ResumeBuilderEditor({
   };
 
   const handleDownload = async () => {
-    // Copy company name and team name to clipboard
-    if (job?.company?.name || job?.position?.title || job?.team?.name) {
-      const clipboardText = `${job.company?.name || ""}${
-        job.position?.title ? ` - ${job.position.title}` : ""
-      }${job.team?.name ? ` (${job.team.name})` : ""}`;
+    setIsDownloading(true);
+    try {
+      // Copy company name and team name to clipboard
+      if (job?.company?.name || job?.position?.title || job?.team?.name) {
+        const clipboardText = `${job.company?.name || ""}${
+          job.position?.title ? ` - ${job.position.title}` : ""
+        }${job.team?.name ? ` (${job.team.name})` : ""}`;
 
-      try {
-        await navigator.clipboard.writeText(clipboardText);
-      } catch (err) {
-        console.error("Failed to copy to clipboard:", err);
+        try {
+          await navigator.clipboard.writeText(clipboardText);
+        } catch (err) {
+          console.error("Failed to copy to clipboard:", err);
+        }
       }
-    }
 
-    // Open PDF in new tab
-    window.open(
-      `${Config.API_BASE_URL}/jobs/${jobId}/resume/pdf?download=true`,
-      "_blank",
-    );
+      // Fetch PDF with RTK Query and trigger download
+      const blob = await triggerGetPdf(jobId).unwrap();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+
+      // Generate filename in format: FirstName_LastName_resume.pdf
+      const user = profileResponse?.data?.user;
+      const firstName = user?.firstName || "User";
+      const lastName = user?.lastName || "Resume";
+      link.download = `${firstName}_${lastName}_resume.pdf`;
+
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error("Failed to download PDF:", error);
+    } finally {
+      setIsDownloading(false);
+    }
   };
 
   return (
@@ -497,9 +519,14 @@ function ResumeBuilderEditor({
               variant="outline"
               size="sm"
               className="gap-2"
+              disabled={isDownloading}
             >
-              <Download className="h-4 w-4" />
-              Download PDF
+              {isDownloading ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Download className="h-4 w-4" />
+              )}
+              {isDownloading ? "Downloading..." : "Download PDF"}
             </Button>
           </div>
         </div>
