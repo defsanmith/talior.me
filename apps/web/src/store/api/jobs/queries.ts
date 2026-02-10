@@ -102,6 +102,7 @@ export const jobApi = appApi.injectEndpoints({
         },
         cache: "no-cache",
       }),
+      keepUnusedDataFor: 0, // Don't cache PDF blobs (non-serializable)
     }),
   }),
 });

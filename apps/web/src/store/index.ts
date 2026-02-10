@@ -11,7 +11,17 @@ export const store = configureStore({
     auth: authReducer,
   },
   middleware: (getDefaultMiddleware) =>
-    getDefaultMiddleware().concat(appApi.middleware),
+    getDefaultMiddleware({
+      serializableCheck: {
+        // Ignore serialization check for PDF blob responses in RTK Query
+        ignoredActions: [
+          "appApi/executeQuery/fulfilled",
+          "appApi/executeQuery/pending",
+        ],
+        ignoredActionPaths: ["meta.arg", "meta.baseQueryMeta", "payload"],
+        ignoredPaths: ["appApi.queries", "appApi.mutations"],
+      },
+    }).concat(appApi.middleware),
 });
 
 // Infer the `RootState` and `AppDispatch` types from the store itself
