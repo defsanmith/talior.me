@@ -8,7 +8,8 @@ import { ResponseInterceptor } from "./common/interceptors/response.interceptor"
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
     cors: {
-      origin: "http://localhost:3000",
+      // Allow the origin to be overridden via CORS_ORIGIN for Docker / prod deployments.
+      origin: process.env.CORS_ORIGIN ?? "http://localhost:3000",
       credentials: true,
     },
   });
@@ -20,7 +21,7 @@ async function bootstrap() {
     new ValidationPipe({
       whitelist: true,
       transform: true,
-    })
+    }),
   );
 
   // Apply global response interceptor

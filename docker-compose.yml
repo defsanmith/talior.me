@@ -58,7 +58,11 @@ services:
       - opensearch_data:/usr/share/opensearch/data
     # If OpenSearch fails with "vm.max_map_count is too low", set on host: sudo sysctl -w vm.max_map_count=262144
     healthcheck:
-      test: ["CMD-SHELL", "curl -sf http://127.0.0.1:9200/_cluster/health || exit 1"]
+      test:
+        [
+          "CMD-SHELL",
+          "curl -sf http://127.0.0.1:9200/_cluster/health || exit 1",
+        ]
       interval: 15s
       timeout: 10s
       retries: 20
@@ -74,6 +78,79 @@ services:
     depends_on:
       opensearch:
         condition: service_healthy
+
+  # ── Application services ────────────────────────────────────────────────────
+
+  # Run Prisma migrations before the API / worker start.
+  # Uses the same image as the api so the schema + migration files are available.
+  # Restarts on failure (e.g. if postgres isn't ready yet despite the healthcheck).
+  migrate:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    container_name: tailor-migrate
+    command:
+      [
+        "./node_modules/.bin/prisma",
+        "migrate",
+        "deploy",
+        "--schema",
+        "./prisma/schema.prisma",
+      ]
+    env_file:
+      - .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: on-failure
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    container_name: tailor-api
+    ports:
+      - "3001:3001"
+    env_file:
+      - .env
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+      opensearch:
+        condition: service_healthy
+      latex:
+        condition: service_healthy
+
+  worker:
+    build:
+      context: .
+      dockerfile: apps/worker/Dockerfile
+    container_name: tailor-worker
+    env_file:
+      - .env
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+      opensearch:
+        condition: service_healthy
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      args:
+        # Read from .env — must be reachable from the user's browser, not
+        # from inside the Docker network (defaults to http://localhost:3001).
+        NEXT_PUBLIC_BASE_URL: ${NEXT_PUBLIC_BASE_URL}
+    container_name: tailor-web
+    ports:
+      - "3000:3000"
+    depends_on:
+      - api
 
 volumes:
   postgres_data:
