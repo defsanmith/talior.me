@@ -1,12 +1,17 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef } from "react";
 import { io, Socket } from "socket.io-client";
+import { useAppSelector } from "../store";
 
 export function useSocket() {
-  const [socket, setSocket] = useState<Socket | null>(null);
+  const socketRef = useRef<Socket | null>(null);
+  const accessToken = useAppSelector((state) => state.auth.accessToken);
 
   useEffect(() => {
+    if (!accessToken) return;
+
     const socketInstance = io("http://localhost:3001", {
       transports: ["websocket"],
+      auth: { token: accessToken },
       reconnection: true,
       reconnectionDelay: 1000,
       reconnectionDelayMax: 5000,
@@ -25,12 +30,13 @@ export function useSocket() {
       console.error("WebSocket connection error:", error.message);
     });
 
-    setSocket(socketInstance);
+    socketRef.current = socketInstance;
 
     return () => {
       socketInstance.disconnect();
+      socketRef.current = null;
     };
-  }, []);
+  }, [accessToken]);
 
-  return socket;
+  return socketRef;
 }

@@ -32,12 +32,13 @@ export default function DashboardPage() {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const socket = useSocket();
+  const socketRef = useSocket();
   const dispatch = useAppDispatch();
 
   // Dialog state
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [jobDescription, setJobDescription] = useState("");
+  const [strategy, setStrategy] = useState<"openai" | "bm25">("openai");
   const [createJob, { isLoading: isCreating, error: createError }] =
     useCreateJobMutation();
 
@@ -71,22 +72,20 @@ export default function DashboardPage() {
 
   // WebSocket listeners for real-time updates
   useEffect(() => {
+    const socket = socketRef.current;
     if (!socket) return;
 
     socket.on("job.progress", ({ jobId, progress, stage }: any) => {
-      // Invalidate all tracker job queries to refetch with updated data
       console.log("Job progress event received", { jobId, progress, stage });
       dispatch(trackerApi.util.invalidateTags(["Jobs"]));
     });
 
     socket.on("job.completed", () => {
-      // Invalidate both job creation and tracker queries
       dispatch(jobApi.util.invalidateTags(["Jobs"]));
       dispatch(trackerApi.util.invalidateTags(["Jobs"]));
     });
 
     socket.on("job.failed", ({ jobId }: any) => {
-      // Invalidate tracker queries to refetch with updated status
       dispatch(trackerApi.util.invalidateTags(["Jobs"]));
     });
 
@@ -95,7 +94,7 @@ export default function DashboardPage() {
       socket.off("job.completed");
       socket.off("job.failed");
     };
-  }, [socket, dispatch]);
+  }, [socketRef, dispatch]);
 
   // Handle view change
   const handleViewChange = (newView: string) => {
@@ -120,8 +119,9 @@ export default function DashboardPage() {
     e.preventDefault();
 
     try {
-      await createJob({ jobDescription }).unwrap();
+      await createJob({ jobDescription, strategy }).unwrap();
       setJobDescription("");
+      setStrategy("openai");
       setIsCreateDialogOpen(false);
     } catch (err) {
       console.error("Failed to create job:", err);
@@ -175,6 +175,40 @@ export default function DashboardPage() {
                   required
                   minLength={10}
                 />
+              </div>
+
+              <div className="space-y-2">
+                <Label>Generation method</Label>
+                <div className="flex flex-col gap-2 rounded-md border border-input bg-muted/30 p-3">
+                  <label className="flex cursor-pointer items-center gap-2">
+                    <input
+                      type="radio"
+                      name="strategy"
+                      value="openai"
+                      checked={strategy === "openai"}
+                      onChange={() => setStrategy("openai")}
+                      className="h-4 w-4"
+                    />
+                    <span className="font-medium">AI Rewrite (OpenAI)</span>
+                    <span className="text-muted-foreground text-sm">
+                      Tailored, optimized bullets
+                    </span>
+                  </label>
+                  <label className="flex cursor-pointer items-center gap-2">
+                    <input
+                      type="radio"
+                      name="strategy"
+                      value="bm25"
+                      checked={strategy === "bm25"}
+                      onChange={() => setStrategy("bm25")}
+                      className="h-4 w-4"
+                    />
+                    <span className="font-medium">Fast Match (BM25)</span>
+                    <span className="text-muted-foreground text-sm">
+                      Quick, no AI cost
+                    </span>
+                  </label>
+                </div>
               </div>
 
               {createError && (

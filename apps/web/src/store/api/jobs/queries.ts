@@ -20,6 +20,7 @@ interface ResumeResponse {
 
 interface CreateJobArgs {
   jobDescription: string;
+  strategy?: "openai" | "bm25";
 }
 
 interface CreateJobResponse {

@@ -56,6 +56,7 @@ import {
   useUpdateJobDetailsMutation,
 } from "@/store/api/tracker/mutations";
 import { ApplicationStatus, JobResponse } from "@tailor.me/shared";
+import { Badge } from "@/components/ui/badge";
 
 // Default empty resume structure
 const defaultResume: EditableResume = {
@@ -487,13 +488,18 @@ function ResumeBuilderEditor({
                 className="text-2xl font-bold"
               />
             </div>
-            <div className="mt-1">
+            <div className="mt-1 flex items-center gap-2">
               <InlinePositionCombobox
                 value={job?.positionId || undefined}
                 onChange={handlePositionChange}
                 placeholder="Job Title"
                 className="text-lg text-muted-foreground"
               />
+              {job?.strategy && (
+                <Badge variant="secondary" className="text-xs">
+                  {job.strategy === "bm25" ? "Fast Match (BM25)" : "AI Rewrite (OpenAI)"}
+                </Badge>
+              )}
             </div>
           </div>
           <div className="flex items-center gap-4">

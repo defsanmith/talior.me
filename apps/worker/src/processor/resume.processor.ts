@@ -8,12 +8,14 @@ import {
 import { Job, Worker } from "bullmq";
 import { ContentSelection, ProfileData } from "../ai/ai-provider.interface";
 import { AIService } from "../ai/ai.service";
+import { BM25Processor } from "./bm25.processor";
 import { PrismaService } from "../prisma/prisma.service";
 
 interface JobData {
   jobId: string;
   userId: string;
   jobDescription: string;
+  strategy?: string;
 }
 
 interface SelectedBullet {
@@ -32,6 +34,7 @@ export class ResumeProcessor {
   constructor(
     private readonly prisma: PrismaService,
     private readonly ai: AIService,
+    private readonly bm25Processor: BM25Processor,
   ) {
     this.initializeWorker();
   }
@@ -61,6 +64,14 @@ export class ResumeProcessor {
   private async processJob(job: Job<JobData>): Promise<void> {
     const { jobId, userId, jobDescription } = job.data;
 
+    const jobRecord = await this.prisma.resumeJob.findUnique({
+      where: { id: jobId },
+      select: { strategy: true },
+    });
+    if (jobRecord?.strategy === "bm25") {
+      return this.bm25Processor.processBM25Job(job);
+    }
+
     try {
       // Step A: Parse JD (includes metadata extraction)
       await this.updateJobStatus(
@@ -69,7 +80,7 @@ export class ResumeProcessor {
         JobStage.PARSING_JD,
         10,
       );
-      await job.updateProgress({ progress: 10, stage: JobStage.PARSING_JD });
+      await job.updateProgress({ progress: 10, stage: JobStage.PARSING_JD, userId });
 
       const parsedJd = await this.ai.parseJobDescription(jobDescription);
 
@@ -150,6 +161,7 @@ export class ResumeProcessor {
       await job.updateProgress({
         progress: 20,
         stage: JobStage.RETRIEVING_BULLETS,
+        userId,
       });
 
       const profileData = await this.fetchFullProfile(userId);
@@ -187,6 +199,7 @@ export class ResumeProcessor {
         await job.updateProgress({
           progress: 35,
           stage: JobStage.SELECTING_BULLETS,
+          userId,
         });
 
         contentSelection = await this.ai.selectRelevantContent(
@@ -226,6 +239,7 @@ export class ResumeProcessor {
         await job.updateProgress({
           progress: 50,
           stage: JobStage.REWRITING_BULLETS,
+          userId,
         });
 
         rewrittenBullets = await this.rewriteBullets(selectedBullets, parsedJd);
@@ -238,7 +252,7 @@ export class ResumeProcessor {
         JobStage.VERIFYING,
         70,
       );
-      await job.updateProgress({ progress: 70, stage: JobStage.VERIFYING });
+      await job.updateProgress({ progress: 70, stage: JobStage.VERIFYING, userId });
 
       const verifiedBullets = this.verifyBullets(
         selectedBullets,
@@ -259,7 +273,7 @@ export class ResumeProcessor {
         JobStage.ASSEMBLING,
         85,
       );
-      await job.updateProgress({ progress: 85, stage: JobStage.ASSEMBLING });
+      await job.updateProgress({ progress: 85, stage: JobStage.ASSEMBLING, userId });
 
       const resume = this.assembleResumeFromSelection(
         profileData,
@@ -277,7 +291,7 @@ export class ResumeProcessor {
         JobStage.COMPLETED,
         100,
       );
-      await job.updateProgress({ progress: 100, stage: JobStage.COMPLETED });
+      await job.updateProgress({ progress: 100, stage: JobStage.COMPLETED, userId });
     } catch (error) {
       console.error(`Job ${jobId} failed:`, error);
       await this.updateJobStatus(

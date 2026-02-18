@@ -176,6 +176,7 @@ model ResumeJob {
   id                String    @id @default(cuid())
   userId            String
   jobDescription    String
+  strategy          String    @default("openai") // "openai" | "bm25"
   companyId         String?
   positionId        String?
   teamId            String?

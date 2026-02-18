@@ -8,7 +8,6 @@
     "build": "turbo run build",
     "start": "turbo run start",
     "db:migrate": "cd apps/api && pnpm prisma migrate dev",
-    "db:seed": "cd apps/api && pnpm prisma db seed",
     "db:studio": "cd apps/api && pnpm prisma studio",
     "db:generate": "cd apps/api && pnpm prisma generate",
     "clean": "turbo run clean && rm -rf node_modules",

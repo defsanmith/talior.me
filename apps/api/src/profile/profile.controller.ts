@@ -15,17 +15,20 @@ import {
   CreateProfileProjectDto,
   CreateProfileSkillCategoryDto,
   CreateProfileSkillDto,
+  UpdateBulletSkillsDto,
   UpdateProfileBulletDto,
   UpdateProfileEducationDto,
   UpdateProfileExperienceDto,
   UpdateProfileProjectDto,
   UpdateProfileSkillCategoryDto,
   UpdateProfileSkillDto,
-  UpdateUserDto,
-  UpdateBulletSkillsDto,
   UpdateProjectSkillsDto,
+  UpdateUserDto,
 } from "@tailor.me/shared";
-import { CurrentUser, JwtPayload } from "../auth/decorators/current-user.decorator";
+import {
+  CurrentUser,
+  JwtPayload,
+} from "../auth/decorators/current-user.decorator";
 import { ProfileService } from "./profile.service";
 
 @Controller("api/profile")
@@ -39,7 +42,9 @@ export class ProfileController {
     const education = await this.profileService.getEducation(user.userId);
     const projects = await this.profileService.getProjects(user.userId);
     const skills = await this.profileService.getSkills(user.userId);
-    const skillCategories = await this.profileService.getSkillCategories(user.userId);
+    const skillCategories = await this.profileService.getSkillCategories(
+      user.userId,
+    );
 
     return {
       user: userData,
@@ -58,7 +63,7 @@ export class ProfileController {
   @Patch("user")
   async updateUser(
     @Body() dto: UpdateUserDto,
-    @CurrentUser() user: JwtPayload
+    @CurrentUser() user: JwtPayload,
   ) {
     return this.profileService.updateUser(dto, user.userId);
   }
@@ -70,7 +75,7 @@ export class ProfileController {
   @Post("experiences")
   async createExperience(
     @Body() dto: CreateProfileExperienceDto,
-    @CurrentUser() user: JwtPayload
+    @CurrentUser() user: JwtPayload,
   ) {
     return this.profileService.createExperience(dto, user.userId);
   }
@@ -79,7 +84,7 @@ export class ProfileController {
   async updateExperience(
     @Param("id") id: string,
     @Body() dto: UpdateProfileExperienceDto,
-    @CurrentUser() user: JwtPayload
+    @CurrentUser() user: JwtPayload,
   ) {
     return this.profileService.updateExperience(id, dto, user.userId);
   }
@@ -87,7 +92,7 @@ export class ProfileController {
   @Delete("experiences/:id")
   async deleteExperience(
     @Param("id") id: string,
-    @CurrentUser() user: JwtPayload
+    @CurrentUser() user: JwtPayload,
   ) {
     return this.profileService.deleteExperience(id, user.userId);
   }
@@ -99,7 +104,7 @@ export class ProfileController {
   @Post("bullets")
   async createBullet(
     @Body() dto: CreateBulletDto,
-    @CurrentUser() user: JwtPayload
+    @CurrentUser() user: JwtPayload,
   ) {
     return this.profileService.createBullet(dto, user.userId);
   }
@@ -108,7 +113,7 @@ export class ProfileController {
   async updateBullet(
     @Param("id") id: string,
     @Body() dto: UpdateProfileBulletDto,
-    @CurrentUser() user: JwtPayload
+    @CurrentUser() user: JwtPayload,
   ) {
     return this.profileService.updateBullet(id, dto, user.userId);
   }
@@ -117,16 +122,13 @@ export class ProfileController {
   async updateBulletSkills(
     @Param("id") id: string,
     @Body() dto: UpdateBulletSkillsDto,
-    @CurrentUser() user: JwtPayload
+    @CurrentUser() user: JwtPayload,
   ) {
     return this.profileService.updateBulletSkills(id, dto, user.userId);
   }
 
   @Delete("bullets/:id")
-  async deleteBullet(
-    @Param("id") id: string,
-    @CurrentUser() user: JwtPayload
-  ) {
+  async deleteBullet(@Param("id") id: string, @CurrentUser() user: JwtPayload) {
     return this.profileService.deleteBullet(id, user.userId);
   }
 
@@ -137,7 +139,7 @@ export class ProfileController {
   @Post("education")
   async createEducation(
     @Body() dto: CreateProfileEducationDto,
-    @CurrentUser() user: JwtPayload
+    @CurrentUser() user: JwtPayload,
   ) {
     return this.profileService.createEducation(dto, user.userId);
   }
@@ -146,7 +148,7 @@ export class ProfileController {
   async updateEducation(
     @Param("id") id: string,
     @Body() dto: UpdateProfileEducationDto,
-    @CurrentUser() user: JwtPayload
+    @CurrentUser() user: JwtPayload,
   ) {
     return this.profileService.updateEducation(id, dto, user.userId);
   }
@@ -154,7 +156,7 @@ export class ProfileController {
   @Delete("education/:id")
   async deleteEducation(
     @Param("id") id: string,
-    @CurrentUser() user: JwtPayload
+    @CurrentUser() user: JwtPayload,
   ) {
     return this.profileService.deleteEducation(id, user.userId);
   }
@@ -166,7 +168,7 @@ export class ProfileController {
   @Post("projects")
   async createProject(
     @Body() dto: CreateProfileProjectDto,
-    @CurrentUser() user: JwtPayload
+    @CurrentUser() user: JwtPayload,
   ) {
     return this.profileService.createProject(dto, user.userId);
   }
@@ -175,7 +177,7 @@ export class ProfileController {
   async updateProject(
     @Param("id") id: string,
     @Body() dto: UpdateProfileProjectDto,
-    @CurrentUser() user: JwtPayload
+    @CurrentUser() user: JwtPayload,
   ) {
     return this.profileService.updateProject(id, dto, user.userId);
   }
@@ -184,7 +186,7 @@ export class ProfileController {
   async updateProjectSkills(
     @Param("id") id: string,
     @Body() dto: UpdateProjectSkillsDto,
-    @CurrentUser() user: JwtPayload
+    @CurrentUser() user: JwtPayload,
   ) {
     return this.profileService.updateProjectSkills(id, dto, user.userId);
   }
@@ -192,7 +194,7 @@ export class ProfileController {
   @Delete("projects/:id")
   async deleteProject(
     @Param("id") id: string,
-    @CurrentUser() user: JwtPayload
+    @CurrentUser() user: JwtPayload,
   ) {
     return this.profileService.deleteProject(id, user.userId);
   }
@@ -204,7 +206,7 @@ export class ProfileController {
   @Post("skill-categories")
   async createSkillCategory(
     @Body() dto: CreateProfileSkillCategoryDto,
-    @CurrentUser() user: JwtPayload
+    @CurrentUser() user: JwtPayload,
   ) {
     return this.profileService.createSkillCategory(dto, user.userId);
   }
@@ -213,7 +215,7 @@ export class ProfileController {
   async updateSkillCategory(
     @Param("id") id: string,
     @Body() dto: UpdateProfileSkillCategoryDto,
-    @CurrentUser() user: JwtPayload
+    @CurrentUser() user: JwtPayload,
   ) {
     return this.profileService.updateSkillCategory(id, dto, user.userId);
   }
@@ -221,7 +223,7 @@ export class ProfileController {
   @Delete("skill-categories/:id")
   async deleteSkillCategory(
     @Param("id") id: string,
-    @CurrentUser() user: JwtPayload
+    @CurrentUser() user: JwtPayload,
   ) {
     return this.profileService.deleteSkillCategory(id, user.userId);
   }
@@ -233,7 +235,7 @@ export class ProfileController {
   @Post("skills")
   async createSkill(
     @Body() dto: CreateProfileSkillDto,
-    @CurrentUser() user: JwtPayload
+    @CurrentUser() user: JwtPayload,
   ) {
     return this.profileService.createSkill(dto, user.userId);
   }
@@ -242,22 +244,13 @@ export class ProfileController {
   async updateSkill(
     @Param("id") id: string,
     @Body() dto: UpdateProfileSkillDto,
-    @CurrentUser() user: JwtPayload
+    @CurrentUser() user: JwtPayload,
   ) {
     return this.profileService.updateSkill(id, dto, user.userId);
   }
 
   @Delete("skills/:id")
-  async deleteSkill(
-    @Param("id") id: string,
-    @CurrentUser() user: JwtPayload
-  ) {
+  async deleteSkill(@Param("id") id: string, @CurrentUser() user: JwtPayload) {
     return this.profileService.deleteSkill(id, user.userId);
-  }
-
-  @Post("seed")
-  async seed() {
-    // This is handled by prisma seed script
-    return { message: "Use `pnpm db:seed` instead" };
   }
 }

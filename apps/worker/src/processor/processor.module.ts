@@ -1,7 +1,10 @@
-import { Module } from '@nestjs/common';
-import { ResumeProcessor } from './resume.processor';
+import { Module } from "@nestjs/common";
+import { BM25Processor } from "./bm25.processor";
+import { ResumeProcessor } from "./resume.processor";
+import { SearchModule } from "../search/search.module";
 
 @Module({
-  providers: [ResumeProcessor],
+  imports: [SearchModule],
+  providers: [ResumeProcessor, BM25Processor],
 })
 export class ProcessorModule {}

@@ -114,7 +114,12 @@ export default function JobCard({
               {job.jobDescription.slice(0, 150)}...
             </CardDescription>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            {job.strategy && (
+              <Badge variant="outline" className="text-xs">
+                {job.strategy === "bm25" ? "Fast" : "AI"}
+              </Badge>
+            )}
             {showApplicationStatus && job.applicationStatus ? (
               <Badge
                 className={getApplicationStatusColor(job.applicationStatus)}
