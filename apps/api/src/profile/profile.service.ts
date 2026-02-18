@@ -17,6 +17,7 @@ import {
   UpdateProjectSkillsDto,
 } from "@tailor.me/shared";
 import { PrismaService } from "../prisma/prisma.service";
+import { SearchService } from "../search/search.service";
 
 // Helper for bullet include with skills
 const bulletInclude = {
@@ -49,7 +50,10 @@ const projectInclude = {
 
 @Injectable()
 export class ProfileService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly searchService: SearchService
+  ) {}
 
   async getUser(userId: string) {
     return this.prisma.user.findUnique({
@@ -210,10 +214,12 @@ export class ProfileService {
       }
     }
 
-    return this.prisma.bullet.create({
+    const bullet = await this.prisma.bullet.create({
       data: dto,
       include: bulletInclude,
     });
+    this.searchService.indexBullet(bullet.id).catch(() => {});
+    return bullet;
   }
 
   async updateBullet(id: string, dto: UpdateProfileBulletDto, userId: string) {
@@ -237,11 +243,13 @@ export class ProfileService {
       throw new NotFoundException(`Bullet with id ${id} not found`);
     }
 
-    return this.prisma.bullet.update({
+    const updatedBullet = await this.prisma.bullet.update({
       where: { id },
       data: dto,
       include: bulletInclude,
     });
+    this.searchService.indexBullet(id).catch(() => {});
+    return updatedBullet;
   }
 
   async updateBulletSkills(id: string, dto: UpdateBulletSkillsDto, userId: string) {
@@ -279,10 +287,12 @@ export class ProfileService {
       });
     }
 
-    return this.prisma.bullet.findUnique({
+    const updatedBullet = await this.prisma.bullet.findUnique({
       where: { id },
       include: bulletInclude,
     });
+    if (updatedBullet) this.searchService.indexBullet(id).catch(() => {});
+    return updatedBullet;
   }
 
   async deleteBullet(id: string, userId: string) {
@@ -309,6 +319,7 @@ export class ProfileService {
     await this.prisma.bullet.delete({
       where: { id },
     });
+    this.searchService.deleteBullet(id).catch(() => {});
 
     return { success: true };
   }

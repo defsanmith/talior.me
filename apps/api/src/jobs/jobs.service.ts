@@ -15,23 +15,27 @@ export class JobsService {
     private readonly queueService: QueueService
   ) {}
 
-  async createJob(jobDescription: string, userId: string): Promise<string> {
-    // Create job in database
+  async createJob(
+    jobDescription: string,
+    userId: string,
+    strategy: string = "openai",
+  ): Promise<string> {
     const job = await this.prisma.resumeJob.create({
       data: {
         userId,
         jobDescription,
+        strategy,
         status: JobStatus.QUEUED,
         stage: "Queued",
         progress: 0,
       },
     });
 
-    // Add to queue
     await this.queueService.addJob(job.id, {
       jobId: job.id,
       userId,
       jobDescription,
+      strategy,
     });
 
     return job.id;

@@ -10,6 +10,11 @@ export enum AIProvider {
   GEMINI = "GEMINI",
 }
 
+export enum ResumeGenerationStrategy {
+  OPENAI = "openai",
+  BM25 = "bm25",
+}
+
 export enum JobStage {
   PARSING_JD = "Parsing job description",
   RETRIEVING_BULLETS = "Retrieving candidate bullets",

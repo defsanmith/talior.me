@@ -1,0 +1,38 @@
+{
+  "settings": {
+    "number_of_shards": 1,
+    "number_of_replicas": 0,
+    "analysis": {
+      "analyzer": {
+        "bullet_analyzer": {
+          "type": "standard",
+          "stopwords": "_english_"
+        }
+      }
+    }
+  },
+  "mappings": {
+    "properties": {
+      "bulletId": { "type": "keyword" },
+      "userId": { "type": "keyword" },
+      "content": {
+        "type": "text",
+        "analyzer": "bullet_analyzer"
+      },
+      "tags": { "type": "keyword" },
+      "skills": { "type": "keyword" },
+      "parentType": { "type": "keyword" },
+      "parentId": { "type": "keyword" },
+      "parentTitle": {
+        "type": "text",
+        "analyzer": "bullet_analyzer"
+      },
+      "parentCompany": {
+        "type": "text",
+        "analyzer": "bullet_analyzer"
+      },
+      "startDate": { "type": "keyword" },
+      "endDate": { "type": "keyword" }
+    }
+  }
+}

@@ -49,13 +49,7 @@ A single-user monorepo application for building tailored resumes using AI. Suppo
    pnpm db:migrate
    ```
 
-5. **Seed demo data**
-
-   ```bash
-   pnpm db:seed
-   ```
-
-6. **Start development servers**
+5. **Start development servers**
    ```bash
    pnpm dev
    ```
@@ -119,9 +113,6 @@ tailor.me/
 ```bash
 # Run migrations
 pnpm db:migrate
-
-# Seed demo data
-pnpm db:seed
 
 # Open Prisma Studio
 pnpm db:studio

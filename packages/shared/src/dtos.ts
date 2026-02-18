@@ -15,6 +15,7 @@ export const CreateJobDtoSchema = z.object({
   jobDescription: z
     .string()
     .min(10, "Job description must be at least 10 characters"),
+  strategy: z.enum(["openai", "bm25"]).optional().default("openai"),
   companyName: z.string().nullable().optional(),
   jobPosition: z.string().nullable().optional(),
   teamName: z.string().nullable().optional(),

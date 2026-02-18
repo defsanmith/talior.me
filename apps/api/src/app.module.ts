@@ -8,6 +8,7 @@ import { PdfModule } from "./pdf/pdf.module";
 import { PrismaModule } from "./prisma/prisma.module";
 import { ProfileModule } from "./profile/profile.module";
 import { QueueModule } from "./queue/queue.module";
+import { SearchModule } from "./search/search.module";
 import { TrackerModule } from "./tracker/tracker.module";
 
 @Module({
@@ -20,6 +21,7 @@ import { TrackerModule } from "./tracker/tracker.module";
     EventsModule,
     PdfModule,
     TrackerModule,
+    SearchModule,
   ],
   providers: [
     {

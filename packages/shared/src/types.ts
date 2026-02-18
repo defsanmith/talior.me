@@ -233,6 +233,7 @@ export interface JobResponse {
   id: string;
   userId: string;
   jobDescription: string;
+  strategy?: string;
   companyId?: string | null;
   positionId?: string | null;
   teamId?: string | null;

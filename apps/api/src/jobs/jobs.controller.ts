@@ -24,6 +24,9 @@ import { CurrentUser, JwtPayload } from "../auth/decorators/current-user.decorat
 import { PdfService } from "../pdf/pdf.service";
 import { JobsService } from "./jobs.service";
 
+/** Request body for job creation; strategy may be omitted from shared type until package is rebuilt */
+type CreateJobBody = CreateJobDto & { strategy?: "openai" | "bm25" };
+
 @Controller("api/jobs")
 export class JobsController {
   constructor(
@@ -33,7 +36,7 @@ export class JobsController {
 
   @Post()
   async createJob(
-    @Body() createJobDto: CreateJobDto,
+    @Body() createJobDto: CreateJobBody,
     @CurrentUser() user: JwtPayload
   ): Promise<CreateJobResponse> {
     const activeCount = await this.jobsService.getActiveJobCount(user.userId);
@@ -44,7 +47,12 @@ export class JobsController {
       );
     }
 
-    const jobId = await this.jobsService.createJob(createJobDto.jobDescription, user.userId);
+    const strategy = createJobDto.strategy ?? "openai";
+    const jobId = await this.jobsService.createJob(
+      createJobDto.jobDescription,
+      user.userId,
+      strategy,
+    );
     return { jobId };
   }
 
