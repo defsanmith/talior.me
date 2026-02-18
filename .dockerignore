@@ -1,0 +1,32 @@
+# Version control
+.git
+.gitignore
+
+# Dependencies (installed fresh inside Docker)
+**/node_modules
+
+# Build artifacts
+**/dist
+**/.next
+**/.turbo
+
+# Local env files (mounted/injected at runtime)
+.env
+.env.local
+.env.*.local
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode
+.idea
+
+# Test output
+coverage

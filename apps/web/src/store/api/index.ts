@@ -10,7 +10,7 @@ import {
 
 // Base query with authentication header
 const baseQuery = fetchBaseQuery({
-  baseUrl: Config.API_BASE_URL,
+  baseUrl: `${Config.API_BASE_URL}/api`,
   credentials: "include", // Include cookies for refresh token
   prepareHeaders: (headers, { getState }) => {
     // Access auth state without importing to avoid circular dependency
