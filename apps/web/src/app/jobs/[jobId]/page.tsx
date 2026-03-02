@@ -362,6 +362,7 @@ function ResumeBuilderEditor({
               onItemsChange={(items) =>
                 handleResumeUpdate({ education: items })
               }
+              profileItems={profileResponse?.data?.education}
             />
           </DraggableItem>
         );
@@ -377,6 +378,7 @@ function ResumeBuilderEditor({
               onItemsChange={(items) =>
                 handleResumeUpdate({ experiences: items })
               }
+              profileItems={profileResponse?.data?.experiences}
             />
           </DraggableItem>
         );
@@ -392,6 +394,7 @@ function ResumeBuilderEditor({
               onItemsChange={(items) =>
                 handleResumeUpdate({ skillCategories: items })
               }
+              profileItems={profileResponse?.data?.skillCategories}
             />
           </DraggableItem>
         );
@@ -405,6 +408,7 @@ function ResumeBuilderEditor({
                 setSectionVisibility("projects", v)
               }
               onItemsChange={(items) => handleResumeUpdate({ projects: items })}
+              profileItems={profileResponse?.data?.projects}
             />
           </DraggableItem>
         );
