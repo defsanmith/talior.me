@@ -18,6 +18,7 @@ import {
   sortableKeyboardCoordinates,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
+import { ProfileEducation } from "@tailor.me/shared";
 import {
   ChevronDown,
   ChevronRight,
@@ -32,6 +33,7 @@ import { useState } from "react";
 import { Alert, AlertDescription, AlertTitle } from "../ui/alert";
 import { DraggableItem } from "./draggable-item";
 import { EditableText } from "./editable-text";
+import { ProfileEducationPicker } from "./profile-education-picker";
 import { ResumeCoursework, ResumeEducation } from "./types";
 
 function generateId() {
@@ -43,6 +45,7 @@ interface EducationSectionProps {
   sectionVisible: boolean;
   onSectionVisibilityChange: (visible: boolean) => void;
   onItemsChange: (items: ResumeEducation[]) => void;
+  profileItems?: ProfileEducation[];
 }
 
 export function EducationSection({
@@ -50,6 +53,7 @@ export function EducationSection({
   sectionVisible,
   onSectionVisibilityChange,
   onItemsChange,
+  profileItems,
 }: EducationSectionProps) {
   const [isExpanded, setIsExpanded] = useState(true);
 
@@ -207,15 +211,24 @@ export function EducationSection({
             </SortableContext>
           </DndContext>
 
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleAddEducation}
-            className="mt-4 w-full border-dashed"
-          >
-            <Plus className="mr-2 h-4 w-4" />
-            Add Education
-          </Button>
+          <div className="mt-4 flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleAddEducation}
+              className="flex-1 border-dashed"
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              Add Education
+            </Button>
+            {profileItems && profileItems.length > 0 && (
+              <ProfileEducationPicker
+                profileEducation={profileItems}
+                resumeEducation={items}
+                onAdd={(entry) => onItemsChange([...items, entry])}
+              />
+            )}
+          </div>
         </div>
       )}
     </div>

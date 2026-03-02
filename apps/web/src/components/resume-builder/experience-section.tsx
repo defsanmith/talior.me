@@ -18,6 +18,7 @@ import {
   sortableKeyboardCoordinates,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
+import { ProfileExperience } from "@tailor.me/shared";
 import {
   ChevronDown,
   ChevronRight,
@@ -32,6 +33,8 @@ import { useState } from "react";
 import { Alert, AlertDescription, AlertTitle } from "../ui/alert";
 import { DraggableItem } from "./draggable-item";
 import { EditableText } from "./editable-text";
+import { ProfileBulletPicker } from "./profile-bullet-picker";
+import { ProfileExperiencePicker } from "./profile-experience-picker";
 import { ResumeBullet, ResumeExperience } from "./types";
 
 function generateId(prefix: string) {
@@ -43,6 +46,7 @@ interface ExperienceSectionProps {
   sectionVisible: boolean;
   onSectionVisibilityChange: (visible: boolean) => void;
   onItemsChange: (items: ResumeExperience[]) => void;
+  profileItems?: ProfileExperience[];
 }
 
 export function ExperienceSection({
@@ -50,6 +54,7 @@ export function ExperienceSection({
   sectionVisible,
   onSectionVisibilityChange,
   onItemsChange,
+  profileItems,
 }: ExperienceSectionProps) {
   const [isExpanded, setIsExpanded] = useState(true);
 
@@ -200,6 +205,10 @@ export function ExperienceSection({
                   <ExperienceItem
                     key={item.id}
                     item={item}
+                    profileItem={profileItems?.find(
+                      (pe) =>
+                        pe.company === item.company && pe.title === item.title,
+                    )}
                     onUpdate={(updates) => handleUpdateItem(item.id, updates)}
                     onRemove={() => handleRemoveItem(item.id)}
                     onAddBullet={() => handleAddBullet(item.id)}
@@ -216,15 +225,24 @@ export function ExperienceSection({
             </SortableContext>
           </DndContext>
 
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleAddExperience}
-            className="mt-4 w-full border-dashed"
-          >
-            <Plus className="mr-2 h-4 w-4" />
-            Add Experience
-          </Button>
+          <div className="mt-4 flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleAddExperience}
+              className="flex-1 border-dashed"
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              Add Experience
+            </Button>
+            {profileItems && profileItems.length > 0 && (
+              <ProfileExperiencePicker
+                profileExperiences={profileItems}
+                resumeExperiences={items}
+                onAdd={(entry) => onItemsChange([...items, entry])}
+              />
+            )}
+          </div>
         </div>
       )}
     </div>
@@ -233,6 +251,7 @@ export function ExperienceSection({
 
 interface ExperienceItemProps {
   item: ResumeExperience;
+  profileItem?: ProfileExperience;
   onUpdate: (updates: Partial<ResumeExperience>) => void;
   onRemove: () => void;
   onAddBullet: () => void;
@@ -243,6 +262,7 @@ interface ExperienceItemProps {
 
 function ExperienceItem({
   item,
+  profileItem,
   onUpdate,
   onRemove,
   onAddBullet,
@@ -363,15 +383,26 @@ function ExperienceItem({
             </SortableContext>
           </DndContext>
 
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={onAddBullet}
-            className="mt-2 w-full justify-start"
-          >
-            <Plus className="mr-2 h-3 w-3" />
-            Add Bullet Point
-          </Button>
+          <div className="flex flex-col">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onAddBullet}
+              className="mt-2 w-full justify-start"
+            >
+              <Plus className="mr-2 h-3 w-3" />
+              Add Bullet Point
+            </Button>
+            {profileItem && profileItem.bullets.length > 0 && (
+              <ProfileBulletPicker
+                profileBullets={profileItem.bullets}
+                existingBullets={item.bullets}
+                onAddBullets={(newBullets) =>
+                  onUpdate({ bullets: [...item.bullets, ...newBullets] })
+                }
+              />
+            )}
+          </div>
         </div>
       </div>
     </DraggableItem>

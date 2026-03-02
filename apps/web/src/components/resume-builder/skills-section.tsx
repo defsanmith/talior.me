@@ -19,6 +19,7 @@ import {
   sortableKeyboardCoordinates,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
+import { ProfileSkillCategory } from "@tailor.me/shared";
 import {
   ChevronDown,
   ChevronRight,
@@ -31,6 +32,7 @@ import {
 import { useState } from "react";
 import { DraggableItem } from "./draggable-item";
 import { EditableText } from "./editable-text";
+import { ProfileSkillsPicker } from "./profile-skills-picker";
 import { ResumeSkillCategory, ResumeSkillItem } from "./types";
 
 function generateId(prefix: string) {
@@ -42,6 +44,7 @@ interface SkillsSectionProps {
   sectionVisible: boolean;
   onSectionVisibilityChange: (visible: boolean) => void;
   onItemsChange: (items: ResumeSkillCategory[]) => void;
+  profileItems?: ProfileSkillCategory[];
 }
 
 export function SkillsSection({
@@ -49,6 +52,7 @@ export function SkillsSection({
   sectionVisible,
   onSectionVisibilityChange,
   onItemsChange,
+  profileItems,
 }: SkillsSectionProps) {
   const [isExpanded, setIsExpanded] = useState(true);
 
@@ -212,15 +216,24 @@ export function SkillsSection({
             </SortableContext>
           </DndContext>
 
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleAddCategory}
-            className="mt-4 w-full border-dashed"
-          >
-            <Plus className="mr-2 h-4 w-4" />
-            Add Skill Category
-          </Button>
+          <div className="mt-4 flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleAddCategory}
+              className="flex-1 border-dashed"
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              Add Skill Category
+            </Button>
+            {profileItems && profileItems.length > 0 && (
+              <ProfileSkillsPicker
+                profileSkillCategories={profileItems}
+                resumeSkillCategories={items}
+                onAdd={(updated) => onItemsChange(updated)}
+              />
+            )}
+          </div>
         </div>
       )}
     </div>

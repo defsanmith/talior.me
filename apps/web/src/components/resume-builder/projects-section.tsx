@@ -18,6 +18,7 @@ import {
   sortableKeyboardCoordinates,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
+import { ProfileProject } from "@tailor.me/shared";
 import {
   ChevronDown,
   ChevronRight,
@@ -32,6 +33,8 @@ import { useState } from "react";
 import { Alert, AlertDescription, AlertTitle } from "../ui/alert";
 import { DraggableItem } from "./draggable-item";
 import { EditableText } from "./editable-text";
+import { ProfileBulletPicker } from "./profile-bullet-picker";
+import { ProfileProjectPicker } from "./profile-project-picker";
 import { ResumeBullet, ResumeProject } from "./types";
 
 function generateId(prefix: string) {
@@ -43,6 +46,7 @@ interface ProjectsSectionProps {
   sectionVisible: boolean;
   onSectionVisibilityChange: (visible: boolean) => void;
   onItemsChange: (items: ResumeProject[]) => void;
+  profileItems?: ProfileProject[];
 }
 
 export function ProjectsSection({
@@ -50,6 +54,7 @@ export function ProjectsSection({
   sectionVisible,
   onSectionVisibilityChange,
   onItemsChange,
+  profileItems,
 }: ProjectsSectionProps) {
   const [isExpanded, setIsExpanded] = useState(true);
 
@@ -215,6 +220,9 @@ export function ProjectsSection({
                   <ProjectItem
                     key={item.id}
                     item={item}
+                    profileItem={profileItems?.find(
+                      (pp) => pp.name === item.name,
+                    )}
                     onUpdate={(updates) => handleUpdateItem(item.id, updates)}
                     onRemove={() => handleRemoveItem(item.id)}
                     onAddBullet={() => handleAddBullet(item.id)}
@@ -233,15 +241,24 @@ export function ProjectsSection({
             </SortableContext>
           </DndContext>
 
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleAddProject}
-            className="mt-4 w-full border-dashed"
-          >
-            <Plus className="mr-2 h-4 w-4" />
-            Add Project
-          </Button>
+          <div className="mt-4 flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleAddProject}
+              className="flex-1 border-dashed"
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              Add Project
+            </Button>
+            {profileItems && profileItems.length > 0 && (
+              <ProfileProjectPicker
+                profileProjects={profileItems}
+                resumeProjects={items}
+                onAdd={(entry) => onItemsChange([...items, entry])}
+              />
+            )}
+          </div>
         </div>
       )}
     </div>
@@ -250,6 +267,7 @@ export function ProjectsSection({
 
 interface ProjectItemProps {
   item: ResumeProject;
+  profileItem?: ProfileProject;
   onUpdate: (updates: Partial<ResumeProject>) => void;
   onRemove: () => void;
   onAddBullet: () => void;
@@ -262,6 +280,7 @@ interface ProjectItemProps {
 
 function ProjectItem({
   item,
+  profileItem,
   onUpdate,
   onRemove,
   onAddBullet,
@@ -430,15 +449,26 @@ function ProjectItem({
             </SortableContext>
           </DndContext>
 
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={onAddBullet}
-            className="hover: mt-2 w-full justify-start"
-          >
-            <Plus className="mr-2 h-3 w-3" />
-            Add Bullet Point
-          </Button>
+          <div className="flex flex-col">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onAddBullet}
+              className="mt-2 w-full justify-start"
+            >
+              <Plus className="mr-2 h-3 w-3" />
+              Add Bullet Point
+            </Button>
+            {profileItem && profileItem.bullets.length > 0 && (
+              <ProfileBulletPicker
+                profileBullets={profileItem.bullets}
+                existingBullets={item.bullets}
+                onAddBullets={(newBullets) =>
+                  onUpdate({ bullets: [...item.bullets, ...newBullets] })
+                }
+              />
+            )}
+          </div>
         </div>
       </div>
     </DraggableItem>
