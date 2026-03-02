@@ -8,8 +8,8 @@ import {
 import { Job, Worker } from "bullmq";
 import { ContentSelection, ProfileData } from "../ai/ai-provider.interface";
 import { AIService } from "../ai/ai.service";
-import { BM25Processor } from "./bm25.processor";
 import { PrismaService } from "../prisma/prisma.service";
+import { BM25Processor } from "./bm25.processor";
 
 interface JobData {
   jobId: string;
@@ -80,7 +80,11 @@ export class ResumeProcessor {
         JobStage.PARSING_JD,
         10,
       );
-      await job.updateProgress({ progress: 10, stage: JobStage.PARSING_JD, userId });
+      await job.updateProgress({
+        progress: 10,
+        stage: JobStage.PARSING_JD,
+        userId,
+      });
 
       const parsedJd = await this.ai.parseJobDescription(jobDescription);
 
@@ -252,7 +256,11 @@ export class ResumeProcessor {
         JobStage.VERIFYING,
         70,
       );
-      await job.updateProgress({ progress: 70, stage: JobStage.VERIFYING, userId });
+      await job.updateProgress({
+        progress: 70,
+        stage: JobStage.VERIFYING,
+        userId,
+      });
 
       const verifiedBullets = this.verifyBullets(
         selectedBullets,
@@ -273,7 +281,11 @@ export class ResumeProcessor {
         JobStage.ASSEMBLING,
         85,
       );
-      await job.updateProgress({ progress: 85, stage: JobStage.ASSEMBLING, userId });
+      await job.updateProgress({
+        progress: 85,
+        stage: JobStage.ASSEMBLING,
+        userId,
+      });
 
       const resume = this.assembleResumeFromSelection(
         profileData,
@@ -291,7 +303,11 @@ export class ResumeProcessor {
         JobStage.COMPLETED,
         100,
       );
-      await job.updateProgress({ progress: 100, stage: JobStage.COMPLETED, userId });
+      await job.updateProgress({
+        progress: 100,
+        stage: JobStage.COMPLETED,
+        userId,
+      });
     } catch (error) {
       console.error(`Job ${jobId} failed:`, error);
       await this.updateJobStatus(
@@ -309,43 +325,53 @@ export class ResumeProcessor {
    * Fetches the complete user profile for AI-based selection
    */
   private async fetchFullProfile(userId: string): Promise<ProfileData> {
-    const [user, experiences, projects, education, skillCategories] =
-      await Promise.all([
-        this.prisma.user.findUnique({
-          where: { id: userId },
-        }),
-        this.prisma.experience.findMany({
-          where: { userId },
-          orderBy: { startDate: "desc" },
-          include: {
-            bullets: {
-              include: {
-                skills: {
-                  include: { skill: true },
-                },
+    const [
+      user,
+      experiences,
+      projects,
+      education,
+      skillCategories,
+      certifications,
+    ] = await Promise.all([
+      this.prisma.user.findUnique({
+        where: { id: userId },
+      }),
+      this.prisma.experience.findMany({
+        where: { userId },
+        orderBy: { startDate: "desc" },
+        include: {
+          bullets: {
+            include: {
+              skills: {
+                include: { skill: true },
               },
             },
           },
-        }),
-        this.prisma.project.findMany({
-          where: { userId },
-          include: {
-            bullets: true,
-            skills: {
-              include: { skill: true },
-            },
+        },
+      }),
+      this.prisma.project.findMany({
+        where: { userId },
+        include: {
+          bullets: true,
+          skills: {
+            include: { skill: true },
           },
-        }),
-        this.prisma.education.findMany({
-          where: { userId },
-        }),
-        this.prisma.skillCategory.findMany({
-          where: { userId },
-          include: {
-            skills: true,
-          },
-        }),
-      ]);
+        },
+      }),
+      this.prisma.education.findMany({
+        where: { userId },
+      }),
+      this.prisma.skillCategory.findMany({
+        where: { userId },
+        include: {
+          skills: true,
+        },
+      }),
+      this.prisma.certification.findMany({
+        where: { userId },
+        orderBy: { issueDate: "desc" },
+      }),
+    ]);
 
     return {
       user: user
@@ -398,6 +424,14 @@ export class ResumeProcessor {
           id: s.id,
           name: s.name,
         })),
+      })),
+      certifications: certifications.map((cert) => ({
+        id: cert.id,
+        title: cert.title,
+        issuer: cert.issuer,
+        issueDate: cert.issueDate,
+        expirationDate: cert.expirationDate,
+        credentialUrl: cert.credentialUrl,
       })),
     };
   }
@@ -856,11 +890,27 @@ export class ResumeProcessor {
         },
         { id: "skills", type: "skills" as const, visible: true, order: 2 },
         { id: "projects", type: "projects" as const, visible: true, order: 3 },
+        {
+          id: "certifications",
+          type: "certifications" as const,
+          visible: true,
+          order: 4,
+        },
       ],
       education,
       experiences,
       skillCategories,
       projects,
+      certifications: profileData.certifications.map((cert, index) => ({
+        id: cert.id,
+        title: cert.title,
+        issuer: cert.issuer,
+        issueDate: cert.issueDate,
+        expirationDate: cert.expirationDate,
+        credentialUrl: cert.credentialUrl,
+        visible: true,
+        order: index,
+      })),
     };
   }
 

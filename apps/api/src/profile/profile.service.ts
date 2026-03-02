@@ -1,20 +1,22 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
 import {
   CreateBulletDto,
+  CreateProfileCertificationDto,
   CreateProfileEducationDto,
   CreateProfileExperienceDto,
   CreateProfileProjectDto,
   CreateProfileSkillCategoryDto,
   CreateProfileSkillDto,
+  UpdateBulletSkillsDto,
   UpdateProfileBulletDto,
+  UpdateProfileCertificationDto,
   UpdateProfileEducationDto,
   UpdateProfileExperienceDto,
   UpdateProfileProjectDto,
   UpdateProfileSkillCategoryDto,
   UpdateProfileSkillDto,
-  UpdateUserDto,
-  UpdateBulletSkillsDto,
   UpdateProjectSkillsDto,
+  UpdateUserDto,
 } from "@tailor.me/shared";
 import { PrismaService } from "../prisma/prisma.service";
 import { SearchService } from "../search/search.service";
@@ -52,7 +54,7 @@ const projectInclude = {
 export class ProfileService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly searchService: SearchService
+    private readonly searchService: SearchService,
   ) {}
 
   async getUser(userId: string) {
@@ -147,7 +149,11 @@ export class ProfileService {
     });
   }
 
-  async updateExperience(id: string, dto: UpdateProfileExperienceDto, userId: string) {
+  async updateExperience(
+    id: string,
+    dto: UpdateProfileExperienceDto,
+    userId: string,
+  ) {
     const experience = await this.prisma.experience.findUnique({
       where: { id },
     });
@@ -252,7 +258,11 @@ export class ProfileService {
     return updatedBullet;
   }
 
-  async updateBulletSkills(id: string, dto: UpdateBulletSkillsDto, userId: string) {
+  async updateBulletSkills(
+    id: string,
+    dto: UpdateBulletSkillsDto,
+    userId: string,
+  ) {
     const bullet = await this.prisma.bullet.findUnique({
       where: { id },
       include: {
@@ -337,7 +347,11 @@ export class ProfileService {
     });
   }
 
-  async updateEducation(id: string, dto: UpdateProfileEducationDto, userId: string) {
+  async updateEducation(
+    id: string,
+    dto: UpdateProfileEducationDto,
+    userId: string,
+  ) {
     const education = await this.prisma.education.findUnique({
       where: { id },
     });
@@ -390,7 +404,11 @@ export class ProfileService {
     });
   }
 
-  async updateProject(id: string, dto: UpdateProfileProjectDto, userId: string) {
+  async updateProject(
+    id: string,
+    dto: UpdateProfileProjectDto,
+    userId: string,
+  ) {
     const project = await this.prisma.project.findUnique({
       where: { id },
     });
@@ -410,7 +428,11 @@ export class ProfileService {
     });
   }
 
-  async updateProjectSkills(id: string, dto: UpdateProjectSkillsDto, userId: string) {
+  async updateProjectSkills(
+    id: string,
+    dto: UpdateProjectSkillsDto,
+    userId: string,
+  ) {
     const project = await this.prisma.project.findUnique({
       where: { id },
     });
@@ -467,7 +489,10 @@ export class ProfileService {
   // Skill Category methods
   // ============================================
 
-  async createSkillCategory(dto: CreateProfileSkillCategoryDto, userId: string) {
+  async createSkillCategory(
+    dto: CreateProfileSkillCategoryDto,
+    userId: string,
+  ) {
     return this.prisma.skillCategory.create({
       data: {
         userId,
@@ -479,7 +504,11 @@ export class ProfileService {
     });
   }
 
-  async updateSkillCategory(id: string, dto: UpdateProfileSkillCategoryDto, userId: string) {
+  async updateSkillCategory(
+    id: string,
+    dto: UpdateProfileSkillCategoryDto,
+    userId: string,
+  ) {
     const category = await this.prisma.skillCategory.findUnique({
       where: { id },
     });
@@ -593,6 +622,74 @@ export class ProfileService {
     }
 
     await this.prisma.skill.delete({
+      where: { id },
+    });
+
+    return { success: true };
+  }
+
+  // ============================================
+  // Certification methods
+  // ============================================
+
+  async getCertifications(userId: string) {
+    return this.prisma.certification.findMany({
+      where: { userId },
+      orderBy: {
+        issueDate: "desc",
+      },
+    });
+  }
+
+  async createCertification(
+    dto: CreateProfileCertificationDto,
+    userId: string,
+  ) {
+    return this.prisma.certification.create({
+      data: {
+        userId,
+        ...dto,
+      },
+    });
+  }
+
+  async updateCertification(
+    id: string,
+    dto: UpdateProfileCertificationDto,
+    userId: string,
+  ) {
+    const certification = await this.prisma.certification.findUnique({
+      where: { id },
+    });
+
+    if (!certification) {
+      throw new NotFoundException(`Certification with id ${id} not found`);
+    }
+
+    if (certification.userId !== userId) {
+      throw new NotFoundException(`Certification with id ${id} not found`);
+    }
+
+    return this.prisma.certification.update({
+      where: { id },
+      data: dto,
+    });
+  }
+
+  async deleteCertification(id: string, userId: string) {
+    const certification = await this.prisma.certification.findUnique({
+      where: { id },
+    });
+
+    if (!certification) {
+      throw new NotFoundException(`Certification with id ${id} not found`);
+    }
+
+    if (certification.userId !== userId) {
+      throw new NotFoundException(`Certification with id ${id} not found`);
+    }
+
+    await this.prisma.certification.delete({
       where: { id },
     });
 

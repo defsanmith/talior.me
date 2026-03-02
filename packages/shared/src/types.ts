@@ -87,7 +87,7 @@ export const ResumeJsonSchema = z.object({
         institution: z.string(),
         degree: z.string(),
         graduationDate: z.string().nullable(),
-      })
+      }),
     )
     .optional(),
 });
@@ -183,10 +183,30 @@ export const ResumeProjectSchema = z.object({
 
 export type ResumeProject = z.infer<typeof ResumeProjectSchema>;
 
+// Certification item
+export const ResumeCertificationSchema = z.object({
+  id: z.string(),
+  title: z.string(),
+  issuer: z.string(),
+  issueDate: z.string().nullable().optional(),
+  expirationDate: z.string().nullable().optional(),
+  credentialUrl: z.string().nullable().optional(),
+  visible: z.boolean().default(true),
+  order: z.number(),
+});
+
+export type ResumeCertification = z.infer<typeof ResumeCertificationSchema>;
+
 // Section order configuration
 export const SectionOrderSchema = z.object({
   id: z.string(),
-  type: z.enum(["education", "experience", "skills", "projects"]),
+  type: z.enum([
+    "education",
+    "experience",
+    "skills",
+    "projects",
+    "certifications",
+  ]),
   visible: z.boolean().default(true),
   order: z.number(),
 });
@@ -215,11 +235,13 @@ export const EditableResumeSchema = z.object({
     { id: "experience", type: "experience", visible: true, order: 1 },
     { id: "skills", type: "skills", visible: true, order: 2 },
     { id: "projects", type: "projects", visible: true, order: 3 },
+    { id: "certifications", type: "certifications", visible: true, order: 4 },
   ]),
   education: z.array(ResumeEducationSchema).default([]),
   experiences: z.array(ResumeExperienceSchema).default([]),
   skillCategories: z.array(ResumeSkillCategorySchema).default([]),
   projects: z.array(ResumeProjectSchema).default([]),
+  certifications: z.array(ResumeCertificationSchema).default([]),
 });
 
 export type EditableResume = z.infer<typeof EditableResumeSchema>;

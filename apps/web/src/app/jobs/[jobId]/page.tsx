@@ -29,6 +29,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { InlineCompanyCombobox } from "@/components/job-tracker/inline-company-combobox";
 import { InlinePositionCombobox } from "@/components/job-tracker/inline-position-combobox";
 import { InlineTeamCombobox } from "@/components/job-tracker/inline-team-combobox";
+import { CertificationsSection } from "@/components/resume-builder/certifications-section";
 import { DraggableItem } from "@/components/resume-builder/draggable-item";
 import { EducationSection } from "@/components/resume-builder/education-section";
 import { ExperienceSection } from "@/components/resume-builder/experience-section";
@@ -43,6 +44,7 @@ import {
   ResumeSkillCategory,
   SectionOrder,
 } from "@/components/resume-builder/types";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import Router from "@/lib/router";
 import {
@@ -56,7 +58,6 @@ import {
   useUpdateJobDetailsMutation,
 } from "@/store/api/tracker/mutations";
 import { ApplicationStatus, JobResponse } from "@tailor.me/shared";
-import { Badge } from "@/components/ui/badge";
 
 // Default empty resume structure
 const defaultResume: EditableResume = {
@@ -66,11 +67,13 @@ const defaultResume: EditableResume = {
     { id: "experience", type: "experience", visible: true, order: 1 },
     { id: "skills", type: "skills", visible: true, order: 2 },
     { id: "projects", type: "projects", visible: true, order: 3 },
+    { id: "certifications", type: "certifications", visible: true, order: 4 },
   ],
   education: [],
   experiences: [],
   skillCategories: [],
   projects: [],
+  certifications: [],
 };
 
 // Helper to convert old resume format to new editable format
@@ -158,6 +161,7 @@ function migrateResume(oldResume: any): EditableResume {
     experiences,
     skillCategories,
     projects,
+    certifications: [],
   };
 }
 
@@ -404,6 +408,21 @@ function ResumeBuilderEditor({
             />
           </DraggableItem>
         );
+      case "certifications":
+        return (
+          <DraggableItem key={section.id} id={section.id}>
+            <CertificationsSection
+              items={resume.certifications ?? []}
+              sectionVisible={getSectionVisibility("certifications")}
+              onSectionVisibilityChange={(v) =>
+                setSectionVisibility("certifications", v)
+              }
+              onItemsChange={(items) =>
+                handleResumeUpdate({ certifications: items })
+              }
+            />
+          </DraggableItem>
+        );
       default:
         return null;
     }
@@ -497,7 +516,9 @@ function ResumeBuilderEditor({
               />
               {job?.strategy && (
                 <Badge variant="secondary" className="text-xs">
-                  {job.strategy === "bm25" ? "Fast Match (BM25)" : "AI Rewrite (OpenAI)"}
+                  {job.strategy === "bm25"
+                    ? "Fast Match (BM25)"
+                    : "AI Rewrite (OpenAI)"}
                 </Badge>
               )}
             </div>

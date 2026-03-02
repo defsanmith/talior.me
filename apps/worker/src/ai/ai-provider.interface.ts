@@ -45,6 +45,15 @@ export interface ProfileSkillCategory {
   }>;
 }
 
+export interface ProfileCertification {
+  id: string;
+  title: string;
+  issuer: string;
+  issueDate: string | null;
+  expirationDate: string | null;
+  credentialUrl: string | null;
+}
+
 export interface ProfileUser {
   firstName: string | null;
   lastName: string | null;
@@ -61,6 +70,7 @@ export interface ProfileData {
   projects: ProfileProject[];
   education: ProfileEducation[];
   skillCategories: ProfileSkillCategory[];
+  certifications: ProfileCertification[];
 }
 
 export interface ContentSelection {

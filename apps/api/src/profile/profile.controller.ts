@@ -10,6 +10,7 @@ import {
 } from "@nestjs/common";
 import {
   CreateBulletDto,
+  CreateProfileCertificationDto,
   CreateProfileEducationDto,
   CreateProfileExperienceDto,
   CreateProfileProjectDto,
@@ -17,6 +18,7 @@ import {
   CreateProfileSkillDto,
   UpdateBulletSkillsDto,
   UpdateProfileBulletDto,
+  UpdateProfileCertificationDto,
   UpdateProfileEducationDto,
   UpdateProfileExperienceDto,
   UpdateProfileProjectDto,
@@ -45,6 +47,9 @@ export class ProfileController {
     const skillCategories = await this.profileService.getSkillCategories(
       user.userId,
     );
+    const certifications = await this.profileService.getCertifications(
+      user.userId,
+    );
 
     return {
       user: userData,
@@ -53,6 +58,7 @@ export class ProfileController {
       projects,
       skills,
       skillCategories,
+      certifications,
     };
   }
 
@@ -252,5 +258,34 @@ export class ProfileController {
   @Delete("skills/:id")
   async deleteSkill(@Param("id") id: string, @CurrentUser() user: JwtPayload) {
     return this.profileService.deleteSkill(id, user.userId);
+  }
+
+  // ============================================
+  // Certification endpoints
+  // ============================================
+
+  @Post("certifications")
+  async createCertification(
+    @Body() dto: CreateProfileCertificationDto,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.profileService.createCertification(dto, user.userId);
+  }
+
+  @Put("certifications/:id")
+  async updateCertification(
+    @Param("id") id: string,
+    @Body() dto: UpdateProfileCertificationDto,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.profileService.updateCertification(id, dto, user.userId);
+  }
+
+  @Delete("certifications/:id")
+  async deleteCertification(
+    @Param("id") id: string,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.profileService.deleteCertification(id, user.userId);
   }
 }

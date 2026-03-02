@@ -1,6 +1,7 @@
 import {
   ApiResponse,
   CreateBulletDto,
+  CreateProfileCertificationDto,
   CreateProfileEducationDto,
   CreateProfileExperienceDto,
   CreateProfileProjectDto,
@@ -8,6 +9,7 @@ import {
   CreateProfileSkillDto,
   GetProfileResponse,
   ProfileBullet,
+  ProfileCertification,
   ProfileEducation,
   ProfileExperience,
   ProfileProject,
@@ -16,6 +18,7 @@ import {
   ProfileUser,
   UpdateBulletSkillsDto,
   UpdateProfileBulletDto,
+  UpdateProfileCertificationDto,
   UpdateProfileEducationDto,
   UpdateProfileExperienceDto,
   UpdateProfileProjectDto,
@@ -65,6 +68,11 @@ interface UpdateBulletSkillsArgs {
 interface UpdateProjectSkillsArgs {
   id: string;
   data: UpdateProjectSkillsDto;
+}
+
+interface UpdateCertificationArgs {
+  id: string;
+  data: UpdateProfileCertificationDto;
 }
 
 export const profileApi = appApi.injectEndpoints({
@@ -305,6 +313,42 @@ export const profileApi = appApi.injectEndpoints({
       }),
       invalidatesTags: ["Profile"],
     }),
+
+    // Certification mutations
+    createCertification: build.mutation<
+      ApiResponse<ProfileCertification>,
+      CreateProfileCertificationDto
+    >({
+      query: (data) => ({
+        url: `/profile/certifications`,
+        method: "POST",
+        body: data,
+      }),
+      invalidatesTags: ["Profile"],
+    }),
+
+    updateCertification: build.mutation<
+      ApiResponse<ProfileCertification>,
+      UpdateCertificationArgs
+    >({
+      query: ({ id, data }) => ({
+        url: `/profile/certifications/${id}`,
+        method: "PUT",
+        body: data,
+      }),
+      invalidatesTags: ["Profile"],
+    }),
+
+    deleteCertification: build.mutation<
+      ApiResponse<{ success: boolean }>,
+      string
+    >({
+      query: (id) => ({
+        url: `/profile/certifications/${id}`,
+        method: "DELETE",
+      }),
+      invalidatesTags: ["Profile"],
+    }),
   }),
 });
 
@@ -331,4 +375,7 @@ export const {
   useCreateSkillMutation,
   useUpdateSkillMutation,
   useDeleteSkillMutation,
+  useCreateCertificationMutation,
+  useUpdateCertificationMutation,
+  useDeleteCertificationMutation,
 } = profileApi;

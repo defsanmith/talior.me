@@ -5,6 +5,7 @@ export default class Router {
   static PROFILE_EDUCATION = "/profile/education";
   static PROFILE_EXPERIENCE = "/profile/experience";
   static PROFILE_PROJECTS = "/profile/projects";
+  static PROFILE_CERTIFICATIONS = "/profile/certifications";
   static SETTINGS = "/settings";
   static DASHBOARD = "/";
   static JOBS = "/jobs";

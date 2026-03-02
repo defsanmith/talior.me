@@ -3,6 +3,7 @@
 import Router from "@/lib/router";
 import { cn } from "@/lib/utils";
 import {
+  Award,
   Briefcase,
   Code,
   FolderKanban,
@@ -37,6 +38,11 @@ const navigationItems = [
     name: "Projects",
     href: Router.PROFILE_PROJECTS,
     icon: FolderKanban,
+  },
+  {
+    name: "Certifications",
+    href: Router.PROFILE_CERTIFICATIONS,
+    icon: Award,
   },
 ];
 

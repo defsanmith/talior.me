@@ -1,3 +1,4 @@
+export * from "./certifications-section";
 export * from "./draggable-item";
 export * from "./editable-text";
 export * from "./education-section";
