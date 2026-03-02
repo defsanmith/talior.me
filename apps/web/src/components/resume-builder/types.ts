@@ -1,16 +1,22 @@
 import {
   EditableResume,
+  ResumeBullet,
+  ResumeCertification,
+  ResumeCoursework,
   ResumeEducation,
   ResumeExperience,
   ResumeProject,
   ResumeSkillCategory,
-  ResumeBullet,
-  ResumeCoursework,
   ResumeSkillItem,
   SectionOrder,
 } from "@tailor.me/shared";
 
-export type SectionType = "education" | "experience" | "skills" | "projects";
+export type SectionType =
+  | "education"
+  | "experience"
+  | "skills"
+  | "projects"
+  | "certifications";
 
 export interface ResumeBuilderContextValue {
   resume: EditableResume;
@@ -39,13 +45,13 @@ export interface SectionEditorProps<T> {
 
 export type {
   EditableResume,
+  ResumeBullet,
+  ResumeCertification,
+  ResumeCoursework,
   ResumeEducation,
   ResumeExperience,
   ResumeProject,
   ResumeSkillCategory,
-  ResumeBullet,
-  ResumeCoursework,
   ResumeSkillItem,
   SectionOrder,
 };
-

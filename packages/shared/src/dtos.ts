@@ -130,6 +130,7 @@ export const SectionTypeSchema = z.enum([
   "experience",
   "skills",
   "projects",
+  "certifications",
 ]);
 export type SectionType = z.infer<typeof SectionTypeSchema>;
 
@@ -337,6 +338,24 @@ export const UpdateProfileSkillDtoSchema =
   CreateProfileSkillDtoSchema.partial();
 export type UpdateProfileSkillDto = z.infer<typeof UpdateProfileSkillDtoSchema>;
 
+// Profile Certification DTOs (maps to Prisma Certification model)
+export const CreateProfileCertificationDtoSchema = z.object({
+  title: z.string().min(1),
+  issuer: z.string().min(1),
+  issueDate: z.string().nullable().optional(),
+  expirationDate: z.string().nullable().optional(),
+  credentialUrl: z.string().nullable().optional(),
+});
+export type CreateProfileCertificationDto = z.infer<
+  typeof CreateProfileCertificationDtoSchema
+>;
+
+export const UpdateProfileCertificationDtoSchema =
+  CreateProfileCertificationDtoSchema.partial();
+export type UpdateProfileCertificationDto = z.infer<
+  typeof UpdateProfileCertificationDtoSchema
+>;
+
 // Profile Bullet DTOs (maps to Prisma Bullet model)
 export const UpdateProfileBulletDtoSchema = z.object({
   content: z.string().min(1).optional(),
@@ -448,6 +467,18 @@ export interface ProfileSkill {
   updatedAt: Date;
 }
 
+export interface ProfileCertification {
+  id: string;
+  userId: string;
+  title: string;
+  issuer: string;
+  issueDate: string | null;
+  expirationDate: string | null;
+  credentialUrl: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 export interface GetProfileResponse {
   user: ProfileUser | null;
   experiences: ProfileExperience[];
@@ -455,4 +486,5 @@ export interface GetProfileResponse {
   projects: ProfileProject[];
   skills: ProfileSkill[];
   skillCategories: ProfileSkillCategory[];
+  certifications: ProfileCertification[];
 }

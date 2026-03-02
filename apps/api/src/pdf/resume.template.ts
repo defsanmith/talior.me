@@ -42,6 +42,9 @@ export function generateResumeLatex(resume: EditableResume): string {
       case "projects":
         sectionsLatex += generateProjectsSection(resume);
         break;
+      case "certifications":
+        sectionsLatex += generateCertificationsSection(resume);
+        break;
     }
   }
 
@@ -210,7 +213,7 @@ function generateHeaderSection(resume: EditableResume): string {
       ? user.linkedin
       : `https://${user.linkedin}`;
     contactParts.push(
-      `\\href{${escapeLatex(linkedinUrl)}}{${escapeLatex(linkedinDisplay)}}`
+      `\\href{${escapeLatex(linkedinUrl)}}{${escapeLatex(linkedinDisplay)}}`,
     );
   }
 
@@ -221,7 +224,7 @@ function generateHeaderSection(resume: EditableResume): string {
       ? user.website
       : `https://${user.website}`;
     contactParts.push(
-      `\\href{${escapeLatex(websiteUrl)}}{${escapeLatex(websiteDisplay)}}`
+      `\\href{${escapeLatex(websiteUrl)}}{${escapeLatex(websiteDisplay)}}`,
     );
   }
 
@@ -400,6 +403,72 @@ function generateProjectsSection(resume: EditableResume): string {
       content += `    \\resumeItemListEnd
 `;
     }
+  }
+
+  content += `    \\resumeSubHeadingListEnd
+
+`;
+  return content;
+}
+
+function generateCertificationsSection(resume: EditableResume): string {
+  const visibleItems = ((resume as any).certifications || [])
+    .filter((item: any) => item.visible)
+    .sort((a: any, b: any) => a.order - b.order);
+
+  if (visibleItems.length === 0) return "";
+
+  let content = `%-----------CERTIFICATIONS-----------
+\\section{Certifications}
+    \\resumeSubHeadingListStart
+`;
+
+  const months = [
+    "Jan",
+    "Feb",
+    "Mar",
+    "Apr",
+    "May",
+    "Jun",
+    "Jul",
+    "Aug",
+    "Sep",
+    "Oct",
+    "Nov",
+    "Dec",
+  ];
+
+  const formatMonthYear = (dateStr: string): string => {
+    // Expects "YYYY-MM" from <input type="month">
+    const [year, month] = dateStr.split("-");
+    const monthIndex = parseInt(month, 10) - 1;
+    if (!isNaN(monthIndex) && months[monthIndex]) {
+      return `${months[monthIndex]} ${year}`;
+    }
+    return escapeLatex(dateStr);
+  };
+
+  for (const item of visibleItems) {
+    const title = escapeLatex(item.title || "Certification");
+    const issuer = escapeLatex(item.issuer || "");
+    const issueDateFmt = item.issueDate ? formatMonthYear(item.issueDate) : "";
+    const expirationDateFmt = item.expirationDate
+      ? formatMonthYear(item.expirationDate)
+      : "No Expiration";
+    const dateRange = issueDateFmt
+      ? `${issueDateFmt} -- ${expirationDateFmt}`
+      : "";
+
+    // Build left side similar to project heading: title $|$ issuer [$|$ Credential]
+    let certHeader = `{\\textbf{${title}} $|$ \\emph{${issuer}}`;
+    if (item.credentialUrl) {
+      certHeader += ` $|$ \\href{${item.credentialUrl}}{Credential}`;
+    }
+    certHeader += "}";
+
+    content += `    \\resumeProjectHeading
+    ${certHeader}{${dateRange}}
+`;
   }
 
   content += `    \\resumeSubHeadingListEnd

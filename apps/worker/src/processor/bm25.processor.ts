@@ -1,11 +1,11 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { EditableResume, JobStage, JobStatus } from "@tailor.me/shared";
 import { Job } from "bullmq";
-import { BulletSelector } from "../bm25/bullet-selector";
-import type { BulletCandidate } from "../bm25/types";
-import { KeywordExtractor } from "../bm25/keyword-extractor";
-import { PrismaService } from "../prisma/prisma.service";
 import type { ProfileData } from "../ai/ai-provider.interface";
+import { BulletSelector } from "../bm25/bullet-selector";
+import { KeywordExtractor } from "../bm25/keyword-extractor";
+import type { BulletCandidate } from "../bm25/types";
+import { PrismaService } from "../prisma/prisma.service";
 import type { BulletSearchHit } from "../search/search.service";
 import { SearchService } from "../search/search.service";
 
@@ -29,14 +29,34 @@ export class BM25Processor {
     const { jobId, userId, jobDescription } = job.data;
 
     try {
-      await this.updateProgress(job, jobId, userId, JobStatus.PROCESSING, JobStage.PARSING_JD, 10);
+      await this.updateProgress(
+        job,
+        jobId,
+        userId,
+        JobStatus.PROCESSING,
+        JobStage.PARSING_JD,
+        10,
+      );
 
-      const { keywords, skills, techStack } = KeywordExtractor.extract(jobDescription);
+      const { keywords, skills, techStack } =
+        KeywordExtractor.extract(jobDescription);
       const searchTerms = [...keywords, ...skills, ...techStack];
 
-      await this.updateProgress(job, jobId, userId, JobStatus.PROCESSING, JobStage.RETRIEVING_BULLETS, 20);
+      await this.updateProgress(
+        job,
+        jobId,
+        userId,
+        JobStatus.PROCESSING,
+        JobStage.RETRIEVING_BULLETS,
+        20,
+      );
 
-      const hits = await this.searchService.queryBullets(userId, searchTerms, [], 50);
+      const hits = await this.searchService.queryBullets(
+        userId,
+        searchTerms,
+        [],
+        50,
+      );
 
       const candidates: BulletCandidate[] = hits.map((h: BulletSearchHit) => ({
         bulletId: h.bulletId,
@@ -48,7 +68,14 @@ export class BM25Processor {
         endDate: h.endDate,
       }));
 
-      await this.updateProgress(job, jobId, userId, JobStatus.PROCESSING, JobStage.SELECTING_BULLETS, 50);
+      await this.updateProgress(
+        job,
+        jobId,
+        userId,
+        JobStatus.PROCESSING,
+        JobStage.SELECTING_BULLETS,
+        50,
+      );
 
       const selected = BulletSelector.select(candidates, {
         maxBulletsPerParent: 4,
@@ -56,13 +83,27 @@ export class BM25Processor {
         targetCount: { min: 12, max: 16 },
       });
 
-      await this.updateProgress(job, jobId, userId, JobStatus.PROCESSING, JobStage.ASSEMBLING, 85);
+      await this.updateProgress(
+        job,
+        jobId,
+        userId,
+        JobStatus.PROCESSING,
+        JobStage.ASSEMBLING,
+        85,
+      );
 
       const profile = await this.fetchProfile(userId);
       const resume = this.assembleResume(profile, selected);
 
       await this.saveResults(jobId, resume, selected);
-      await this.updateProgress(job, jobId, userId, JobStatus.COMPLETED, JobStage.COMPLETED, 100);
+      await this.updateProgress(
+        job,
+        jobId,
+        userId,
+        JobStatus.COMPLETED,
+        JobStage.COMPLETED,
+        100,
+      );
     } catch (error) {
       this.logger.error(`BM25 job ${jobId} failed:`, error);
       await this.updateJobStatus(
@@ -102,35 +143,45 @@ export class BM25Processor {
   }
 
   private async fetchProfile(userId: string): Promise<ProfileData> {
-    const [user, experiences, projects, education, skillCategories] =
-      await Promise.all([
-        this.prisma.user.findUnique({ where: { id: userId } }),
-        this.prisma.experience.findMany({
-          where: { userId },
-          orderBy: { startDate: "desc" },
-          include: {
-            bullets: {
-              include: {
-                skills: { include: { skill: true } },
-              },
+    const [
+      user,
+      experiences,
+      projects,
+      education,
+      skillCategories,
+      certifications,
+    ] = await Promise.all([
+      this.prisma.user.findUnique({ where: { id: userId } }),
+      this.prisma.experience.findMany({
+        where: { userId },
+        orderBy: { startDate: "desc" },
+        include: {
+          bullets: {
+            include: {
+              skills: { include: { skill: true } },
             },
           },
-        }),
-        this.prisma.project.findMany({
-          where: { userId },
-          include: {
-            bullets: true,
-            skills: { include: { skill: true } },
-          },
-        }),
-        this.prisma.education.findMany({
-          where: { userId },
-        }),
-        this.prisma.skillCategory.findMany({
-          where: { userId },
-          include: { skills: true },
-        }),
-      ]);
+        },
+      }),
+      this.prisma.project.findMany({
+        where: { userId },
+        include: {
+          bullets: true,
+          skills: { include: { skill: true } },
+        },
+      }),
+      this.prisma.education.findMany({
+        where: { userId },
+      }),
+      this.prisma.skillCategory.findMany({
+        where: { userId },
+        include: { skills: true },
+      }),
+      this.prisma.certification.findMany({
+        where: { userId },
+        orderBy: { issueDate: "desc" },
+      }),
+    ]);
 
     return {
       user: user
@@ -180,6 +231,14 @@ export class BM25Processor {
         id: cat.id,
         name: cat.name,
         skills: cat.skills.map((s) => ({ id: s.id, name: s.name })),
+      })),
+      certifications: certifications.map((cert) => ({
+        id: cert.id,
+        title: cert.title,
+        issuer: cert.issuer,
+        issueDate: cert.issueDate,
+        expirationDate: cert.expirationDate,
+        credentialUrl: cert.credentialUrl,
       })),
     };
   }
@@ -296,15 +355,41 @@ export class BM25Processor {
           }
         : undefined,
       sectionOrder: [
-        { id: "education", type: "education" as const, visible: true, order: 0 },
-        { id: "experience", type: "experience" as const, visible: true, order: 1 },
+        {
+          id: "education",
+          type: "education" as const,
+          visible: true,
+          order: 0,
+        },
+        {
+          id: "experience",
+          type: "experience" as const,
+          visible: true,
+          order: 1,
+        },
         { id: "skills", type: "skills" as const, visible: true, order: 2 },
         { id: "projects", type: "projects" as const, visible: true, order: 3 },
+        {
+          id: "certifications",
+          type: "certifications" as const,
+          visible: true,
+          order: 4,
+        },
       ],
       education,
       experiences,
       skillCategories,
       projects,
+      certifications: profile.certifications.map((cert, index) => ({
+        id: cert.id,
+        title: cert.title,
+        issuer: cert.issuer,
+        issueDate: cert.issueDate,
+        expirationDate: cert.expirationDate,
+        credentialUrl: cert.credentialUrl,
+        visible: true,
+        order: index,
+      })),
     };
   }
 
