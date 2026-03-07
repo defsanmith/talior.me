@@ -89,9 +89,11 @@ EXPOSE 3001
 
 CMD ["node", "dist/main"]
 
-# ── Migrate: runner + Prisma CLI for running database migrations ──────────────
-# Extends the lean runner image by adding only the prisma CLI binary and package.
-# Used exclusively by the `migrate` compose service; not shipped as the api image.
-FROM runner AS migrate
-COPY --from=build /app/apps/api/node_modules/.bin/prisma ./node_modules/.bin/prisma
-COPY --from=build /app/apps/api/node_modules/prisma ./node_modules/prisma
+# ── Migrate: full build stage for running database migrations ─────────────────
+# Based on the build stage (all devDependencies present) rather than the lean
+# runner. prisma migrate deploy requires @prisma/engines (migration engine binary)
+# and several other transitive deps of the prisma CLI — all of which are
+# available in the build stage's pnpm virtual store. Image size is not a concern
+# here since this container runs once at startup and is then discarded.
+FROM build AS migrate
+WORKDIR /app/apps/api
