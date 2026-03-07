@@ -1,10 +1,11 @@
-import { Module } from '@nestjs/common';
-import { JobsController } from './jobs.controller';
-import { JobsService } from './jobs.service';
-import { PdfModule } from '../pdf/pdf.module';
+import { Module } from "@nestjs/common";
+import { PdfModule } from "../pdf/pdf.module";
+import { PresetsModule } from "../presets/presets.module";
+import { JobsController } from "./jobs.controller";
+import { JobsService } from "./jobs.service";
 
 @Module({
-  imports: [PdfModule],
+  imports: [PdfModule, PresetsModule],
   controllers: [JobsController],
   providers: [JobsService],
 })

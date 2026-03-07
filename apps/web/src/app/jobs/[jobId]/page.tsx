@@ -52,12 +52,18 @@ import {
   useLazyGetResumePdfQuery,
   useUpdateJobResumeMutation,
 } from "@/store/api/jobs/queries";
+import { useGetPresetsQuery } from "@/store/api/presets/queries";
 import { useGetProfileQuery } from "@/store/api/profile/queries";
 import {
   useApplyAndGetNextMutation,
   useUpdateJobDetailsMutation,
 } from "@/store/api/tracker/mutations";
-import { ApplicationStatus, JobResponse } from "@tailor.me/shared";
+import {
+  ApplicationStatus,
+  FontFamily,
+  JobResponse,
+  ResumePreset,
+} from "@tailor.me/shared";
 
 // Default empty resume structure
 const defaultResume: EditableResume = {
@@ -218,6 +224,8 @@ function ResumeBuilderEditor({
 }: ResumeBuilderEditorProps) {
   const router = useRouter();
   const { data: profileResponse } = useGetProfileQuery();
+  const { data: presetsData } = useGetPresetsQuery();
+  const presets = (presetsData?.data?.presets ?? []) as ResumePreset[];
   const [updateResume, { isLoading: isSaving }] = useUpdateJobResumeMutation();
   const [updateJobDetails] = useUpdateJobDetailsMutation();
   const [applyAndGetNext, { isLoading: isApplying }] =
@@ -231,6 +239,23 @@ function ResumeBuilderEditor({
   >("idle");
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
+  const [selectedPresetId, setSelectedPresetId] = useState<string>("");
+
+  // Initialise the preset selector once the presets list loads.
+  // Match by saved styleOptions first; fall back to the user's default preset.
+  useEffect(() => {
+    if (!presets.length) return;
+    if (selectedPresetId) return; // already initialised
+    const match = resume.styleOptions
+      ? presets.find(
+          (p) =>
+            p.fontFamily === resume.styleOptions!.fontFamily &&
+            p.fontSize === resume.styleOptions!.fontSize,
+        )
+      : null;
+    const chosen = match ?? presets.find((p) => p.isDefault) ?? null;
+    if (chosen) setSelectedPresetId(chosen.id);
+  }, [presets]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Auto-save with debounce
   const saveResume = useCallback(
@@ -529,6 +554,63 @@ function ResumeBuilderEditor({
           </div>
           <div className="flex items-center gap-4">
             <SaveStatus status={saveStatus} isSaving={isSaving} />
+            {/* Preset selector */}
+            {presets.length > 0 && (
+              <div className="flex items-center gap-1.5">
+                <span className="whitespace-nowrap text-xs text-muted-foreground">
+                  Style:
+                </span>
+                <select
+                  className="h-8 rounded-md border bg-background px-2 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-primary"
+                  value={selectedPresetId}
+                  onChange={(e) => {
+                    setSelectedPresetId(e.target.value);
+                    const preset = presets.find((p) => p.id === e.target.value);
+                    if (!preset) return;
+                    const updates: Partial<EditableResume> = {
+                      styleOptions: {
+                        fontFamily: preset.fontFamily as FontFamily,
+                        fontSize: preset.fontSize as 10 | 11 | 12,
+                      },
+                    };
+                    // Merge preset section order with current visible state
+                    if (
+                      preset.sectionOrder &&
+                      (preset.sectionOrder as SectionOrder[]).length > 0
+                    ) {
+                      const presetOrder = preset.sectionOrder as SectionOrder[];
+                      const currentMap = new Map(
+                        resume.sectionOrder.map((s) => [s.type, s]),
+                      );
+                      const merged: SectionOrder[] = presetOrder
+                        .map((ps, idx) => {
+                          const current = currentMap.get(ps.type);
+                          return current
+                            ? { ...current, order: idx, visible: ps.visible }
+                            : null;
+                        })
+                        .filter(Boolean) as SectionOrder[];
+                      resume.sectionOrder.forEach((s) => {
+                        if (!merged.find((m) => m.type === s.type)) {
+                          merged.push({ ...s, order: merged.length });
+                        }
+                      });
+                      updates.sectionOrder = merged;
+                    }
+                    handleResumeUpdate(updates);
+                  }}
+                >
+                  <option value="" disabled>
+                    Select preset…
+                  </option>
+                  {presets.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
             {job?.applicationStatus === ApplicationStatus.READY_TO_APPLY && (
               <Button
                 onClick={handleApplyAndNext}

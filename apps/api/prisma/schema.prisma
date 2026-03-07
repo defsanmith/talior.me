@@ -33,8 +33,27 @@ model User {
   teams           Team[]
   refreshTokens   RefreshToken[]
   certifications  Certification[]
+  resumePresets   ResumePreset[]
 
   @@map("users")
+}
+
+model ResumePreset {
+  id           String   @id @default(cuid())
+  userId       String
+  name         String
+  isDefault    Boolean  @default(false)
+  fontFamily   String   @default("COMPUTER_MODERN")
+  fontSize     Int      @default(11)
+  sectionOrder Json     @default("[]")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([userId, isDefault])
+  @@map("resume_presets")
 }
 
 model Experience {

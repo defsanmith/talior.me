@@ -5,6 +5,7 @@ import { JwtAuthGuard } from "./auth/jwt-auth.guard";
 import { EventsModule } from "./events/events.module";
 import { JobsModule } from "./jobs/jobs.module";
 import { PdfModule } from "./pdf/pdf.module";
+import { PresetsModule } from "./presets/presets.module";
 import { PrismaModule } from "./prisma/prisma.module";
 import { ProfileModule } from "./profile/profile.module";
 import { QueueModule } from "./queue/queue.module";
@@ -20,6 +21,7 @@ import { TrackerModule } from "./tracker/tracker.module";
     ProfileModule,
     EventsModule,
     PdfModule,
+    PresetsModule,
     TrackerModule,
     SearchModule,
   ],

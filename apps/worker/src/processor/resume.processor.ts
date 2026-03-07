@@ -1,9 +1,11 @@
 import { Injectable } from "@nestjs/common";
 import {
   EditableResume,
+  FontFamily,
   JobStage,
   JobStatus,
   ParsedJD,
+  SectionOrder,
 } from "@tailor.me/shared";
 import { Job, Worker } from "bullmq";
 import { ContentSelection, ProfileData } from "../ai/ai-provider.interface";
@@ -293,6 +295,40 @@ export class ResumeProcessor {
         verifiedBullets,
         sortedSkills,
       );
+
+      // Apply the user's default preset (section order + style) if one is set
+      const defaultPreset = await this.prisma.resumePreset.findFirst({
+        where: { userId, isDefault: true },
+      });
+      if (defaultPreset) {
+        const presetSectionOrder = defaultPreset.sectionOrder as SectionOrder[];
+        if (presetSectionOrder && presetSectionOrder.length > 0) {
+          // Merge: keep the preset ordering but only include sections that exist in the assembled resume
+          const assembledOrder = resume.sectionOrder;
+          const assembledMap = new Map(assembledOrder.map((s) => [s.type, s]));
+          const mergedOrder: SectionOrder[] = presetSectionOrder
+            .map((ps, idx) => {
+              const assembled = assembledMap.get(ps.type);
+              return assembled
+                ? { ...assembled, order: idx, visible: ps.visible }
+                : null;
+            })
+            .filter(Boolean) as SectionOrder[];
+          // Append any sections missing from the preset
+          assembledOrder.forEach((s) => {
+            if (!mergedOrder.find((m) => m.type === s.type)) {
+              mergedOrder.push({ ...s, order: mergedOrder.length });
+            }
+          });
+          resume.sectionOrder = mergedOrder;
+        }
+        resume.styleOptions = {
+          fontFamily:
+            (defaultPreset.fontFamily as FontFamily) ??
+            FontFamily.COMPUTER_MODERN,
+          fontSize: (defaultPreset.fontSize as 10 | 11 | 12) ?? 11,
+        };
+      }
 
       // Step H: Save results
       await this.saveResults(jobId, resume, selectedBullets, verifiedBullets);
