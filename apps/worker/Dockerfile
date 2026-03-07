@@ -59,13 +59,12 @@ FROM build AS pruned
 RUN --mount=type=cache,id=pnpm,target=/root/.local/share/pnpm/store \
     pnpm --filter @tailor.me/worker deploy --prod /prod/worker
 
-# Run prisma generate from within the deployed directory so Prisma resolves
-# node_modules/@prisma/client at /prod/worker and writes the generated client to
-# /prod/worker/node_modules/.prisma/client — no devDependency needed in the image.
-# The prisma CLI binary in /app (from the build stage) is still accessible here.
+# Same prisma generate fix as the api: copy the schema into /prod/worker/prisma/
+# so Prisma walks up from there, finds /prod/worker/node_modules/, and writes
+# the generated client into the correct pnpm virtual-store path.
 WORKDIR /prod/worker
-RUN /app/apps/api/node_modules/.bin/prisma generate \
-    --schema=/app/apps/api/prisma/schema.prisma
+RUN mkdir -p prisma && cp /app/apps/api/prisma/schema.prisma ./prisma/schema.prisma
+RUN /app/apps/api/node_modules/.bin/prisma generate --schema=./prisma/schema.prisma
 
 # ── Runner ───────────────────────────────────────────────────────────────────
 FROM node:20-alpine AS runner
