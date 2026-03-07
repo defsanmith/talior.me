@@ -2,7 +2,8 @@
 
 # ── Base ────────────────────────────────────────────────────────────────────
 FROM node:20-alpine AS base
-RUN npm install -g pnpm@9.15.0
+RUN --mount=type=cache,target=/root/.npm \
+    npm install -g pnpm@9.15.0
 
 # ── Deps: install all workspace dependencies ─────────────────────────────────
 FROM base AS deps
@@ -19,7 +20,10 @@ COPY apps/latex-service/package.json ./apps/latex-service/
 # Prisma schema is needed here so prisma generate can run right after install
 COPY apps/api/prisma/schema.prisma ./apps/api/prisma/schema.prisma
 
-RUN pnpm install --frozen-lockfile
+# The pnpm store cache persists the downloaded package tarballs across builds.
+# On a warm cache this turns a full network install into a local copy.
+RUN --mount=type=cache,id=pnpm,target=/root/.local/share/pnpm/store \
+    pnpm install --frozen-lockfile
 
 # Generate Prisma Client immediately after install while network access is available.
 # prisma is a devDep of apps/api so its binary lives at apps/api/node_modules/.bin/prisma.
@@ -45,23 +49,36 @@ RUN pnpm --filter @tailor.me/shared build
 # Build the worker
 RUN pnpm --filter @tailor.me/worker build
 
+# ── Pruned: production-only dependencies via pnpm deploy ─────────────────────
+FROM build AS pruned
+
+# pnpm deploy creates a self-contained directory with:
+#   - only production dependencies (no devDependencies: typescript, @nestjs/cli,
+#     prisma CLI, ts-node, ts-loader, etc.)
+#   - workspace packages (@tailor.me/shared) bundled inline — no symlinks needed
+RUN --mount=type=cache,id=pnpm,target=/root/.local/share/pnpm/store \
+    pnpm --filter @tailor.me/worker deploy --prod /prod/worker
+
+# Run prisma generate from within the deployed directory so Prisma resolves
+# node_modules/@prisma/client at /prod/worker and writes the generated client to
+# /prod/worker/node_modules/.prisma/client — no devDependency needed in the image.
+# The prisma CLI binary in /app (from the build stage) is still accessible here.
+WORKDIR /prod/worker
+RUN /app/apps/api/node_modules/.bin/prisma generate \
+    --schema=/app/apps/api/prisma/schema.prisma
+
 # ── Runner ───────────────────────────────────────────────────────────────────
 FROM node:20-alpine AS runner
-# Set WORKDIR to the app directory so Node.js module resolution traverses:
-#   /app/apps/worker/node_modules  →  /app/apps/node_modules  →  /app/node_modules
 WORKDIR /app/apps/worker
 
 ENV NODE_ENV=production
 
-# Root node_modules (hoisted deps)
-COPY --from=build /app/node_modules /app/node_modules
-# App-level node_modules (non-hoisted deps, e.g. @nestjs/*, bullmq)
-COPY --from=build /app/apps/worker/node_modules ./node_modules
-# prisma CLI + query engine binary lives under apps/api/node_modules
-COPY --from=build /app/apps/api/node_modules /app/apps/api/node_modules
-# @tailor.me/shared is a pnpm workspace symlink pointing to packages/shared.
-# The symlink target must exist in the runner for Node.js to resolve it.
-COPY --from=build /app/packages/shared /app/packages/shared
+# Production-only node_modules — pruned by pnpm deploy.
+# devDependencies (typescript, @nestjs/cli, prisma CLI, ts-node, ts-loader…)
+# are not present. @tailor.me/shared is bundled inline; no extra COPY needed.
+# The full /app/apps/api/node_modules copy has been replaced by the deploy output,
+# which includes only the @prisma/client needed at runtime.
+COPY --from=pruned /prod/worker/node_modules ./node_modules
 
 # Compiled worker output
 COPY --from=build /app/apps/worker/dist ./dist

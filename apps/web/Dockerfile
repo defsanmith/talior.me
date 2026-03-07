@@ -2,7 +2,8 @@
 
 # ── Base ────────────────────────────────────────────────────────────────────
 FROM node:20-alpine AS base
-RUN npm install -g pnpm@9.15.0
+RUN --mount=type=cache,target=/root/.npm \
+    npm install -g pnpm@9.15.0
 
 # ── Deps: install all workspace dependencies ─────────────────────────────────
 FROM base AS deps
@@ -17,7 +18,10 @@ COPY apps/web/package.json ./apps/web/
 COPY apps/worker/package.json ./apps/worker/
 COPY apps/latex-service/package.json ./apps/latex-service/
 
-RUN pnpm install --frozen-lockfile
+# The pnpm store cache persists the downloaded package tarballs across builds.
+# On a warm cache this turns a full network install into a local copy.
+RUN --mount=type=cache,id=pnpm,target=/root/.local/share/pnpm/store \
+    pnpm install --frozen-lockfile
 
 # ── Build ────────────────────────────────────────────────────────────────────
 FROM base AS build
