@@ -88,6 +88,10 @@ services:
     build:
       context: .
       dockerfile: apps/api/Dockerfile
+      # The `migrate` stage extends the lean `runner` image by adding only the
+      # Prisma CLI binary. This keeps the production `api` image free of devDeps
+      # while still providing `prisma migrate deploy` for this one-shot service.
+      target: migrate
     container_name: tailor-migrate
     command:
       [
