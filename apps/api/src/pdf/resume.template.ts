@@ -1,4 +1,27 @@
-import { EditableResume } from "@tailor.me/shared";
+import { EditableResume, FontFamily } from "@tailor.me/shared";
+
+/**
+ * Returns the LaTeX font package line(s) for the given FontFamily
+ */
+function fontPackageLatex(family: FontFamily): string {
+  switch (family) {
+    case FontFamily.TIMES:
+      return "\\usepackage{mathptmx}";
+    case FontFamily.HELVETICA:
+      return "\\usepackage[scaled]{helvet}\n\\renewcommand\\familydefault{\\sfdefault}";
+    case FontFamily.PALATINO:
+      return "\\usepackage{palatino}";
+    case FontFamily.CHARTER:
+      return "\\usepackage{charter}";
+    case FontFamily.GARAMOND:
+      return "\\usepackage{ebgaramond}";
+    case FontFamily.SOURCE_SANS_PRO:
+      return "\\usepackage[default]{sourcesanspro}";
+    case FontFamily.COMPUTER_MODERN:
+    default:
+      return "\\usepackage{lmodern}";
+  }
+}
 
 /**
  * Escapes special LaTeX characters to prevent compilation errors
@@ -22,6 +45,11 @@ function escapeLatex(text: string): string {
  * Generates the LaTeX document from an EditableResume using Jake's Resume template
  */
 export function generateResumeLatex(resume: EditableResume): string {
+  const style = resume.styleOptions;
+  const fontSize = style?.fontSize ?? 11;
+  const fontFamily = style?.fontFamily ?? FontFamily.COMPUTER_MODERN;
+  const fontPkg = fontPackageLatex(fontFamily);
+
   const visibleSections = (resume.sectionOrder || [])
     .filter((s) => s.visible)
     .sort((a, b) => a.order - b.order);
@@ -53,8 +81,9 @@ export function generateResumeLatex(resume: EditableResume): string {
 % Based on Jake's Resume Template
 %-------------------------
 
-\\documentclass[letterpaper,11pt]{article}
+\\documentclass[letterpaper,${fontSize}pt]{article}
 
+${fontPkg}
 \\usepackage{latexsym}
 \\usepackage[empty]{fullpage}
 \\usepackage{titlesec}

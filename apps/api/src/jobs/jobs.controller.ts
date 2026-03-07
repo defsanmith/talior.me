@@ -1,7 +1,6 @@
 import {
   Body,
   Controller,
-  ForbiddenException,
   Get,
   HttpException,
   HttpStatus,
@@ -15,13 +14,19 @@ import {
   CreateJobDto,
   CreateJobResponse,
   EditableResume,
+  FontFamily,
   GetJobResponse,
   GetJobsResponse,
+  ResumeStyleOptions,
   UpdateJobMetadataDto,
   UpdateResumeDto,
 } from "@tailor.me/shared";
-import { CurrentUser, JwtPayload } from "../auth/decorators/current-user.decorator";
+import {
+  CurrentUser,
+  JwtPayload,
+} from "../auth/decorators/current-user.decorator";
 import { PdfService } from "../pdf/pdf.service";
+import { PresetsService } from "../presets/presets.service";
 import { JobsService } from "./jobs.service";
 
 /** Request body for job creation; strategy may be omitted from shared type until package is rebuilt */
@@ -31,19 +36,20 @@ type CreateJobBody = CreateJobDto & { strategy?: "openai" | "bm25" };
 export class JobsController {
   constructor(
     private readonly jobsService: JobsService,
-    private readonly pdfService: PdfService
+    private readonly pdfService: PdfService,
+    private readonly presetsService: PresetsService,
   ) {}
 
   @Post()
   async createJob(
     @Body() createJobDto: CreateJobBody,
-    @CurrentUser() user: JwtPayload
+    @CurrentUser() user: JwtPayload,
   ): Promise<CreateJobResponse> {
     const activeCount = await this.jobsService.getActiveJobCount(user.userId);
     if (activeCount >= 10) {
       throw new HttpException(
         "Maximum of 10 concurrent jobs allowed. Please wait for some jobs to complete.",
-        HttpStatus.TOO_MANY_REQUESTS
+        HttpStatus.TOO_MANY_REQUESTS,
       );
     }
 
@@ -79,7 +85,7 @@ export class JobsController {
   @Get(":jobId")
   async getJob(
     @Param("jobId") jobId: string,
-    @CurrentUser() user: JwtPayload
+    @CurrentUser() user: JwtPayload,
   ): Promise<GetJobResponse> {
     const job = await this.jobsService.getJobById(jobId, user.userId);
     if (!job) {
@@ -114,12 +120,12 @@ export class JobsController {
   async updateJobResume(
     @Param("jobId") jobId: string,
     @Body() updateResumeDto: UpdateResumeDto,
-    @CurrentUser() user: JwtPayload
+    @CurrentUser() user: JwtPayload,
   ): Promise<{ resume: EditableResume }> {
     const resume = await this.jobsService.updateJobResume(
       jobId,
       updateResumeDto,
-      user.userId
+      user.userId,
     );
     return { resume };
   }
@@ -127,7 +133,7 @@ export class JobsController {
   @Get(":jobId/resume")
   async getJobResume(
     @Param("jobId") jobId: string,
-    @CurrentUser() user: JwtPayload
+    @CurrentUser() user: JwtPayload,
   ): Promise<{ resume: EditableResume | null }> {
     const resume = await this.jobsService.getJobResume(jobId, user.userId);
     return { resume };
@@ -137,12 +143,12 @@ export class JobsController {
   async updateJobMetadata(
     @Param("jobId") jobId: string,
     @Body() updateMetadataDto: UpdateJobMetadataDto,
-    @CurrentUser() user: JwtPayload
+    @CurrentUser() user: JwtPayload,
   ): Promise<any> {
     const job = await this.jobsService.updateJobMetadata(
       jobId,
       updateMetadataDto,
-      user.userId
+      user.userId,
     );
     return { job };
   }
@@ -151,11 +157,24 @@ export class JobsController {
   async getResumePdf(
     @Param("jobId") jobId: string,
     @Query("download") download: string,
-    @CurrentUser() user: JwtPayload
+    @CurrentUser() user: JwtPayload,
   ): Promise<StreamableFile> {
     const resume = await this.jobsService.getJobResume(jobId, user.userId);
     if (!resume) {
       throw new HttpException("Resume not found", HttpStatus.NOT_FOUND);
+    }
+
+    // Apply the user's default preset style when the resume has no per-resume style
+    if (!resume.styleOptions) {
+      const defaultPreset = await this.presetsService.getDefaultPreset(
+        user.userId,
+      );
+      if (defaultPreset) {
+        (resume as EditableResume).styleOptions = {
+          fontFamily: defaultPreset.fontFamily as FontFamily,
+          fontSize: defaultPreset.fontSize as ResumeStyleOptions["fontSize"],
+        };
+      }
     }
 
     const pdfBuffer = await this.pdfService.generatePdf(resume);

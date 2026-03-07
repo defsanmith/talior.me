@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { FontFamily } from "./enums";
 import {
   EditableResumeSchema,
   ResumeBulletSchema,
@@ -10,6 +11,29 @@ import {
   ResumeSkillItemSchema,
   SectionOrderSchema,
 } from "./types";
+
+// ============================================
+// Resume Preset DTOs
+// ============================================
+
+export const CreatePresetDtoSchema = z.object({
+  name: z.string().min(1, "Preset name is required"),
+  fontFamily: z.nativeEnum(FontFamily).default(FontFamily.COMPUTER_MODERN),
+  fontSize: z.union([z.literal(10), z.literal(11), z.literal(12)]).default(11),
+  sectionOrder: z.array(SectionOrderSchema).default([]),
+  isDefault: z.boolean().optional().default(false),
+});
+export type CreatePresetDto = z.infer<typeof CreatePresetDtoSchema>;
+
+export const UpdatePresetDtoSchema = CreatePresetDtoSchema.partial();
+export type UpdatePresetDto = z.infer<typeof UpdatePresetDtoSchema>;
+
+export const PreviewPresetDtoSchema = z.object({
+  fontFamily: z.nativeEnum(FontFamily).default(FontFamily.COMPUTER_MODERN),
+  fontSize: z.union([z.literal(10), z.literal(11), z.literal(12)]).default(11),
+  sectionOrder: z.array(SectionOrderSchema).default([]),
+});
+export type PreviewPresetDto = z.infer<typeof PreviewPresetDtoSchema>;
 
 export const CreateJobDtoSchema = z.object({
   jobDescription: z

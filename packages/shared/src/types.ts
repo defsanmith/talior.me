@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { FontFamily } from "./enums";
 
 export interface ApiResponse<T = any> {
   success: boolean;
@@ -213,6 +214,28 @@ export const SectionOrderSchema = z.object({
 
 export type SectionOrder = z.infer<typeof SectionOrderSchema>;
 
+// Style options for resume appearance
+export const ResumeStyleOptionsSchema = z.object({
+  fontFamily: z.nativeEnum(FontFamily).default(FontFamily.COMPUTER_MODERN),
+  fontSize: z.union([z.literal(10), z.literal(11), z.literal(12)]).default(11),
+});
+
+export type ResumeStyleOptions = z.infer<typeof ResumeStyleOptionsSchema>;
+
+// A saved resume preset
+export const ResumePresetSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  isDefault: z.boolean(),
+  fontFamily: z.nativeEnum(FontFamily),
+  fontSize: z.union([z.literal(10), z.literal(11), z.literal(12)]),
+  sectionOrder: z.array(SectionOrderSchema),
+  createdAt: z.string().or(z.date()).optional(),
+  updatedAt: z.string().or(z.date()).optional(),
+});
+
+export type ResumePreset = z.infer<typeof ResumePresetSchema>;
+
 // User profile info for resume header
 export const ResumeUserSchema = z.object({
   firstName: z.string().optional(),
@@ -230,6 +253,7 @@ export type ResumeUser = z.infer<typeof ResumeUserSchema>;
 export const EditableResumeSchema = z.object({
   user: ResumeUserSchema.optional(),
   summary: z.string().optional(),
+  styleOptions: ResumeStyleOptionsSchema.optional(),
   sectionOrder: z.array(SectionOrderSchema).default([
     { id: "education", type: "education", visible: true, order: 0 },
     { id: "experience", type: "experience", visible: true, order: 1 },

@@ -3,6 +3,7 @@ import { useDispatch, useSelector } from "react-redux";
 import { appApi } from "./api";
 // Import authApi to ensure it's initialized before authSlice uses it
 import "./api/auth/queries";
+import "./api/presets/queries";
 import authReducer from "./slices/authSlice";
 
 export const store = configureStore({

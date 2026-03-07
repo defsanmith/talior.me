@@ -1,6 +1,6 @@
 "use client";
 
-import { IconLogout, IconUserCircle } from "@tabler/icons-react";
+import { IconLogout, IconPalette, IconUserCircle } from "@tabler/icons-react";
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
@@ -82,6 +82,12 @@ export default function UserNav() {
               <Link href={Router.PROFILE}>
                 <IconUserCircle />
                 Profile
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild>
+              <Link href={Router.APPEARANCE}>
+                <IconPalette />
+                Appearance
               </Link>
             </DropdownMenuItem>
           </DropdownMenuGroup>
