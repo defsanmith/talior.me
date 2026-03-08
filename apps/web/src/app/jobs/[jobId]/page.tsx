@@ -243,9 +243,6 @@ function ResumeBuilderEditor({
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
   const [selectedPresetId, setSelectedPresetId] = useState<string>("");
-  const [jobTrackingEnabled, setJobTrackingEnabled] = useState<boolean>(
-    job.trackingEnabled === true,
-  );
   const [isTrackingCopied, setIsTrackingCopied] = useState(false);
 
   // Initialise the preset selector once the presets list loads.
@@ -340,17 +337,16 @@ function ResumeBuilderEditor({
   };
 
   // Metadata update handlers
-  const handleTrackingToggle = async (checked: boolean) => {
-    setJobTrackingEnabled(checked);
-    try {
-      await updateJobDetails({
-        id: jobId,
-        data: { trackingEnabled: checked },
-      }).unwrap();
-    } catch (err) {
-      setJobTrackingEnabled(!checked); // revert on error
-      console.error("Failed to update tracking:", err);
+  const handleTrackingToggle = (checked: boolean) => {
+    const profileUser = profileResponse?.data?.user as any;
+    const trackingSlug = (job as any).trackingSlug as string | null;
+    let websiteHref: string | undefined;
+    if (checked && trackingSlug && profileUser?.website) {
+      const prefix = (profileUser.trackingSlugPrefix as string) || "r";
+      const base = (profileUser.website as string).replace(/\/+$/, "");
+      websiteHref = `${base}/${prefix}/${trackingSlug}`;
     }
+    handleResumeUpdate({ user: { ...resume.user, websiteHref } });
   };
 
   const handleCopyTrackingUrl = async (url: string) => {
@@ -753,15 +749,11 @@ function ResumeBuilderEditor({
 
           {(() => {
             const profileUser = profileResponse?.data?.user as any;
-            const globalTrackingEnabled =
-              profileUser?.trackingEnabled !== false;
+            const globalTrackingEnabled = profileUser?.trackingEnabled === true;
             const trackingSlug = (job as any).trackingSlug as string | null;
-            const effectiveTracking =
-              globalTrackingEnabled && jobTrackingEnabled && !!trackingSlug;
-            const trackingUrl =
-              trackingSlug && profileUser?.website
-                ? `${profileUser.website.replace(/\/+$/, "")}/${profileUser.trackingSlugPrefix || "r"}/${trackingSlug}`
-                : null;
+            const jobTrackingEnabled = !!resume.user?.websiteHref;
+            const effectiveTracking = jobTrackingEnabled;
+            const trackingUrl = resume.user?.websiteHref ?? null;
 
             return (
               <div className="mb-6 rounded-lg border bg-card p-4">

@@ -184,21 +184,10 @@ export class JobsService {
       return null;
     }
 
-    // Build tracking href: when both user-level and job-level tracking are
-    // enabled and a slug exists, generate the full tracking URL.  The display
-    // value (user.website) stays as the root URL so the resume looks clean;
-    // the href is the only thing that changes.
+    // Inject fresh contact fields from the user record, but preserve the
+    // websiteHref that is stored inside the resume object — that is the
+    // tracking URL managed by the user via the per-job toggle in the UI.
     const user = job.user as any;
-    const effectiveTrackingEnabled =
-      user.trackingEnabled === true && (job as any).trackingEnabled === true;
-    const trackingSlug = (job as any).trackingSlug as string | null;
-
-    let websiteHref: string | undefined;
-    if (effectiveTrackingEnabled && trackingSlug && user.website) {
-      const prefix = (user.trackingSlugPrefix as string) || "r";
-      const base = (user.website as string).replace(/\/+$/, "");
-      websiteHref = `${base}/${prefix}/${trackingSlug}`;
-    }
 
     // Always include fresh user data for PDF generation
     return {
@@ -210,7 +199,7 @@ export class JobsService {
         phone: user.phone || undefined,
         location: user.location || undefined,
         website: user.website || undefined,
-        websiteHref,
+        websiteHref: resume.user?.websiteHref,
         linkedin: user.linkedin || undefined,
       },
     };
