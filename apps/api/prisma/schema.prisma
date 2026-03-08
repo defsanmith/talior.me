@@ -11,29 +11,31 @@ datasource db {
 }
 
 model User {
-  id              String          @id @default(cuid())
-  email           String          @unique
-  password        String?
-  firstName       String?
-  lastName        String?
-  phone           String?
-  location        String?
-  website         String?
-  linkedin        String?
-  createdAt       DateTime        @default(now())
-  updatedAt       DateTime        @updatedAt
-  experiences     Experience[]
-  education       Education[]
-  projects        Project[]
-  skills          Skill[]
-  resumeJobs      ResumeJob[]
-  skillCategories SkillCategory[]
-  companies       Company[]
-  positions       Position[]
-  teams           Team[]
-  refreshTokens   RefreshToken[]
-  certifications  Certification[]
-  resumePresets   ResumePreset[]
+  id                 String          @id @default(cuid())
+  email              String          @unique
+  password           String?
+  firstName          String?
+  lastName           String?
+  phone              String?
+  location           String?
+  website            String?
+  linkedin           String?
+  trackingEnabled    Boolean         @default(false)
+  trackingSlugPrefix String          @default("r")
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
+  experiences        Experience[]
+  education          Education[]
+  projects           Project[]
+  skills             Skill[]
+  resumeJobs         ResumeJob[]
+  skillCategories    SkillCategory[]
+  companies          Company[]
+  positions          Position[]
+  teams              Team[]
+  refreshTokens      RefreshToken[]
+  certifications     Certification[]
+  resumePresets      ResumePreset[]
 
   @@map("users")
 }
@@ -213,6 +215,8 @@ model ResumeJob {
   priority          Int       @default(0)
   salaryRange       String?
   applicationUrl    String?
+  trackingSlug      String?   @unique
+  trackingEnabled   Boolean   @default(false)
   createdAt         DateTime  @default(now())
   completedAt       DateTime?
   updatedAt         DateTime  @updatedAt
@@ -230,6 +234,7 @@ model ResumeJob {
   @@index([positionId])
   @@index([teamId])
   @@index([createdAt])
+  @@index([trackingSlug])
   @@map("resume_jobs")
 }
 

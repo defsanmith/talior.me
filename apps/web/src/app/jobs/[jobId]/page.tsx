@@ -20,7 +20,9 @@ import {
   AlertCircle,
   Check,
   CheckCircle,
+  Copy,
   Download,
+  Link2,
   Loader2,
 } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
@@ -46,6 +48,7 @@ import {
 } from "@/components/resume-builder/types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import Router from "@/lib/router";
 import {
   useGetJobByIdQuery,
@@ -240,6 +243,10 @@ function ResumeBuilderEditor({
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
   const [selectedPresetId, setSelectedPresetId] = useState<string>("");
+  const [jobTrackingEnabled, setJobTrackingEnabled] = useState<boolean>(
+    job.trackingEnabled === true,
+  );
+  const [isTrackingCopied, setIsTrackingCopied] = useState(false);
 
   // Initialise the preset selector once the presets list loads.
   // Match by saved styleOptions first; fall back to the user's default preset.
@@ -333,6 +340,25 @@ function ResumeBuilderEditor({
   };
 
   // Metadata update handlers
+  const handleTrackingToggle = async (checked: boolean) => {
+    setJobTrackingEnabled(checked);
+    try {
+      await updateJobDetails({
+        id: jobId,
+        data: { trackingEnabled: checked },
+      }).unwrap();
+    } catch (err) {
+      setJobTrackingEnabled(!checked); // revert on error
+      console.error("Failed to update tracking:", err);
+    }
+  };
+
+  const handleCopyTrackingUrl = async (url: string) => {
+    await navigator.clipboard.writeText(url);
+    setIsTrackingCopied(true);
+    setTimeout(() => setIsTrackingCopied(false), 2000);
+  };
+
   const handleCompanyChange = async (companyId: string | undefined) => {
     try {
       await updateJobDetails({
@@ -724,6 +750,86 @@ function ResumeBuilderEditor({
               </div>
             </div>
           )}
+
+          {(() => {
+            const profileUser = profileResponse?.data?.user as any;
+            const globalTrackingEnabled =
+              profileUser?.trackingEnabled !== false;
+            const trackingSlug = (job as any).trackingSlug as string | null;
+            const effectiveTracking =
+              globalTrackingEnabled && jobTrackingEnabled && !!trackingSlug;
+            const trackingUrl =
+              trackingSlug && profileUser?.website
+                ? `${profileUser.website.replace(/\/+$/, "")}/${profileUser.trackingSlugPrefix || "r"}/${trackingSlug}`
+                : null;
+
+            return (
+              <div className="mb-6 rounded-lg border bg-card p-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Link2 className="h-4 w-4 text-muted-foreground" />
+                    <h3 className="text-sm font-semibold">Website Tracking</h3>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Checkbox
+                      id="job-tracking"
+                      checked={jobTrackingEnabled}
+                      onCheckedChange={(c) => handleTrackingToggle(c === true)}
+                      disabled={!globalTrackingEnabled}
+                    />
+                    <label
+                      htmlFor="job-tracking"
+                      className="cursor-pointer text-xs text-muted-foreground"
+                    >
+                      {!globalTrackingEnabled
+                        ? "Disabled globally"
+                        : jobTrackingEnabled
+                          ? "Enabled"
+                          : "Disabled"}
+                    </label>
+                  </div>
+                </div>
+
+                {!trackingSlug ? (
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    A unique tracking ID will be assigned once the resume is
+                    ready.
+                  </p>
+                ) : effectiveTracking && trackingUrl ? (
+                  <div className="mt-3 space-y-1">
+                    <p className="text-xs text-muted-foreground">
+                      The PDF website link points to this URL. You handle the
+                      redirect on your site.
+                    </p>
+                    <div className="flex items-center gap-2 rounded bg-muted px-2 py-1.5">
+                      <code className="flex-1 truncate text-xs">
+                        {trackingUrl}
+                      </code>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 w-6 shrink-0 p-0"
+                        onClick={() => handleCopyTrackingUrl(trackingUrl)}
+                      >
+                        {isTrackingCopied ? (
+                          <Check className="h-3 w-3 text-emerald-400" />
+                        ) : (
+                          <Copy className="h-3 w-3" />
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  trackingSlug && (
+                    <p className="mt-2 text-xs text-muted-foreground">
+                      Tracking is off for this resume. The PDF will use your
+                      plain website URL.
+                    </p>
+                  )
+                )}
+              </div>
+            );
+          })()}
 
           <div className="mb-4">
             <p className="text-sm">

@@ -247,11 +247,13 @@ function generateHeaderSection(resume: EditableResume): string {
   }
 
   if (user?.website) {
-    // Clean up website URL for display (remove https://, www., trailing slash)
+    // Display the root URL (clean); use websiteHref as the actual link when
+    // a tracking URL has been substituted, otherwise fall back to website.
     const websiteDisplay = cleanUrlForDisplay(user.website);
-    const websiteUrl = user.website.startsWith("http")
-      ? user.website
-      : `https://${user.website}`;
+    const rawHref = (user as any).websiteHref || user.website;
+    const websiteUrl = rawHref.startsWith("http")
+      ? rawHref
+      : `https://${rawHref}`;
     contactParts.push(
       `\\href{${escapeLatex(websiteUrl)}}{${escapeLatex(websiteDisplay)}}`,
     );
