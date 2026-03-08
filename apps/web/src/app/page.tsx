@@ -51,6 +51,7 @@ export default function DashboardPage() {
   const statusFilter = searchParams.get("status") || "all";
   const companyFilter = searchParams.get("company") || "";
   const positionFilter = searchParams.get("position") || "";
+  const trackingFilter = searchParams.get("tracking") || "";
   const sortBy = searchParams.get("sortBy") || "createdAt";
   const sortOrder = searchParams.get("sortOrder") || "desc";
 
@@ -60,6 +61,7 @@ export default function DashboardPage() {
       status: statusFilter === "all" ? "" : statusFilter,
       companyId: companyFilter,
       positionId: positionFilter,
+      trackingSlug: trackingFilter,
       sortBy: sortBy as any,
       sortOrder: sortOrder as any,
     },
@@ -190,7 +192,7 @@ export default function DashboardPage() {
                       className="h-4 w-4"
                     />
                     <span className="font-medium">AI Rewrite (OpenAI)</span>
-                    <span className="text-muted-foreground text-sm">
+                    <span className="text-sm text-muted-foreground">
                       Tailored, optimized bullets
                     </span>
                   </label>
@@ -204,7 +206,7 @@ export default function DashboardPage() {
                       className="h-4 w-4"
                     />
                     <span className="font-medium">Fast Match (BM25)</span>
-                    <span className="text-muted-foreground text-sm">
+                    <span className="text-sm text-muted-foreground">
                       Quick, no AI cost
                     </span>
                   </label>
@@ -253,6 +255,7 @@ export default function DashboardPage() {
             statusFilter={statusFilter}
             companyFilter={companyFilter}
             positionFilter={positionFilter}
+            trackingFilter={trackingFilter}
             sortBy={sortBy}
             onFilterChange={updateFilter}
           />
@@ -262,6 +265,7 @@ export default function DashboardPage() {
           <KanbanView
             companyFilter={companyFilter}
             positionFilter={positionFilter}
+            trackingFilter={trackingFilter}
             sortBy={sortBy}
             sortOrder={sortOrder}
           />

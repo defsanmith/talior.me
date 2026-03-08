@@ -74,6 +74,7 @@ export const GetJobsQueryDtoSchema = z.object({
   companyId: z.string().optional(),
   positionId: z.string().optional(),
   teamId: z.string().optional(),
+  trackingSlug: z.string().optional(),
   sortBy: z
     .enum(["createdAt", "applicationDate", "updatedAt", "priority"])
     .optional(),
@@ -100,6 +101,7 @@ export const UpdateJobDetailsDtoSchema = z.object({
   companyId: z.string().nullable().optional(),
   positionId: z.string().nullable().optional(),
   teamId: z.string().nullable().optional(),
+  trackingEnabled: z.boolean().optional(),
 });
 
 export type UpdateJobDetailsDto = z.infer<typeof UpdateJobDetailsDtoSchema>;
@@ -273,6 +275,8 @@ export const UpdateUserDtoSchema = z.object({
   location: z.string().nullable().optional(),
   website: z.string().nullable().optional(),
   linkedin: z.string().nullable().optional(),
+  trackingEnabled: z.boolean().optional(),
+  trackingSlugPrefix: z.string().min(1).max(50).optional(),
 });
 export type UpdateUserDto = z.infer<typeof UpdateUserDtoSchema>;
 
@@ -405,6 +409,8 @@ export interface ProfileUser {
   location: string | null;
   website: string | null;
   linkedin: string | null;
+  trackingEnabled: boolean;
+  trackingSlugPrefix: string;
   createdAt: Date;
   updatedAt: Date;
 }

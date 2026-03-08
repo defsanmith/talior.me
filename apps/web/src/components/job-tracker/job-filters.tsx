@@ -1,5 +1,6 @@
 import { CompanyCombobox } from "@/components/job-tracker/company-combobox";
 import { PositionCombobox } from "@/components/job-tracker/position-combobox";
+import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -8,11 +9,13 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ApplicationStatus } from "@tailor.me/shared";
+import { Search } from "lucide-react";
 
 interface JobFiltersProps {
   statusFilter: string;
   companyFilter: string;
   positionFilter: string;
+  trackingFilter: string;
   sortBy: string;
   onFilterChange: (key: string, value: string) => void;
 }
@@ -21,9 +24,21 @@ export function JobFilters({
   statusFilter,
   companyFilter,
   positionFilter,
+  trackingFilter,
   sortBy,
   onFilterChange,
 }: JobFiltersProps) {
+  const handleTrackingInput = (raw: string) => {
+    let slug = raw;
+    try {
+      const url = new URL(raw);
+      slug = url.pathname.split("/").filter(Boolean).pop() ?? raw;
+    } catch {
+      // bare slug or partial — use as-is
+    }
+    onFilterChange("tracking", slug);
+  };
+
   return (
     <div className="mb-4 flex flex-wrap gap-4">
       <div>
@@ -84,6 +99,16 @@ export function JobFilters({
             {/* <SelectItem value="priority">Priority</SelectItem> */}
           </SelectContent>
         </Select>
+      </div>
+
+      <div className="relative">
+        <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+        <Input
+          value={trackingFilter}
+          onChange={(e) => handleTrackingInput(e.target.value)}
+          placeholder="Tracking URL or hash…"
+          className="h-9 w-52 pl-8 text-xs"
+        />
       </div>
     </div>
   );

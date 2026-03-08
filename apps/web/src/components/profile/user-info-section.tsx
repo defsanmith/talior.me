@@ -7,10 +7,20 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useUpdateUserMutation } from "@/store/api/profile/queries";
-import { ProfileUser } from "@tailor.me/shared";
-import { Globe, Linkedin, Mail, MapPin, Phone, User } from "lucide-react";
+import { ProfileUser, UpdateUserDto } from "@tailor.me/shared";
+import {
+  Globe,
+  Link2,
+  Linkedin,
+  Mail,
+  MapPin,
+  Phone,
+  User,
+} from "lucide-react";
 import { InlineTextField } from "./inline-text-field";
 
 interface UserInfoSectionProps {
@@ -24,6 +34,11 @@ export function UserInfoSection({ user, isLoading }: UserInfoSectionProps) {
   const handleUpdateField = async (field: string, value: string) => {
     if (!user) return;
     await updateUser({ [field]: value || null });
+  };
+
+  const handleUpdate = async (data: UpdateUserDto) => {
+    if (!user) return;
+    await updateUser(data);
   };
 
   if (isLoading) {
@@ -173,6 +188,74 @@ export function UserInfoSection({ user, isLoading }: UserInfoSectionProps) {
               placeholder="Add LinkedIn profile URL"
               isLoading={isUpdating}
             />
+          </div>
+
+          {/* Resume Tracking */}
+          <div className="space-y-4 rounded-lg border p-4 md:col-span-2">
+            <div className="flex items-start justify-between gap-4">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <Link2 className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm font-medium">Resume Tracking</span>
+                </div>
+                <p className="text-xs leading-relaxed text-muted-foreground">
+                  When enabled, the website link in tailored PDFs is replaced
+                  with{" "}
+                  <code className="rounded bg-muted px-1 py-0.5 text-xs">
+                    {user.website
+                      ? user.website.replace(/\/+$/, "")
+                      : "https://yoursite.com"}
+                    /{user.trackingSlugPrefix || "r"}/&lt;unique-id&gt;
+                  </code>
+                  . You handle the redirect on your own website — each resume
+                  gets a unique identifier so you can see which one drove the
+                  visit.
+                </p>
+              </div>
+              <div className="flex shrink-0 items-center gap-2 pt-0.5">
+                <Checkbox
+                  id="tracking-enabled"
+                  checked={user.trackingEnabled}
+                  onCheckedChange={(checked) =>
+                    handleUpdate({ trackingEnabled: checked === true })
+                  }
+                  disabled={isUpdating}
+                />
+                <Label
+                  htmlFor="tracking-enabled"
+                  className="cursor-pointer text-sm"
+                >
+                  {user.trackingEnabled ? "Enabled" : "Disabled"}
+                </Label>
+              </div>
+            </div>
+
+            {user.trackingEnabled && (
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-muted-foreground">
+                  Tracking path prefix
+                </label>
+                <div className="flex items-center gap-1 text-sm">
+                  <span className="max-w-[180px] truncate text-muted-foreground">
+                    {user.website
+                      ? user.website.replace(/\/+$/, "")
+                      : "https://yoursite.com"}
+                    /
+                  </span>
+                  <InlineTextField
+                    value={user.trackingSlugPrefix || "r"}
+                    onSave={(v) =>
+                      handleUpdate({ trackingSlugPrefix: v.trim() || "r" })
+                    }
+                    placeholder="r"
+                    isLoading={isUpdating}
+                  />
+                  <span className="text-muted-foreground">
+                    /&lt;unique-id&gt;
+                  </span>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </CardContent>

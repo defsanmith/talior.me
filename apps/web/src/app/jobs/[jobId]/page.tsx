@@ -20,7 +20,9 @@ import {
   AlertCircle,
   Check,
   CheckCircle,
+  Copy,
   Download,
+  Link2,
   Loader2,
 } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
@@ -34,6 +36,7 @@ import { DraggableItem } from "@/components/resume-builder/draggable-item";
 import { EducationSection } from "@/components/resume-builder/education-section";
 import { ExperienceSection } from "@/components/resume-builder/experience-section";
 import { PdfPreview } from "@/components/resume-builder/pdf-preview";
+import { PresetSelector } from "@/components/resume-builder/preset-selector";
 import { ProjectsSection } from "@/components/resume-builder/projects-section";
 import { SkillsSection } from "@/components/resume-builder/skills-section";
 import {
@@ -46,6 +49,17 @@ import {
 } from "@/components/resume-builder/types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { ButtonGroup } from "@/components/ui/button-group";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import Router from "@/lib/router";
 import {
   useGetJobByIdQuery,
@@ -240,6 +254,9 @@ function ResumeBuilderEditor({
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
   const [selectedPresetId, setSelectedPresetId] = useState<string>("");
+  const [isTrackingCopied, setIsTrackingCopied] = useState(false);
+  const [trackingDialogOpen, setTrackingDialogOpen] = useState(false);
+  const [editableHref, setEditableHref] = useState("");
 
   // Initialise the preset selector once the presets list loads.
   // Match by saved styleOptions first; fall back to the user's default preset.
@@ -333,6 +350,58 @@ function ResumeBuilderEditor({
   };
 
   // Metadata update handlers
+  const handleTrackingToggle = (checked: boolean) => {
+    const profileUser = profileResponse?.data?.user as any;
+    const trackingSlug = (job as any).trackingSlug as string | null;
+    let websiteHref: string | undefined;
+    if (checked && trackingSlug && profileUser?.website) {
+      const prefix = (profileUser.trackingSlugPrefix as string) || "r";
+      const base = (profileUser.website as string).replace(/\/+$/, "");
+      websiteHref = `${base}/${prefix}/${trackingSlug}`;
+    }
+    handleResumeUpdate({ user: { ...resume.user, websiteHref } });
+  };
+
+  const handlePresetChange = (presetId: string) => {
+    setSelectedPresetId(presetId);
+    const preset = presets.find((p) => p.id === presetId);
+    if (!preset) return;
+    const updates: Partial<EditableResume> = {
+      styleOptions: {
+        fontFamily: preset.fontFamily as FontFamily,
+        fontSize: preset.fontSize as 10 | 11 | 12,
+      },
+    };
+    if (
+      preset.sectionOrder &&
+      (preset.sectionOrder as SectionOrder[]).length > 0
+    ) {
+      const presetOrder = preset.sectionOrder as SectionOrder[];
+      const currentMap = new Map(resume.sectionOrder.map((s) => [s.type, s]));
+      const merged: SectionOrder[] = presetOrder
+        .map((ps, idx) => {
+          const current = currentMap.get(ps.type);
+          return current
+            ? { ...current, order: idx, visible: ps.visible }
+            : null;
+        })
+        .filter(Boolean) as SectionOrder[];
+      resume.sectionOrder.forEach((s) => {
+        if (!merged.find((m) => m.type === s.type)) {
+          merged.push({ ...s, order: merged.length });
+        }
+      });
+      updates.sectionOrder = merged;
+    }
+    handleResumeUpdate(updates);
+  };
+
+  const handleCopyTrackingUrl = async (url: string) => {
+    await navigator.clipboard.writeText(url);
+    setIsTrackingCopied(true);
+    setTimeout(() => setIsTrackingCopied(false), 2000);
+  };
+
   const handleCompanyChange = async (companyId: string | undefined) => {
     try {
       await updateJobDetails({
@@ -554,63 +623,41 @@ function ResumeBuilderEditor({
           </div>
           <div className="flex items-center gap-4">
             <SaveStatus status={saveStatus} isSaving={isSaving} />
-            {/* Preset selector */}
-            {presets.length > 0 && (
-              <div className="flex items-center gap-1.5">
-                <span className="whitespace-nowrap text-xs text-muted-foreground">
-                  Style:
-                </span>
-                <select
-                  className="h-8 rounded-md border bg-background px-2 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-primary"
-                  value={selectedPresetId}
-                  onChange={(e) => {
-                    setSelectedPresetId(e.target.value);
-                    const preset = presets.find((p) => p.id === e.target.value);
-                    if (!preset) return;
-                    const updates: Partial<EditableResume> = {
-                      styleOptions: {
-                        fontFamily: preset.fontFamily as FontFamily,
-                        fontSize: preset.fontSize as 10 | 11 | 12,
-                      },
-                    };
-                    // Merge preset section order with current visible state
-                    if (
-                      preset.sectionOrder &&
-                      (preset.sectionOrder as SectionOrder[]).length > 0
-                    ) {
-                      const presetOrder = preset.sectionOrder as SectionOrder[];
-                      const currentMap = new Map(
-                        resume.sectionOrder.map((s) => [s.type, s]),
-                      );
-                      const merged: SectionOrder[] = presetOrder
-                        .map((ps, idx) => {
-                          const current = currentMap.get(ps.type);
-                          return current
-                            ? { ...current, order: idx, visible: ps.visible }
-                            : null;
-                        })
-                        .filter(Boolean) as SectionOrder[];
-                      resume.sectionOrder.forEach((s) => {
-                        if (!merged.find((m) => m.type === s.type)) {
-                          merged.push({ ...s, order: merged.length });
-                        }
-                      });
-                      updates.sectionOrder = merged;
-                    }
-                    handleResumeUpdate(updates);
-                  }}
-                >
-                  <option value="" disabled>
-                    Select preset…
-                  </option>
-                  {presets.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
+
+            <ButtonGroup>
+              <PresetSelector
+                presets={presets}
+                value={selectedPresetId}
+                onChange={handlePresetChange}
+              />
+              <Button
+                onClick={() => {
+                  setEditableHref(resume.user?.websiteHref ?? "");
+                  setTrackingDialogOpen(true);
+                }}
+                variant="outline"
+                size="sm"
+                className="gap-2"
+              >
+                <Link2 className="h-4 w-4" />
+                Tracking
+              </Button>
+              <Button
+                onClick={handleDownload}
+                variant="outline"
+                size="sm"
+                className="gap-2"
+                disabled={isDownloading}
+              >
+                {isDownloading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Download className="h-4 w-4" />
+                )}
+                {isDownloading ? "Downloading..." : "Download PDF"}
+              </Button>
+            </ButtonGroup>
+
             {job?.applicationStatus === ApplicationStatus.READY_TO_APPLY && (
               <Button
                 onClick={handleApplyAndNext}
@@ -627,20 +674,6 @@ function ResumeBuilderEditor({
                 {isApplying ? "Applying..." : "Apply & Next"}
               </Button>
             )}
-            <Button
-              onClick={handleDownload}
-              variant="outline"
-              size="sm"
-              className="gap-2"
-              disabled={isDownloading}
-            >
-              {isDownloading ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Download className="h-4 w-4" />
-              )}
-              {isDownloading ? "Downloading..." : "Download PDF"}
-            </Button>
           </div>
         </div>
       </div>
@@ -724,6 +757,127 @@ function ResumeBuilderEditor({
               </div>
             </div>
           )}
+
+          {(() => {
+            const profileUser = profileResponse?.data?.user as any;
+            const globalTrackingEnabled = profileUser?.trackingEnabled === true;
+            const trackingSlug = (job as any).trackingSlug as string | null;
+            const jobTrackingEnabled = !!resume.user?.websiteHref;
+            const trackingUrl = resume.user?.websiteHref ?? null;
+
+            return (
+              <Dialog
+                open={trackingDialogOpen}
+                onOpenChange={setTrackingDialogOpen}
+              >
+                <DialogContent className="sm:max-w-md">
+                  <DialogHeader>
+                    <DialogTitle className="flex items-center gap-2">
+                      <Link2 className="h-4 w-4" />
+                      Website Tracking
+                    </DialogTitle>
+                    <DialogDescription>
+                      When enabled, the PDF website link will point to the
+                      tracking URL below. You handle the redirect on your site.
+                    </DialogDescription>
+                  </DialogHeader>
+
+                  <div className="space-y-4 py-2">
+                    {/* Enable / disable toggle */}
+                    <div className="flex items-center gap-3">
+                      <Checkbox
+                        id="dialog-job-tracking"
+                        checked={jobTrackingEnabled}
+                        onCheckedChange={(c) =>
+                          handleTrackingToggle(c === true)
+                        }
+                        disabled={!globalTrackingEnabled}
+                      />
+                      <Label
+                        htmlFor="dialog-job-tracking"
+                        className="cursor-pointer text-sm"
+                      >
+                        {!globalTrackingEnabled
+                          ? "Tracking disabled globally — enable it in your profile first"
+                          : jobTrackingEnabled
+                            ? "Tracking enabled for this resume"
+                            : "Enable tracking for this resume"}
+                      </Label>
+                    </div>
+
+                    {/* Slug not ready */}
+                    {!trackingSlug && (
+                      <p className="text-xs text-muted-foreground">
+                        A unique tracking ID will be assigned once the resume is
+                        processed.
+                      </p>
+                    )}
+
+                    {/* Editable URL */}
+                    {trackingSlug && (
+                      <div className="space-y-1.5">
+                        <Label
+                          htmlFor="tracking-url-input"
+                          className="text-xs text-muted-foreground"
+                        >
+                          Tracking URL
+                        </Label>
+                        <div className="flex items-center gap-2">
+                          <Input
+                            id="tracking-url-input"
+                            value={editableHref}
+                            onChange={(e) => setEditableHref(e.target.value)}
+                            placeholder={
+                              trackingUrl ??
+                              "https://yoursite.com/r/<tracking-id>"
+                            }
+                            className="h-8 font-mono text-xs"
+                            disabled={!jobTrackingEnabled}
+                          />
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-8 shrink-0"
+                            disabled={!jobTrackingEnabled}
+                            onClick={() => {
+                              if (editableHref !== (trackingUrl ?? "")) {
+                                handleResumeUpdate({
+                                  user: {
+                                    ...resume.user,
+                                    websiteHref:
+                                      editableHref.trim() || undefined,
+                                  },
+                                });
+                              }
+                            }}
+                          >
+                            Save
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 w-8 shrink-0 p-0"
+                            disabled={!editableHref}
+                            onClick={() =>
+                              handleCopyTrackingUrl(
+                                editableHref || trackingUrl || "",
+                              )
+                            }
+                          >
+                            {isTrackingCopied ? (
+                              <Check className="h-3.5 w-3.5 text-emerald-400" />
+                            ) : (
+                              <Copy className="h-3.5 w-3.5" />
+                            )}
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </DialogContent>
+              </Dialog>
+            );
+          })()}
 
           <div className="mb-4">
             <p className="text-sm">

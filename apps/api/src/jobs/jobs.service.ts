@@ -12,7 +12,7 @@ import { QueueService } from "../queue/queue.service";
 export class JobsService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly queueService: QueueService
+    private readonly queueService: QueueService,
   ) {}
 
   async createJob(
@@ -20,6 +20,13 @@ export class JobsService {
     userId: string,
     strategy: string = "openai",
   ): Promise<string> {
+    // Inherit the user's global tracking preference so new jobs automatically
+    // reflect whatever the user has configured at the account level.
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { trackingEnabled: true },
+    });
+
     const job = await this.prisma.resumeJob.create({
       data: {
         userId,
@@ -28,6 +35,7 @@ export class JobsService {
         status: JobStatus.QUEUED,
         stage: "Queued",
         progress: 0,
+        trackingEnabled: user?.trackingEnabled ?? false,
       },
     });
 
@@ -97,7 +105,7 @@ export class JobsService {
   async updateJobResume(
     jobId: string,
     updateDto: UpdateResumeDto,
-    userId: string
+    userId: string,
   ): Promise<EditableResume> {
     const job = await this.prisma.resumeJob.findUnique({
       where: { id: jobId },
@@ -147,7 +155,10 @@ export class JobsService {
     return updatedJob.resultResume as EditableResume;
   }
 
-  async getJobResume(jobId: string, userId: string): Promise<EditableResume | null> {
+  async getJobResume(
+    jobId: string,
+    userId: string,
+  ): Promise<EditableResume | null> {
     const job = await this.prisma.resumeJob.findUnique({
       where: { id: jobId },
       include: {
@@ -173,17 +184,23 @@ export class JobsService {
       return null;
     }
 
+    // Inject fresh contact fields from the user record, but preserve the
+    // websiteHref that is stored inside the resume object — that is the
+    // tracking URL managed by the user via the per-job toggle in the UI.
+    const user = job.user as any;
+
     // Always include fresh user data for PDF generation
     return {
       ...resume,
       user: {
-        firstName: job.user.firstName || undefined,
-        lastName: job.user.lastName || undefined,
-        email: job.user.email || undefined,
-        phone: job.user.phone || undefined,
-        location: job.user.location || undefined,
-        website: job.user.website || undefined,
-        linkedin: job.user.linkedin || undefined,
+        firstName: user.firstName || undefined,
+        lastName: user.lastName || undefined,
+        email: user.email || undefined,
+        phone: user.phone || undefined,
+        location: user.location || undefined,
+        website: user.website || undefined,
+        websiteHref: resume.user?.websiteHref,
+        linkedin: user.linkedin || undefined,
       },
     };
   }
@@ -191,7 +208,7 @@ export class JobsService {
   async updateJobMetadata(
     jobId: string,
     updateDto: UpdateJobMetadataDto,
-    userId: string
+    userId: string,
   ): Promise<any> {
     const job = await this.prisma.resumeJob.findUnique({
       where: { id: jobId },

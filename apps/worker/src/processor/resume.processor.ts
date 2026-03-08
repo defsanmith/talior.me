@@ -8,6 +8,7 @@ import {
   SectionOrder,
 } from "@tailor.me/shared";
 import { Job, Worker } from "bullmq";
+import { randomBytes } from "crypto";
 import { ContentSelection, ProfileData } from "../ai/ai-provider.interface";
 import { AIService } from "../ai/ai.service";
 import { PrismaService } from "../prisma/prisma.service";
@@ -956,12 +957,36 @@ export class ResumeProcessor {
     selectedBullets: SelectedBullet[],
     verifiedBullets: Map<string, any>,
   ): Promise<void> {
+    // Generate a unique tracking slug for resume open-rate tracking
+    const trackingSlug = randomBytes(6).toString("hex");
+
+    // If the user has tracking enabled at the global level, embed the tracking
+    // URL into the resume object right away so the toggle in the UI only needs
+    // to update the resume JSON — no extra DB flag required.
+    const job = await this.prisma.resumeJob.findUnique({
+      where: { id: jobId },
+      include: { user: true },
+    });
+    const user = job?.user as any;
+    if (user?.trackingEnabled && user?.website) {
+      const prefix = (user.trackingSlugPrefix as string) || "r";
+      const base = (user.website as string).replace(/\/+$/, "");
+      resume = {
+        ...resume,
+        user: {
+          ...resume.user,
+          websiteHref: `${base}/${prefix}/${trackingSlug}`,
+        },
+      };
+    }
+
     // Save resume
     await this.prisma.resumeJob.update({
       where: { id: jobId },
       data: {
         resultResume: resume as any,
         completedAt: new Date(),
+        trackingSlug,
       },
     });
 

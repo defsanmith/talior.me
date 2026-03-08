@@ -244,6 +244,7 @@ export const ResumeUserSchema = z.object({
   phone: z.string().optional(),
   location: z.string().optional(),
   website: z.string().optional(),
+  websiteHref: z.string().optional(), // tracking URL override for the link; display stays as `website`
   linkedin: z.string().optional(),
 });
 
@@ -296,6 +297,8 @@ export interface JobResponse {
   stage: string;
   progress: number;
   resultResume: any;
+  trackingSlug?: string | null;
+  trackingEnabled?: boolean;
   createdAt: Date;
   updatedAt: Date;
 }

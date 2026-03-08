@@ -125,6 +125,7 @@ export class TrackerService {
       companyId,
       positionId,
       teamId,
+      trackingSlug,
       sortBy = "createdAt",
       sortOrder = "desc",
       page = 1,
@@ -154,6 +155,10 @@ export class TrackerService {
 
     if (teamId) {
       where.teamId = teamId;
+    }
+
+    if (trackingSlug) {
+      where.trackingSlug = { contains: trackingSlug };
     }
 
     // Calculate pagination
