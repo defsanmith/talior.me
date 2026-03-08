@@ -112,6 +112,7 @@ services:
     build:
       context: .
       dockerfile: apps/api/Dockerfile
+      target: runner
     container_name: tailor-api
     ports:
       - "3001:3001"
@@ -131,6 +132,7 @@ services:
     build:
       context: .
       dockerfile: apps/worker/Dockerfile
+      target: runner
     container_name: tailor-worker
     env_file:
       - .env
