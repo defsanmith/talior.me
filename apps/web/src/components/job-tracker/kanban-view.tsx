@@ -26,6 +26,7 @@ import JobCard from "../job-posts/job-card";
 interface KanbanViewProps {
   companyFilter?: string;
   positionFilter?: string;
+  trackingFilter?: string;
   sortBy?: string;
   sortOrder?: string;
 }
@@ -71,6 +72,7 @@ const STATUS_COLUMNS = [
 export function KanbanView({
   companyFilter,
   positionFilter,
+  trackingFilter,
   sortBy = "createdAt",
   sortOrder = "desc",
 }: KanbanViewProps) {
@@ -151,6 +153,7 @@ export function KanbanView({
             column={column}
             companyFilter={companyFilter}
             positionFilter={positionFilter}
+            trackingFilter={trackingFilter}
             sortBy={sortBy}
             sortOrder={sortOrder}
             onJobClick={handleJobClick}
@@ -176,6 +179,7 @@ interface KanbanColumnProps {
   column: (typeof STATUS_COLUMNS)[number];
   companyFilter?: string;
   positionFilter?: string;
+  trackingFilter?: string;
   sortBy?: string;
   sortOrder?: string;
   onJobClick: (jobId: string) => void;
@@ -190,6 +194,7 @@ function KanbanColumn({
   column,
   companyFilter,
   positionFilter,
+  trackingFilter,
   sortBy = "createdAt",
   sortOrder = "asc",
   onJobClick,
@@ -204,13 +209,20 @@ function KanbanColumn({
     filters: {
       companyFilter?: string;
       positionFilter?: string;
+      trackingFilter?: string;
       sortBy?: string;
       sortOrder?: string;
     };
   }>({
     jobs: [],
     lastPage: 0,
-    filters: { companyFilter, positionFilter, sortBy, sortOrder },
+    filters: {
+      companyFilter,
+      positionFilter,
+      trackingFilter,
+      sortBy,
+      sortOrder,
+    },
   });
 
   const { setNodeRef } = useDroppable({
@@ -222,6 +234,7 @@ function KanbanColumn({
     status: column.id,
     companyId: companyFilter,
     positionId: positionFilter,
+    trackingSlug: trackingFilter,
     sortBy: sortBy as any,
     sortOrder: sortOrder as any,
     page,
@@ -239,6 +252,7 @@ function KanbanColumn({
   const filtersChanged =
     accumulatedJobs.filters.companyFilter !== companyFilter ||
     accumulatedJobs.filters.positionFilter !== positionFilter ||
+    accumulatedJobs.filters.trackingFilter !== trackingFilter ||
     accumulatedJobs.filters.sortBy !== sortBy ||
     accumulatedJobs.filters.sortOrder !== sortOrder;
 
@@ -249,7 +263,13 @@ function KanbanColumn({
       setAccumulatedJobs({
         jobs: newJobs,
         lastPage: currentPage,
-        filters: { companyFilter, positionFilter, sortBy, sortOrder },
+        filters: {
+          companyFilter,
+          positionFilter,
+          trackingFilter,
+          sortBy,
+          sortOrder,
+        },
       });
       if (filtersChanged && page !== 1) {
         setPage(1);
@@ -263,7 +283,13 @@ function KanbanColumn({
         setAccumulatedJobs({
           jobs: [...accumulatedJobs.jobs, ...uniqueNewJobs],
           lastPage: currentPage,
-          filters: { companyFilter, positionFilter, sortBy, sortOrder },
+          filters: {
+            companyFilter,
+            positionFilter,
+            trackingFilter,
+            sortBy,
+            sortOrder,
+          },
         });
       }
     }
@@ -298,7 +324,13 @@ function KanbanColumn({
       setAccumulatedJobs({
         jobs: newJobs,
         lastPage: currentPage,
-        filters: { companyFilter, positionFilter, sortBy, sortOrder },
+        filters: {
+          companyFilter,
+          positionFilter,
+          trackingFilter,
+          sortBy,
+          sortOrder,
+        },
       });
     }
   }

@@ -74,6 +74,7 @@ export const GetJobsQueryDtoSchema = z.object({
   companyId: z.string().optional(),
   positionId: z.string().optional(),
   teamId: z.string().optional(),
+  trackingSlug: z.string().optional(),
   sortBy: z
     .enum(["createdAt", "applicationDate", "updatedAt", "priority"])
     .optional(),
