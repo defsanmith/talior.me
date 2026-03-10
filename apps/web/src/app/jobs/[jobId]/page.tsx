@@ -623,7 +623,22 @@ function ResumeBuilderEditor({
           </div>
           <div className="flex items-center gap-4">
             <SaveStatus status={saveStatus} isSaving={isSaving} />
-
+            {job?.applicationStatus === ApplicationStatus.READY_TO_APPLY && (
+              <Button
+                onClick={handleApplyAndNext}
+                variant="default"
+                size="sm"
+                className="gap-2"
+                disabled={isApplying}
+              >
+                {isApplying ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <CheckCircle className="h-4 w-4" />
+                )}
+                {isApplying ? "Applying..." : "Apply & Next"}
+              </Button>
+            )}
             <ButtonGroup>
               <PresetSelector
                 presets={presets}
@@ -657,23 +672,6 @@ function ResumeBuilderEditor({
                 {isDownloading ? "Downloading..." : "Download PDF"}
               </Button>
             </ButtonGroup>
-
-            {job?.applicationStatus === ApplicationStatus.READY_TO_APPLY && (
-              <Button
-                onClick={handleApplyAndNext}
-                variant="default"
-                size="sm"
-                className="gap-2"
-                disabled={isApplying}
-              >
-                {isApplying ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <CheckCircle className="h-4 w-4" />
-                )}
-                {isApplying ? "Applying..." : "Apply & Next"}
-              </Button>
-            )}
           </div>
         </div>
       </div>
