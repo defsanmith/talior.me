@@ -18,6 +18,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { useSocket } from "@/hooks/useSocket";
 import { storage, StorageKeys } from "@/lib/storage";
+import type { RootState } from "@/store";
 import { useAppDispatch } from "@/store";
 import { jobApi, useCreateJobMutation } from "@/store/api/jobs/queries";
 import {
@@ -77,17 +78,87 @@ export default function DashboardPage() {
     const socket = socketRef.current;
     if (!socket) return;
 
-    socket.on("job.progress", ({ jobId, progress, stage }: any) => {
-      console.log("Job progress event received", { jobId, progress, stage });
-      dispatch(trackerApi.util.invalidateTags(["Jobs"]));
-    });
+    socket.on(
+      "job.progress",
+      ({
+        jobId,
+        progress,
+        stage,
+        status,
+      }: {
+        jobId?: string;
+        progress?: number;
+        stage?: string;
+        status?: string;
+      } = {}) => {
+        if (!jobId) return;
 
-    socket.on("job.completed", () => {
+        const normalizedProgress =
+          typeof progress === "number"
+            ? Math.max(0, Math.min(100, progress))
+            : undefined;
+
+        dispatch((innerDispatch, getState) => {
+          const state = getState() as RootState;
+
+          const trackerArgs = trackerApi.util.selectCachedArgsForQuery(
+            state,
+            "getTrackerJobs",
+          );
+
+          for (const args of trackerArgs) {
+            innerDispatch(
+              trackerApi.util.updateQueryData(
+                "getTrackerJobs",
+                args,
+                (draft) => {
+                  const job = draft?.data?.jobs?.find(
+                    (item: any) => item.id === jobId,
+                  );
+                  if (!job) return;
+
+                  if (typeof normalizedProgress === "number") {
+                    job.progress = normalizedProgress;
+                  }
+                  if (typeof stage === "string" && stage.length > 0) {
+                    job.stage = stage;
+                  }
+                  if (typeof status === "string" && status.length > 0) {
+                    job.status = status;
+                  }
+                },
+              ),
+            );
+          }
+
+          innerDispatch(
+            jobApi.util.updateQueryData("getJobById", jobId, (draft) => {
+              if (!draft?.data?.job) return;
+
+              if (typeof normalizedProgress === "number") {
+                draft.data.job.progress = normalizedProgress;
+              }
+              if (typeof stage === "string" && stage.length > 0) {
+                draft.data.job.stage = stage;
+              }
+              if (typeof status === "string" && status.length > 0) {
+                draft.data.job.status = status;
+              }
+            }),
+          );
+        });
+      },
+    );
+
+    socket.on("job.completed", ({ jobId }: { jobId?: string } = {}) => {
+      if (jobId) {
+        dispatch(jobApi.util.invalidateTags([{ type: "Jobs", id: jobId }]));
+      }
       dispatch(jobApi.util.invalidateTags(["Jobs"]));
       dispatch(trackerApi.util.invalidateTags(["Jobs"]));
     });
 
-    socket.on("job.failed", ({ jobId }: any) => {
+    socket.on("job.failed", () => {
       dispatch(trackerApi.util.invalidateTags(["Jobs"]));
     });
 
