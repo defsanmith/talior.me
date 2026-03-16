@@ -60,9 +60,14 @@ export function ProfileProjectPicker({
     (pp) => !resumeProjects.some((rp) => rp.name === pp.name),
   );
 
-  const toggleBullet = (projId: string, bulletId: string) => {
+  const toggleBullet = (
+    projId: string,
+    bulletId: string,
+    defaultSelectedIds: string[],
+  ) => {
     setSelections((prev) => {
-      const current = new Set(prev[projId] ?? []);
+      // When a project has no explicit selection yet, treat all bullets as selected.
+      const current = new Set(prev[projId] ?? defaultSelectedIds);
       if (current.has(bulletId)) {
         current.delete(bulletId);
       } else {
@@ -138,7 +143,7 @@ export function ProfileProjectPicker({
                         {proj.skills.map((s) => (
                           <span
                             key={s.id}
-                            className="rounded bg-zinc-800 px-1.5 py-0.5 text-xs text-zinc-300"
+                            className="rounded bg-zinc-300 px-1.5 py-0.5 text-xs"
                           >
                             {s.skill.name}
                           </span>
@@ -180,11 +185,15 @@ export function ProfileProjectPicker({
                             <Checkbox
                               checked={bulletSel.has(b.id)}
                               onCheckedChange={() =>
-                                toggleBullet(proj.id, b.id)
+                                toggleBullet(
+                                  proj.id,
+                                  b.id,
+                                  proj.bullets.map((bullet) => bullet.id),
+                                )
                               }
                               className="mt-0.5 shrink-0"
                             />
-                            <span className="text-xs leading-relaxed text-zinc-300">
+                            <span className="text-xs leading-relaxed">
                               {b.content}
                             </span>
                           </label>

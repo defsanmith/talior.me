@@ -44,3 +44,5 @@ apps/api/prisma/migrations/*
 *.swp
 *.swo
 *~
+
+*.tsbuildinfo
