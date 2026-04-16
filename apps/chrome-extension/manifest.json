@@ -1,0 +1,36 @@
+{
+  "manifest_version": 3,
+  "name": "tailor.me – LinkedIn Job Importer",
+  "version": "1.0.0",
+  "description": "Extract LinkedIn job details and send them to tailor.me to generate a tailored resume.",
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    },
+    "default_title": "tailor.me"
+  },
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": ["*://www.linkedin.com/jobs/*"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "permissions": ["storage", "tabs", "activeTab"],
+  "host_permissions": [
+    "*://www.linkedin.com/jobs/*",
+    "http://localhost:3001/*"
+  ]
+}

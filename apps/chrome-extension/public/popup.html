@@ -1,0 +1,561 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>tailor.me</title>
+    <style>
+      /* ── Reset & base ──────────────────────────────────── */
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      body {
+        width: 360px;
+        min-height: 200px;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          sans-serif;
+        font-size: 13px;
+        background: #0f0f0f;
+        color: #e8e8e8;
+        overflow-x: hidden;
+      }
+
+      /* ── Layout ────────────────────────────────────────── */
+      .header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 14px 16px 12px;
+        border-bottom: 1px solid #1e1e1e;
+      }
+
+      .logo {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-weight: 700;
+        font-size: 15px;
+        color: #fff;
+        letter-spacing: -0.3px;
+      }
+
+      .logo-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: #6366f1;
+        flex-shrink: 0;
+      }
+
+      .btn-logout {
+        background: none;
+        border: none;
+        color: #555;
+        font-size: 12px;
+        cursor: pointer;
+        padding: 2px 6px;
+        border-radius: 4px;
+        transition: color 0.15s;
+      }
+      .btn-logout:hover {
+        color: #aaa;
+      }
+
+      .content {
+        padding: 16px;
+      }
+
+      /* ── Views ─────────────────────────────────────────── */
+      .view {
+        display: none;
+      }
+      .view.active {
+        display: block;
+      }
+
+      /* ── Login ─────────────────────────────────────────── */
+      .login-title {
+        font-size: 14px;
+        font-weight: 600;
+        margin-bottom: 16px;
+        color: #fff;
+      }
+
+      .field {
+        margin-bottom: 10px;
+      }
+
+      .field label {
+        display: block;
+        font-size: 11px;
+        color: #777;
+        margin-bottom: 4px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+      }
+
+      .field input {
+        width: 100%;
+        padding: 8px 10px;
+        background: #1a1a1a;
+        border: 1px solid #2a2a2a;
+        border-radius: 6px;
+        color: #e8e8e8;
+        font-size: 13px;
+        outline: none;
+        transition: border-color 0.15s;
+      }
+      .field input:focus {
+        border-color: #6366f1;
+      }
+
+      .field-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 10px;
+      }
+      .field-row label {
+        font-size: 11px;
+        color: #777;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        white-space: nowrap;
+      }
+      .field-row input {
+        flex: 1;
+        padding: 6px 10px;
+        background: #1a1a1a;
+        border: 1px solid #2a2a2a;
+        border-radius: 6px;
+        color: #e8e8e8;
+        font-size: 12px;
+        outline: none;
+        transition: border-color 0.15s;
+      }
+      .field-row input:focus {
+        border-color: #4f46e5;
+      }
+
+      /* ── Buttons ───────────────────────────────────────── */
+      .btn {
+        width: 100%;
+        padding: 9px 14px;
+        border: none;
+        border-radius: 7px;
+        font-size: 13px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: opacity 0.15s, transform 0.1s;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+      }
+      .btn:active {
+        transform: scale(0.98);
+      }
+      .btn:disabled {
+        opacity: 0.45;
+        cursor: not-allowed;
+        transform: none;
+      }
+
+      .btn-primary {
+        background: #6366f1;
+        color: #fff;
+        margin-top: 4px;
+      }
+      .btn-primary:hover:not(:disabled) {
+        opacity: 0.88;
+      }
+
+      .btn-open {
+        background: #18181b;
+        color: #a5b4fc;
+        border: 1px solid #312e81;
+        margin-top: 10px;
+      }
+      .btn-open:hover:not(:disabled) {
+        background: #1e1b4b;
+      }
+
+      .btn-retry {
+        background: #18181b;
+        color: #f87171;
+        border: 1px solid #7f1d1d;
+        margin-top: 10px;
+      }
+      .btn-retry:hover:not(:disabled) {
+        background: #2d1515;
+      }
+
+      /* ── Error ─────────────────────────────────────────── */
+      .error-msg {
+        display: none;
+        background: #2d1515;
+        color: #f87171;
+        padding: 8px 10px;
+        border-radius: 6px;
+        font-size: 12px;
+        margin-top: 10px;
+        line-height: 1.4;
+      }
+      .error-msg.visible {
+        display: block;
+      }
+
+      /* ── Not-on-jobs ───────────────────────────────────── */
+      .empty-state {
+        text-align: center;
+        padding: 24px 16px;
+        color: #555;
+      }
+      .empty-icon {
+        font-size: 28px;
+        margin-bottom: 8px;
+      }
+      .empty-state p {
+        font-size: 12px;
+        line-height: 1.5;
+      }
+
+      /* ── Job card ──────────────────────────────────────── */
+      .job-title {
+        font-size: 15px;
+        font-weight: 700;
+        color: #fff;
+        margin-bottom: 2px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .job-meta {
+        font-size: 12px;
+        color: #777;
+        margin-bottom: 14px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .job-meta span + span::before {
+        content: " · ";
+        color: #444;
+      }
+
+      /* ── Status badge ──────────────────────────────────── */
+      .status-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 12px;
+      }
+
+      .status-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        padding: 3px 9px;
+        border-radius: 20px;
+        font-size: 11px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.4px;
+      }
+      .status-badge.queued {
+        background: #1c1a10;
+        color: #fbbf24;
+        border: 1px solid #78350f;
+      }
+      .status-badge.processing {
+        background: #0f1a2e;
+        color: #60a5fa;
+        border: 1px solid #1e3a5f;
+      }
+      .status-badge.completed {
+        background: #0a1f15;
+        color: #4ade80;
+        border: 1px solid #14532d;
+      }
+      .status-badge.failed {
+        background: #2d1515;
+        color: #f87171;
+        border: 1px solid #7f1d1d;
+      }
+
+      .app-status-chip {
+        display: inline-flex;
+        padding: 3px 9px;
+        border-radius: 20px;
+        font-size: 11px;
+        background: #1a1a2e;
+        color: #a5b4fc;
+        border: 1px solid #312e81;
+        font-weight: 500;
+      }
+
+      /* ── Progress bar ──────────────────────────────────── */
+      .progress-wrap {
+        margin-bottom: 10px;
+      }
+      .progress-label {
+        display: flex;
+        justify-content: space-between;
+        font-size: 11px;
+        color: #555;
+        margin-bottom: 4px;
+      }
+      .progress-bar-bg {
+        height: 4px;
+        background: #1e1e1e;
+        border-radius: 99px;
+        overflow: hidden;
+      }
+      .progress-bar-fill {
+        height: 100%;
+        background: #6366f1;
+        border-radius: 99px;
+        transition: width 0.4s ease;
+      }
+
+      /* ── Stage label ───────────────────────────────────── */
+      .stage-label {
+        font-size: 11px;
+        color: #6366f1;
+        margin-bottom: 14px;
+        min-height: 16px;
+      }
+
+      /* ── Spinner ───────────────────────────────────────── */
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+      .spinner {
+        width: 12px;
+        height: 12px;
+        border: 2px solid currentColor;
+        border-top-color: transparent;
+        border-radius: 50%;
+        animation: spin 0.7s linear infinite;
+        flex-shrink: 0;
+      }
+
+      /* ── Desc preview ──────────────────────────────────── */
+      .desc-preview {
+        background: #141414;
+        border: 1px solid #222;
+        border-radius: 6px;
+        padding: 8px 10px;
+        font-size: 11px;
+        color: #666;
+        line-height: 1.5;
+        max-height: 72px;
+        overflow: hidden;
+        margin-bottom: 12px;
+        position: relative;
+      }
+      .desc-preview::after {
+        content: "";
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        height: 24px;
+        background: linear-gradient(transparent, #141414);
+      }
+
+      /* ── Settings ──────────────────────────────────────── */
+      .settings-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 10px 16px 6px;
+        border-top: 1px solid #1a1a1a;
+      }
+      .settings-label {
+        font-size: 11px;
+        color: #555;
+      }
+      .btn-settings {
+        background: none;
+        border: none;
+        color: #555;
+        font-size: 11px;
+        cursor: pointer;
+        padding: 2px 6px;
+        border-radius: 4px;
+        transition: color 0.15s;
+      }
+      .btn-settings:hover {
+        color: #888;
+      }
+
+      /* ── API URL settings panel ────────────────────────── */
+      .api-settings {
+        display: none;
+        padding: 10px 16px 14px;
+        border-top: 1px solid #1a1a1a;
+      }
+      .api-settings.open {
+        display: block;
+      }
+    </style>
+  </head>
+  <body>
+    <!-- Header -->
+    <div class="header">
+      <div class="logo">
+        <div class="logo-dot"></div>
+        tailor.me
+      </div>
+      <button class="btn-logout" id="btn-logout" style="display: none">
+        Sign out
+      </button>
+    </div>
+
+    <div class="content">
+      <!-- ── View: Login ────────────────────────────── -->
+      <div class="view" id="view-login">
+        <p class="login-title">Sign in to tailor.me</p>
+        <div class="field">
+          <label for="input-email">Email</label>
+          <input
+            id="input-email"
+            type="email"
+            placeholder="you@example.com"
+            autocomplete="email"
+          />
+        </div>
+        <div class="field">
+          <label for="input-password">Password</label>
+          <input
+            id="input-password"
+            type="password"
+            placeholder="••••••••"
+            autocomplete="current-password"
+          />
+        </div>
+        <button class="btn btn-primary" id="btn-login">Sign in</button>
+        <div class="error-msg" id="login-error"></div>
+      </div>
+
+      <!-- ── View: Not on LinkedIn jobs page ───────── -->
+      <div class="view" id="view-no-job">
+        <div class="empty-state">
+          <div class="empty-icon">🔍</div>
+          <p>Navigate to a LinkedIn job posting to get started.</p>
+        </div>
+      </div>
+
+      <!-- ── View: Job ready to submit ─────────────── -->
+      <div class="view" id="view-job-ready">
+        <div class="job-title" id="ready-title">—</div>
+        <div class="job-meta">
+          <span id="ready-company"></span>
+          <span id="ready-location"></span>
+        </div>
+        <div class="desc-preview" id="ready-desc"></div>
+        <button class="btn btn-primary" id="btn-submit">
+          Tailor Resume
+        </button>
+        <div class="error-msg" id="submit-error"></div>
+      </div>
+
+      <!-- ── View: Job in progress ──────────────────── -->
+      <div class="view" id="view-job-processing">
+        <div class="job-title" id="proc-title">—</div>
+        <div class="job-meta">
+          <span id="proc-company"></span>
+          <span id="proc-location"></span>
+        </div>
+
+        <div class="status-row">
+          <div class="status-badge processing" id="proc-status-badge">
+            <div class="spinner"></div>
+            <span id="proc-status-text">Processing</span>
+          </div>
+        </div>
+
+        <div class="progress-wrap">
+          <div class="progress-label">
+            <span id="proc-stage-label">Starting…</span>
+            <span id="proc-progress-pct">0%</span>
+          </div>
+          <div class="progress-bar-bg">
+            <div class="progress-bar-fill" id="proc-progress-bar" style="width: 0%"></div>
+          </div>
+        </div>
+
+        <button class="btn btn-open" id="btn-open-processing" disabled>
+          Open in tailor.me
+        </button>
+      </div>
+
+      <!-- ── View: Job completed ────────────────────── -->
+      <div class="view" id="view-job-done">
+        <div class="job-title" id="done-title">—</div>
+        <div class="job-meta">
+          <span id="done-company"></span>
+          <span id="done-location"></span>
+        </div>
+
+        <div class="status-row">
+          <div class="status-badge completed">
+            <span>✓</span> Completed
+          </div>
+          <div class="app-status-chip" id="done-app-status">Ready to Apply</div>
+        </div>
+
+        <button class="btn btn-open" id="btn-open-resume">
+          Open Resume ↗
+        </button>
+
+        <button class="btn btn-primary" id="btn-re-tailor" style="margin-top: 8px; background: #18181b; color: #6366f1; border: 1px solid #312e81;">
+          Re-tailor
+        </button>
+      </div>
+
+      <!-- ── View: Job failed ───────────────────────── -->
+      <div class="view" id="view-job-failed">
+        <div class="job-title" id="failed-title">—</div>
+        <div class="job-meta">
+          <span id="failed-company"></span>
+        </div>
+
+        <div class="status-row">
+          <div class="status-badge failed">✕ Failed</div>
+        </div>
+
+        <div class="error-msg visible" id="failed-msg">
+          The resume generation failed. You can retry below.
+        </div>
+
+        <button class="btn btn-retry" id="btn-retry">Retry</button>
+      </div>
+    </div>
+
+    <!-- Settings footer -->
+    <div class="settings-row" id="settings-row" style="display:none">
+      <span class="settings-label">API</span>
+      <button class="btn-settings" id="btn-toggle-settings">Configure ▾</button>
+    </div>
+    <div class="api-settings" id="api-settings-panel">
+      <div class="field-row">
+        <label>API URL</label>
+        <input id="input-api-url" type="url" placeholder="http://localhost:3001" />
+      </div>
+      <button class="btn btn-primary" id="btn-save-api" style="margin-top:6px; font-size:12px; padding:6px">
+        Save
+      </button>
+    </div>
+
+    <script src="popup.js"></script>
+  </body>
+</html>
