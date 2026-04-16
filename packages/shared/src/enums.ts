@@ -45,3 +45,11 @@ export enum FontFamily {
   GARAMOND = "GARAMOND",
   SOURCE_SANS_PRO = "SOURCE_SANS_PRO",
 }
+
+export enum ExternalJobSourceProvider {
+  LINKEDIN = "LINKEDIN",
+  INDEED = "INDEED",
+  GREENHOUSE = "GREENHOUSE",
+  LEVER = "LEVER",
+  OTHER = "OTHER",
+}

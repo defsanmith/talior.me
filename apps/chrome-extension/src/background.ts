@@ -180,10 +180,18 @@ async function submitJob(
       body?.data?.jobId ?? body?.jobId ?? body?.data?.id ?? body?.id;
     if (!jobId) return { success: false, error: "No job ID in response" };
 
-    // Store applicationUrl (LinkedIn URL) against the job
+    // Update tracker with applicationUrl and external source metadata
     apiFetch(`/api/tracker/jobs/${jobId}`, {
       method: "PATCH",
-      body: JSON.stringify({ applicationUrl: jobData.url }),
+      body: JSON.stringify({
+        applicationUrl: jobData.url,
+        externalSource: {
+          provider: "LINKEDIN",
+          externalJobId: jobData.linkedInJobId,
+          canonicalUrl: getCanonicalLinkedInViewUrl(jobData.linkedInJobId),
+          rawUrl: jobData.url,
+        },
+      }),
     }).catch(() => {
       // Non-critical — don't fail the whole flow
     });

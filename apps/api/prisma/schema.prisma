@@ -11,8 +11,8 @@ datasource db {
 }
 
 model User {
-  id                 String          @id @default(cuid())
-  email              String          @unique
+  id                 String              @id @default(cuid())
+  email              String              @unique
   password           String?
   firstName          String?
   lastName           String?
@@ -20,10 +20,10 @@ model User {
   location           String?
   website            String?
   linkedin           String?
-  trackingEnabled    Boolean         @default(false)
-  trackingSlugPrefix String          @default("r")
-  createdAt          DateTime        @default(now())
-  updatedAt          DateTime        @updatedAt
+  trackingEnabled    Boolean             @default(false)
+  trackingSlugPrefix String              @default("r")
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
   experiences        Experience[]
   education          Education[]
   projects           Project[]
@@ -36,6 +36,7 @@ model User {
   refreshTokens      RefreshToken[]
   certifications     Certification[]
   resumePresets      ResumePreset[]
+  externalJobSources ExternalJobSource[] @relation("ExternalJobSources")
 
   @@map("users")
 }
@@ -221,11 +222,12 @@ model ResumeJob {
   completedAt       DateTime?
   updatedAt         DateTime  @updatedAt
 
-  user     User              @relation(fields: [userId], references: [id], onDelete: Cascade)
-  company  Company?          @relation(fields: [companyId], references: [id], onDelete: SetNull)
-  position Position?         @relation(fields: [positionId], references: [id], onDelete: SetNull)
-  team     Team?             @relation(fields: [teamId], references: [id], onDelete: SetNull)
-  bullets  ResumeJobBullet[]
+  user              User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  company           Company?           @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  position          Position?          @relation(fields: [positionId], references: [id], onDelete: SetNull)
+  team              Team?              @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  bullets           ResumeJobBullet[]
+  externalJobSource ExternalJobSource?
 
   @@index([userId])
   @@index([status])
@@ -328,4 +330,27 @@ model Certification {
 
   @@index([userId])
   @@map("certifications")
+}
+
+model ExternalJobSource {
+  id            String   @id @default(cuid())
+  resumeJobId   String   @unique
+  userId        String
+  provider      String // "LINKEDIN", "INDEED", "GREENHOUSE", "LEVER", "OTHER"
+  externalJobId String
+  canonicalUrl  String?
+  rawUrl        String?
+  metadata      Json     @default("{}")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  resumeJob ResumeJob @relation(fields: [resumeJobId], references: [id], onDelete: Cascade)
+  user      User      @relation("ExternalJobSources", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, provider, externalJobId])
+  @@index([resumeJobId])
+  @@index([userId])
+  @@index([provider])
+  @@index([externalJobId])
+  @@map("external_job_sources")
 }

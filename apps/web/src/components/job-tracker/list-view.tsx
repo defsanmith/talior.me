@@ -52,6 +52,50 @@ const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
   },
 };
 
+// Utility to determine the redirect URL and provider label
+function getApplicationLink(job: any): {
+  url: string | null;
+  label: string;
+  provider: string | null;
+} {
+  // Priority: externalSource.canonicalUrl → applicationUrl → externalSource.rawUrl
+  const externalSource = job.externalJobSource;
+
+  if (externalSource) {
+    const providerLabels: Record<string, string> = {
+      LINKEDIN: "Open on LinkedIn",
+      INDEED: "Open on Indeed",
+      GREENHOUSE: "Open on Greenhouse",
+      LEVER: "Open on Lever",
+      OTHER: "Application Link",
+    };
+
+    const url = externalSource.canonicalUrl || externalSource.rawUrl;
+    const label = providerLabels[externalSource.provider] || "Application Link";
+
+    return {
+      url,
+      label,
+      provider: externalSource.provider,
+    };
+  }
+
+  // Fallback to applicationUrl if no external source
+  if (job.applicationUrl) {
+    return {
+      url: job.applicationUrl,
+      label: "Application Link",
+      provider: null,
+    };
+  }
+
+  return {
+    url: null,
+    label: "Application Link",
+    provider: null,
+  };
+}
+
 export function ListView({ jobs }: ListViewProps) {
   const router = useRouter();
   const [updateJobStatus] = useUpdateJobStatusMutation();
@@ -201,17 +245,23 @@ function TableRow({ job, onClick }: TableRowProps) {
               <ExternalLink className="mr-2 h-4 w-4" />
               View Resume
             </DropdownMenuItem>
-            {job.applicationUrl && (
-              <DropdownMenuItem
-                onClick={(e) => {
-                  e.stopPropagation();
-                  window.open(job.applicationUrl, "_blank");
-                }}
-              >
-                <ExternalLink className="mr-2 h-4 w-4" />
-                Application Link
-              </DropdownMenuItem>
-            )}
+            {(() => {
+              const appLink = getApplicationLink(job);
+              if (appLink.url) {
+                return (
+                  <DropdownMenuItem
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      window.open(appLink.url!, "_blank");
+                    }}
+                  >
+                    <ExternalLink className="mr-2 h-4 w-4" />
+                    {appLink.label}
+                  </DropdownMenuItem>
+                );
+              }
+              return null;
+            })()}
           </DropdownMenuContent>
         </DropdownMenu>
       </td>

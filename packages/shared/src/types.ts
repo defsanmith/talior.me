@@ -276,6 +276,18 @@ export interface CreateJobResponse {
   jobId: string;
 }
 
+export interface ExternalJobSourceResponse {
+  id: string;
+  resumeJobId: string;
+  provider: string;
+  externalJobId: string;
+  canonicalUrl?: string | null;
+  rawUrl?: string | null;
+  metadata?: Record<string, any> | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 export interface JobResponse {
   id: string;
   userId: string;
@@ -299,6 +311,8 @@ export interface JobResponse {
   resultResume: any;
   trackingSlug?: string | null;
   trackingEnabled?: boolean;
+  applicationUrl?: string | null;
+  externalJobSource?: ExternalJobSourceResponse | null;
   createdAt: Date;
   updatedAt: Date;
 }

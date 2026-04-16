@@ -174,6 +174,7 @@ export class TrackerService {
         company: true,
         position: true,
         team: true,
+        externalJobSource: true,
       },
       orderBy: {
         [sortBy]: sortOrder,
@@ -203,6 +204,7 @@ export class TrackerService {
         company: true,
         position: true,
         team: true,
+        externalJobSource: true,
       },
     });
   }
@@ -211,6 +213,9 @@ export class TrackerService {
     // Verify the job exists and belongs to user
     const job = await this.prisma.resumeJob.findFirst({
       where: { id, userId },
+      include: {
+        externalJobSource: true,
+      },
     });
 
     if (!job) {
@@ -236,6 +241,7 @@ export class TrackerService {
         company: true,
         position: true,
         team: true,
+        externalJobSource: true,
       },
       orderBy: {
         createdAt: "asc",
@@ -248,6 +254,9 @@ export class TrackerService {
   async updateJobDetails(id: string, dto: UpdateJobDetailsDto, userId: string) {
     const job = await this.prisma.resumeJob.findFirst({
       where: { id, userId },
+      include: {
+        externalJobSource: true,
+      },
     });
 
     if (!job) {
@@ -263,13 +272,50 @@ export class TrackerService {
       data.interviewDate = new Date(dto.interviewDate);
     }
 
+    // Remove externalSource from data as it's handled separately
+    const { externalSource, ...updateData } = data;
+
+    // Handle external source upsert if provided
+    if (externalSource) {
+      const { provider, externalJobId, canonicalUrl, rawUrl, metadata } =
+        externalSource;
+
+      // Set applicationUrl to canonicalUrl if not provided and canonicalUrl exists
+      if (!updateData.applicationUrl && canonicalUrl) {
+        updateData.applicationUrl = canonicalUrl;
+      }
+
+      // Upsert external source
+      await this.prisma.externalJobSource.upsert({
+        where: { resumeJobId: id },
+        create: {
+          resumeJobId: id,
+          userId,
+          provider,
+          externalJobId,
+          canonicalUrl,
+          rawUrl,
+          metadata: metadata || {},
+        },
+        update: {
+          provider,
+          externalJobId,
+          canonicalUrl,
+          rawUrl,
+          metadata: metadata || {},
+          updatedAt: new Date(),
+        },
+      });
+    }
+
     return this.prisma.resumeJob.update({
       where: { id },
-      data,
+      data: updateData,
       include: {
         company: true,
         position: true,
         team: true,
+        externalJobSource: true,
       },
     });
   }
