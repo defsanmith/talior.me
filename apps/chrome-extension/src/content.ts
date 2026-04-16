@@ -1,4 +1,18 @@
-import type { JobData, ContentMessage } from "./types";
+import { extractLinkedInJobId, getCanonicalLinkedInViewUrl } from "./linkedin";
+import type { ContentMessage, JobData } from "./types";
+
+let extensionContextValid = true;
+
+function isContextInvalidationError(error: unknown): boolean {
+  return (
+    error instanceof Error &&
+    /extension context invalidated/i.test(error.message)
+  );
+}
+
+function isExtensionContextAvailable(): boolean {
+  return extensionContextValid && Boolean(chrome?.runtime?.id);
+}
 
 // ─── Selector helpers ──────────────────────────────────────────────────────────
 
@@ -22,7 +36,7 @@ function extractTitle(): string {
   // Fallback: parse the apply button aria-label
   // e.g. "Apply to Software Engineer II on company website"
   const applyBtn = document.querySelector<HTMLElement>(
-    "#jobs-apply-button-id, [data-live-test-job-apply-button]"
+    "#jobs-apply-button-id, [data-live-test-job-apply-button]",
   );
   if (applyBtn) {
     const label = applyBtn.getAttribute("aria-label") ?? "";
@@ -45,11 +59,11 @@ function extractLocation(): string {
   // Confirmed selector from real LinkedIn HTML:
   // first tvm__text--low-emphasis span inside the tertiary description container
   const container = document.querySelector(
-    ".job-details-jobs-unified-top-card__tertiary-description-container span[dir='ltr']"
+    ".job-details-jobs-unified-top-card__tertiary-description-container span[dir='ltr']",
   );
   if (container) {
     const first = container.querySelector<HTMLElement>(
-      "span.tvm__text--low-emphasis"
+      "span.tvm__text--low-emphasis",
     );
     if (first?.textContent?.trim()) {
       const text = first.textContent.trim();
@@ -84,6 +98,7 @@ function extractJobData(): JobData | null {
   const title = extractTitle();
   const company = extractCompany();
   const description = extractDescription();
+  const linkedInJobId = extractLinkedInJobId(window.location.href);
 
   // Must have at least a description to be a valid job page
   if (!description) return null;
@@ -93,20 +108,35 @@ function extractJobData(): JobData | null {
     company,
     location: extractLocation(),
     description,
-    url: window.location.href,
+    linkedInJobId,
+    url: linkedInJobId
+      ? getCanonicalLinkedInViewUrl(linkedInJobId)
+      : window.location.href,
   };
 }
 
 // ─── Messaging ────────────────────────────────────────────────────────────────
 
 function sendJobData() {
+  if (!isExtensionContextAvailable()) return;
+
   const data = extractJobData();
   const message: ContentMessage = data
     ? { type: "JOB_DATA", data }
     : { type: "NO_JOB_DATA" };
-  chrome.runtime.sendMessage(message).catch(() => {
-    // Popup not open – ignore
-  });
+
+  try {
+    chrome.runtime.sendMessage(message).catch((error: unknown) => {
+      if (isContextInvalidationError(error)) {
+        stopContentScriptActivity();
+      }
+      // Popup not open – ignore
+    });
+  } catch (error) {
+    if (isContextInvalidationError(error)) {
+      stopContentScriptActivity();
+    }
+  }
 }
 
 // ─── SPA navigation detection ─────────────────────────────────────────────────
@@ -114,6 +144,17 @@ function sendJobData() {
 
 let lastUrl = location.href;
 let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+
+function stopContentScriptActivity() {
+  extensionContextValid = false;
+
+  if (debounceTimer) {
+    clearTimeout(debounceTimer);
+    debounceTimer = null;
+  }
+
+  observer.disconnect();
+}
 
 function onUrlChange() {
   if (location.href === lastUrl) return;
@@ -129,15 +170,25 @@ observer.observe(document.body, { subtree: true, childList: true });
 
 // ─── Respond to popup requests ────────────────────────────────────────────────
 
-chrome.runtime.onMessage.addListener(
-  (message: { type: string }, _sender, sendResponse) => {
-    if (message.type === "GET_JOB_DATA") {
-      const data = extractJobData();
-      sendResponse(data ?? null);
-    }
-    return true;
+try {
+  if (isExtensionContextAvailable()) {
+    chrome.runtime.onMessage.addListener(
+      (message: { type: string }, _sender, sendResponse) => {
+        if (!isExtensionContextAvailable()) return false;
+
+        if (message.type === "GET_JOB_DATA") {
+          const data = extractJobData();
+          sendResponse(data ?? null);
+        }
+        return true;
+      },
+    );
   }
-);
+} catch (error) {
+  if (isContextInvalidationError(error)) {
+    stopContentScriptActivity();
+  }
+}
 
 // Send on initial load
 sendJobData();

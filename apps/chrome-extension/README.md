@@ -74,19 +74,21 @@ By default the extension talks to `http://localhost:3001`. To change this:
 ## Supported LinkedIn URL patterns
 
 The extension activates on:
+
 - `linkedin.com/jobs/view/:jobId` — individual job detail pages
 - `linkedin.com/jobs/search/` — job search pages (when a job panel is open)
 - `linkedin.com/jobs/collections/` — job collection pages
 
 ## Data extracted
 
-| Field | Source |
-|---|---|
-| Job title | `.job-details-jobs-unified-top-card__job-title h1` (with fallbacks) |
-| Company | `.job-details-jobs-unified-top-card__company-name a` |
-| Location | First `.tvm__text--low-emphasis` in the tertiary description container |
-| Description + Requirements | Full text of `#job-details` |
-| Job URL | `window.location.href` |
+| Field                      | Source                                                                 |
+| -------------------------- | ---------------------------------------------------------------------- |
+| Job title                  | `.job-details-jobs-unified-top-card__job-title h1` (with fallbacks)    |
+| Company                    | `.job-details-jobs-unified-top-card__company-name a`                   |
+| Location                   | First `.tvm__text--low-emphasis` in the tertiary description container |
+| Description + Requirements | Full text of `#job-details`                                            |
+| LinkedIn Job ID            | `/jobs/view/:jobId` path or `currentJobId` query param                 |
+| Job URL                    | Canonicalized to `https://www.linkedin.com/jobs/view/:jobId/`          |
 
 The full job description (including "Required Qualifications" and "Preferred Qualification" sections) is sent to the API as raw text. The AI pipeline parses it into structured `required_skills`, `nice_to_have`, `responsibilities`, and `keywords` automatically.
 

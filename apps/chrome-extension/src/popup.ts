@@ -1,3 +1,4 @@
+import { extractLinkedInJobId } from "./linkedin";
 import type {
   BackgroundMessage,
   BackgroundResponse,
@@ -9,7 +10,7 @@ import type {
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function msg<T = unknown>(
-  message: BackgroundMessage
+  message: BackgroundMessage,
 ): Promise<BackgroundResponse<T>> {
   return chrome.runtime.sendMessage(message) as Promise<BackgroundResponse<T>>;
 }
@@ -125,7 +126,7 @@ function populateJobMeta(
   prefix: string,
   title: string,
   company: string,
-  location: string
+  location: string,
 ) {
   const titleEl = document.getElementById(`${prefix}-title`);
   const companyEl = document.getElementById(`${prefix}-company`);
@@ -143,7 +144,7 @@ function renderJobStatus(job: JobStatusResponse) {
       "proc",
       currentJobData?.title ?? "",
       currentJobData?.company ?? job.company?.name ?? "",
-      currentJobData?.location ?? ""
+      currentJobData?.location ?? "",
     );
 
     const badge = el("proc-status-badge");
@@ -171,7 +172,7 @@ function renderJobStatus(job: JobStatusResponse) {
       "done",
       currentJobData?.title ?? "",
       currentJobData?.company ?? job.company?.name ?? "",
-      currentJobData?.location ?? ""
+      currentJobData?.location ?? "",
     );
 
     const appLabel =
@@ -193,7 +194,7 @@ function renderJobStatus(job: JobStatusResponse) {
       "failed",
       currentJobData?.title ?? "",
       currentJobData?.company ?? job.company?.name ?? "",
-      currentJobData?.location ?? ""
+      currentJobData?.location ?? "",
     );
     showView("view-job-failed");
   }
@@ -204,7 +205,8 @@ function renderJobStatus(job: JobStatusResponse) {
 async function init() {
   // Load saved API URL into settings input
   const stored = await chrome.storage.local.get("tailorme_api_url");
-  const savedUrl = (stored["tailorme_api_url"] as string) ?? "http://localhost:3001";
+  const savedUrl =
+    (stored["tailorme_api_url"] as string) ?? "http://localhost:3001";
   el<HTMLInputElement>("input-api-url").value = savedUrl;
 
   // Check auth
@@ -231,32 +233,39 @@ async function init() {
   currentJobData = await fetchJobDataFromTab();
 
   const tabUrl = await getCurrentTabUrl();
-  if (!tabUrl) {
-    showView("view-no-job");
-    return;
-  }
+  const linkedInJobId =
+    currentJobData?.linkedInJobId ??
+    (tabUrl ? extractLinkedInJobId(tabUrl) : null);
 
-  // Check if this URL was already submitted
-  const storedRes = await msg<StoredJob | null>({
-    type: "GET_STORED_JOB",
-    linkedInUrl: tabUrl,
-  });
-
-  if (storedRes.success && storedRes.data) {
-    currentJobId = storedRes.data.jobId;
-    const statusRes = await msg<JobStatusResponse>({
-      type: "GET_JOB_STATUS",
-      jobId: currentJobId,
+  if (linkedInJobId) {
+    // Check if this LinkedIn job was already submitted
+    const storedRes = await msg<StoredJob | null>({
+      type: "GET_STORED_JOB",
+      linkedInJobId,
     });
-    if (statusRes.success && statusRes.data) {
-      renderJobStatus(statusRes.data);
-      if (
-        statusRes.data.status === "QUEUED" ||
-        statusRes.data.status === "PROCESSING"
-      ) {
-        startPolling(currentJobId);
+
+    if (storedRes.success && storedRes.data) {
+      currentJobId = storedRes.data.jobId;
+      const statusRes = await msg<JobStatusResponse>({
+        type: "GET_JOB_STATUS",
+        jobId: currentJobId,
+      });
+      if (statusRes.success && statusRes.data) {
+        renderJobStatus(statusRes.data);
+        if (
+          statusRes.data.status === "QUEUED" ||
+          statusRes.data.status === "PROCESSING"
+        ) {
+          startPolling(currentJobId);
+        }
+        return;
       }
-      return;
+
+      // Remove stale local mapping if backend job no longer exists.
+      const stored = await chrome.storage.local.get("tailorme_jobs");
+      const jobs = (stored["tailorme_jobs"] as Record<string, unknown>) ?? {};
+      delete jobs[linkedInJobId];
+      await chrome.storage.local.set({ tailorme_jobs: jobs });
     }
   }
 
@@ -266,7 +275,7 @@ async function init() {
       "ready",
       currentJobData.title,
       currentJobData.company,
-      currentJobData.location
+      currentJobData.location,
     );
     el("ready-desc").textContent = currentJobData.description.slice(0, 300);
     showView("view-job-ready");
@@ -322,6 +331,14 @@ el("btn-submit").addEventListener("click", async () => {
   if (!currentJobData) return;
   clearError("submit-error");
 
+  if (!currentJobData.linkedInJobId) {
+    showError(
+      "submit-error",
+      "Could not determine LinkedIn job id for this posting. Open the job details and try again.",
+    );
+    return;
+  }
+
   const btn = el<HTMLButtonElement>("btn-submit");
   btn.disabled = true;
   btn.textContent = "Sending…";
@@ -346,7 +363,7 @@ el("btn-submit").addEventListener("click", async () => {
     "proc",
     currentJobData.title,
     currentJobData.company,
-    currentJobData.location
+    currentJobData.location,
   );
   el("proc-progress-bar").style.width = "0%";
   el("proc-progress-pct").textContent = "0%";
@@ -368,21 +385,22 @@ el("btn-open-processing").addEventListener("click", () => {
 // Re-tailor (from completed view)
 el("btn-re-tailor").addEventListener("click", async () => {
   if (!currentJobData) return;
-  // Clear the stored job so the ready view shows again
-  const tabUrl = await getCurrentTabUrl();
-  if (tabUrl) {
-    const stored = await chrome.storage.local.get("tailorme_jobs");
-    const jobs = (stored["tailorme_jobs"] as Record<string, unknown>) ?? {};
-    delete jobs[tabUrl];
-    await chrome.storage.local.set({ tailorme_jobs: jobs });
+  if (!currentJobData.linkedInJobId) {
+    showView("view-job-ready");
+    return;
   }
+  // Clear the stored job so the ready view shows again
+  const stored = await chrome.storage.local.get("tailorme_jobs");
+  const jobs = (stored["tailorme_jobs"] as Record<string, unknown>) ?? {};
+  delete jobs[currentJobData.linkedInJobId];
+  await chrome.storage.local.set({ tailorme_jobs: jobs });
   currentJobId = null;
   if (currentJobData) {
     populateJobMeta(
       "ready",
       currentJobData.title,
       currentJobData.company,
-      currentJobData.location
+      currentJobData.location,
     );
     el("ready-desc").textContent = currentJobData.description.slice(0, 300);
   }

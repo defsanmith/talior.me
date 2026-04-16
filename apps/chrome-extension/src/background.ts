@@ -1,3 +1,4 @@
+import { extractLinkedInJobId, getCanonicalLinkedInViewUrl } from "./linkedin";
 import type {
   BackgroundMessage,
   BackgroundResponse,
@@ -9,7 +10,16 @@ import type {
 // ─── Storage keys ─────────────────────────────────────────────────────────────
 
 const STORAGE_KEY_TOKEN = "tailorme_access_token";
-const STORAGE_KEY_JOBS = "tailorme_jobs"; // Record<linkedInUrl, StoredJob>
+const STORAGE_KEY_JOBS = "tailorme_jobs"; // Record<linkedInJobId, StoredJob>
+const STORAGE_KEY_JOBS_VERSION = "tailorme_jobs_version";
+const JOBS_STORAGE_VERSION = 2;
+
+type LegacyStoredJob = {
+  jobId: string;
+  linkedInUrl?: string;
+  linkedInJobId?: string;
+  submittedAt?: number;
+};
 
 // ─── Config ───────────────────────────────────────────────────────────────────
 
@@ -38,7 +48,7 @@ async function clearToken(): Promise<void> {
 async function apiFetch(
   path: string,
   options: RequestInit = {},
-  retry = true
+  retry = true,
 ): Promise<Response> {
   const base = await getApiBase();
   const token = await getToken();
@@ -85,7 +95,7 @@ async function tryRefresh(): Promise<boolean> {
 
 async function login(
   email: string,
-  password: string
+  password: string,
 ): Promise<BackgroundResponse<{ email: string }>> {
   try {
     const base = await getApiBase();
@@ -137,8 +147,15 @@ async function checkAuth(): Promise<BackgroundResponse<{ loggedIn: boolean }>> {
 // ─── Job submission ───────────────────────────────────────────────────────────
 
 async function submitJob(
-  jobData: JobData
+  jobData: JobData,
 ): Promise<BackgroundResponse<{ jobId: string }>> {
+  if (!jobData.linkedInJobId) {
+    return {
+      success: false,
+      error: "Unable to identify LinkedIn job id for this posting",
+    };
+  }
+
   try {
     const res = await apiFetch("/api/jobs", {
       method: "POST",
@@ -171,8 +188,8 @@ async function submitJob(
       // Non-critical — don't fail the whole flow
     });
 
-    // Persist the LinkedIn URL → jobId mapping locally
-    await saveStoredJob(jobData.url, jobId);
+    // Persist the LinkedIn jobId → resume job mapping locally
+    await saveStoredJob(jobData.linkedInJobId, jobId);
 
     return { success: true, data: { jobId } };
   } catch (e) {
@@ -183,7 +200,7 @@ async function submitJob(
 // ─── Job status ───────────────────────────────────────────────────────────────
 
 async function getJobStatus(
-  jobId: string
+  jobId: string,
 ): Promise<BackgroundResponse<JobStatusResponse>> {
   try {
     const res = await apiFetch(`/api/jobs/${jobId}`);
@@ -215,32 +232,69 @@ async function getJobStatus(
 
 // ─── Stored job helpers ───────────────────────────────────────────────────────
 
+async function ensureJobsStorageMigrated(): Promise<void> {
+  const result = await chrome.storage.local.get([
+    STORAGE_KEY_JOBS,
+    STORAGE_KEY_JOBS_VERSION,
+  ]);
+
+  const version = (result[STORAGE_KEY_JOBS_VERSION] as number) ?? 0;
+  if (version >= JOBS_STORAGE_VERSION) return;
+
+  const rawJobs: Record<string, LegacyStoredJob | StoredJob> =
+    result[STORAGE_KEY_JOBS] ?? {};
+  const migrated: Record<string, StoredJob> = {};
+
+  for (const [key, value] of Object.entries(rawJobs)) {
+    if (!value || typeof value !== "object") continue;
+
+    const candidate = value as LegacyStoredJob;
+    const linkedInJobId =
+      candidate.linkedInJobId ??
+      extractLinkedInJobId(candidate.linkedInUrl ?? key);
+    if (!linkedInJobId || !candidate.jobId) continue;
+
+    const submittedAt = candidate.submittedAt ?? 0;
+    const existing = migrated[linkedInJobId];
+    if (existing && existing.submittedAt > submittedAt) continue;
+
+    migrated[linkedInJobId] = {
+      linkedInJobId,
+      jobId: candidate.jobId,
+      linkedInUrl: getCanonicalLinkedInViewUrl(linkedInJobId),
+      submittedAt,
+    };
+  }
+
+  await chrome.storage.local.set({
+    [STORAGE_KEY_JOBS]: migrated,
+    [STORAGE_KEY_JOBS_VERSION]: JOBS_STORAGE_VERSION,
+  });
+}
+
 async function saveStoredJob(
-  linkedInUrl: string,
-  jobId: string
+  linkedInJobId: string,
+  jobId: string,
 ): Promise<void> {
+  await ensureJobsStorageMigrated();
   const result = await chrome.storage.local.get(STORAGE_KEY_JOBS);
   const jobs: Record<string, StoredJob> = result[STORAGE_KEY_JOBS] ?? {};
-  jobs[linkedInUrl] = { jobId, linkedInUrl, submittedAt: Date.now() };
+  jobs[linkedInJobId] = {
+    linkedInJobId,
+    jobId,
+    linkedInUrl: getCanonicalLinkedInViewUrl(linkedInJobId),
+    submittedAt: Date.now(),
+  };
   await chrome.storage.local.set({ [STORAGE_KEY_JOBS]: jobs });
 }
 
 async function getStoredJob(
-  linkedInUrl: string
+  linkedInJobId: string,
 ): Promise<BackgroundResponse<StoredJob | null>> {
+  await ensureJobsStorageMigrated();
   const result = await chrome.storage.local.get(STORAGE_KEY_JOBS);
   const jobs: Record<string, StoredJob> = result[STORAGE_KEY_JOBS] ?? {};
-
-  // Normalize the URL to strip trailing slashes and query params for matching
-  const normalize = (url: string) => url.split("?")[0].replace(/\/$/, "");
-  const normalizedInput = normalize(linkedInUrl);
-
-  for (const [key, value] of Object.entries(jobs)) {
-    if (normalize(key) === normalizedInput) {
-      return { success: true, data: value };
-    }
-  }
-  return { success: true, data: null };
+  return { success: true, data: jobs[linkedInJobId] ?? null };
 }
 
 // ─── Message router ───────────────────────────────────────────────────────────
@@ -249,7 +303,7 @@ chrome.runtime.onMessage.addListener(
   (
     message: BackgroundMessage,
     _sender,
-    sendResponse: (r: BackgroundResponse) => void
+    sendResponse: (r: BackgroundResponse) => void,
   ) => {
     (async () => {
       switch (message.type) {
@@ -269,12 +323,12 @@ chrome.runtime.onMessage.addListener(
           sendResponse(await getJobStatus(message.jobId));
           break;
         case "GET_STORED_JOB":
-          sendResponse(await getStoredJob(message.linkedInUrl));
+          sendResponse(await getStoredJob(message.linkedInJobId));
           break;
         default:
           sendResponse({ success: false, error: "Unknown message type" });
       }
     })();
     return true; // keep message channel open for async response
-  }
+  },
 );

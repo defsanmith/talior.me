@@ -3,10 +3,12 @@ export interface JobData {
   company: string;
   location: string;
   description: string;
+  linkedInJobId: string | null;
   url: string;
 }
 
 export interface StoredJob {
+  linkedInJobId: string;
   jobId: string;
   linkedInUrl: string;
   submittedAt: number;
@@ -48,7 +50,7 @@ export type BackgroundMessage =
   | { type: "LOGOUT" }
   | { type: "SUBMIT_JOB"; jobData: JobData }
   | { type: "GET_JOB_STATUS"; jobId: string }
-  | { type: "GET_STORED_JOB"; linkedInUrl: string }
+  | { type: "GET_STORED_JOB"; linkedInJobId: string }
   | { type: "CHECK_AUTH" };
 
 // Messages from content → popup (via background)
