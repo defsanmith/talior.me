@@ -9,7 +9,19 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
     cors: {
       // Allow the origin to be overridden via CORS_ORIGIN for Docker / prod deployments.
-      origin: process.env.CORS_ORIGIN ?? "http://localhost:3000",
+      // Also accepts chrome-extension:// origins for the tailor.me browser extension.
+      origin: (origin, callback) => {
+        const allowed = process.env.CORS_ORIGIN ?? "http://localhost:3000";
+        if (
+          !origin ||
+          origin === allowed ||
+          origin.startsWith("chrome-extension://")
+        ) {
+          callback(null, true);
+        } else {
+          callback(new Error("Not allowed by CORS"));
+        }
+      },
       credentials: true,
     },
   });

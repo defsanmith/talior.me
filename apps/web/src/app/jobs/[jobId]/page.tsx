@@ -22,6 +22,7 @@ import {
   CheckCircle,
   Copy,
   Download,
+  ExternalLink,
   Link2,
   Loader2,
 } from "lucide-react";
@@ -435,6 +436,37 @@ function ResumeBuilderEditor({
     }
   };
 
+  // Helper to get application link with provider-aware label
+  const getApplicationLink = () => {
+    const externalSource = job?.externalJobSource;
+
+    if (externalSource) {
+      const providerLabels: Record<string, string> = {
+        LINKEDIN: "Open on LinkedIn",
+        INDEED: "Open on Indeed",
+        GREENHOUSE: "Open on Greenhouse",
+        LEVER: "Open on Lever",
+        OTHER: "Application Link",
+      };
+
+      const url = externalSource.canonicalUrl || externalSource.rawUrl;
+      const label =
+        providerLabels[externalSource.provider] || "Application Link";
+
+      return { url, label, provider: externalSource.provider };
+    }
+
+    if (job?.applicationUrl) {
+      return {
+        url: job.applicationUrl,
+        label: "Application Link",
+        provider: null,
+      };
+    }
+
+    return { url: null, label: "Application Link", provider: null };
+  };
+
   // Sorted sections for rendering
   const sortedSections = useMemo(
     () => [...resume.sectionOrder].sort((a, b) => a.order - b.order),
@@ -645,6 +677,26 @@ function ResumeBuilderEditor({
                 value={selectedPresetId}
                 onChange={handlePresetChange}
               />
+              {(() => {
+                const appLink = getApplicationLink();
+                if (appLink.url) {
+                  return (
+                    <Button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        window.open(appLink.url!, "_blank");
+                      }}
+                      variant="outline"
+                      size="sm"
+                      className="gap-2"
+                    >
+                      <ExternalLink className="h-4 w-4" />
+                      {appLink.label}
+                    </Button>
+                  );
+                }
+                return null;
+              })()}
               <Button
                 onClick={() => {
                   setEditableHref(resume.user?.websiteHref ?? "");

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { FontFamily } from "./enums";
+import { ExternalJobSourceProvider, FontFamily } from "./enums";
 import {
   EditableResumeSchema,
   ResumeBulletSchema,
@@ -102,6 +102,15 @@ export const UpdateJobDetailsDtoSchema = z.object({
   positionId: z.string().nullable().optional(),
   teamId: z.string().nullable().optional(),
   trackingEnabled: z.boolean().optional(),
+  externalSource: z
+    .object({
+      provider: z.nativeEnum(ExternalJobSourceProvider),
+      externalJobId: z.string(),
+      canonicalUrl: z.string().url().optional(),
+      rawUrl: z.string().url().optional(),
+      metadata: z.record(z.any()).optional(),
+    })
+    .optional(),
 });
 
 export type UpdateJobDetailsDto = z.infer<typeof UpdateJobDetailsDtoSchema>;
