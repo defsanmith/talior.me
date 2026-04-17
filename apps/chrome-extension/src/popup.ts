@@ -339,6 +339,14 @@ el("btn-submit").addEventListener("click", async () => {
     return;
   }
 
+  if (!currentJobData.description || currentJobData.description.length < 10) {
+    showError(
+      "submit-error",
+      "Could not read this job description from LinkedIn yet. Scroll the job details panel, wait a second, and try again.",
+    );
+    return;
+  }
+
   const btn = el<HTMLButtonElement>("btn-submit");
   btn.disabled = true;
   btn.textContent = "Sending…";
