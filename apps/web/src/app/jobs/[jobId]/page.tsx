@@ -123,21 +123,25 @@ function migrateResume(oldResume: any): EditableResume {
   );
 
   const experiences: ResumeExperience[] = (oldResume.experiences || []).map(
-    (exp: any, i: number) => ({
-      id: generateId("exp", i),
-      company: exp.company || "",
-      title: exp.title || "",
-      startDate: exp.startDate || "",
-      endDate: exp.endDate || null,
-      bullets: (exp.bullets || []).map((text: string, j: number) => ({
-        id: generateId("bullet", j),
-        text,
+    (exp: any, i: number) => {
+      const experienceId = generateId("exp", i);
+
+      return {
+        id: experienceId,
+        company: exp.company || "",
+        title: exp.title || "",
+        startDate: exp.startDate || "",
+        endDate: exp.endDate || null,
+        bullets: (exp.bullets || []).map((text: string, j: number) => ({
+          id: `${experienceId}-bullet-${j}`,
+          text,
+          visible: true,
+          order: j,
+        })),
         visible: true,
-        order: j,
-      })),
-      visible: true,
-      order: i,
-    }),
+        order: i,
+      };
+    },
   );
 
   // Group skills by detecting categories or create a default "Skills" category
@@ -159,20 +163,24 @@ function migrateResume(oldResume: any): EditableResume {
       : [];
 
   const projects: ResumeProject[] = (oldResume.projects || []).map(
-    (proj: any, i: number) => ({
-      id: generateId("proj", i),
-      name: proj.name || "",
-      description: proj.description || "",
-      tech: proj.tech || [],
-      bullets: (proj.bullets || []).map((text: string, j: number) => ({
-        id: generateId("bullet", j),
-        text,
+    (proj: any, i: number) => {
+      const projectId = generateId("proj", i);
+
+      return {
+        id: projectId,
+        name: proj.name || "",
+        description: proj.description || "",
+        tech: proj.tech || [],
+        bullets: (proj.bullets || []).map((text: string, j: number) => ({
+          id: `${projectId}-bullet-${j}`,
+          text,
+          visible: true,
+          order: j,
+        })),
         visible: true,
-        order: j,
-      })),
-      visible: true,
-      order: i,
-    }),
+        order: i,
+      };
+    },
   );
 
   return {
