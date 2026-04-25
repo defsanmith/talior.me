@@ -406,6 +406,10 @@ export class BM25Processor {
       },
     });
 
+    await this.prisma.resumeJobBullet.deleteMany({
+      where: { resumeJobId: jobId },
+    });
+
     await Promise.all(
       bullets.map((b) =>
         this.prisma.resumeJobBullet.create({

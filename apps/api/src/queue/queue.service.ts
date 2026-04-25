@@ -30,6 +30,17 @@ export class QueueService {
     });
   }
 
+  async replaceJob(jobId: string, data: any) {
+    const existingJob = await this.resumeQueue.getJob(jobId);
+    if (existingJob) {
+      await existingJob.remove();
+    }
+
+    return this.resumeQueue.add("process-resume", data, {
+      jobId,
+    });
+  }
+
   async getJobCounts() {
     return this.resumeQueue.getJobCounts("active", "waiting");
   }

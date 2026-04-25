@@ -62,6 +62,18 @@ export class JobsController {
     return { jobId };
   }
 
+  @Post(":jobId/rewrite")
+  async rewriteJob(
+    @Param("jobId") jobId: string,
+    @CurrentUser() user: JwtPayload,
+  ): Promise<CreateJobResponse> {
+    const rewrittenJobId = await this.jobsService.rewriteJob(
+      jobId,
+      user.userId,
+    );
+    return { jobId: rewrittenJobId };
+  }
+
   @Get()
   async getJobs(@CurrentUser() user: JwtPayload): Promise<GetJobsResponse> {
     const rawJobs = await this.jobsService.getAllJobs(user.userId);

@@ -36,6 +36,10 @@ interface UpdateJobMetadataResponse {
   job: JobResponse;
 }
 
+interface RewriteJobResponse {
+  jobId: string;
+}
+
 export const jobApi = appApi.injectEndpoints({
   endpoints: (build) => ({
     createJob: build.mutation<ApiResponse<CreateJobResponse>, CreateJobArgs>({
@@ -94,6 +98,16 @@ export const jobApi = appApi.injectEndpoints({
         { type: "Jobs", id: jobId },
       ],
     }),
+    rewriteJob: build.mutation<ApiResponse<RewriteJobResponse>, string>({
+      query: (jobId) => ({
+        url: `/jobs/${jobId}/rewrite`,
+        method: "POST",
+      }),
+      invalidatesTags: (result, error, jobId) => [
+        { type: "Jobs", id: jobId },
+        { type: "Resume", id: jobId },
+      ],
+    }),
     getResumePdf: build.query<Blob, string>({
       query: (jobId) => ({
         url: `/jobs/${jobId}/resume/pdf`,
@@ -115,5 +129,6 @@ export const {
   useGetJobResumeQuery,
   useUpdateJobResumeMutation,
   useUpdateJobMetadataMutation,
+  useRewriteJobMutation,
   useLazyGetResumePdfQuery,
 } = jobApi;

@@ -1,4 +1,9 @@
-import { Injectable, NotFoundException } from "@nestjs/common";
+import {
+  HttpException,
+  HttpStatus,
+  Injectable,
+  NotFoundException,
+} from "@nestjs/common";
 import {
   EditableResume,
   JobStatus,
@@ -44,6 +49,50 @@ export class JobsService {
       userId,
       jobDescription,
       strategy,
+    });
+
+    return job.id;
+  }
+
+  async rewriteJob(jobId: string, userId: string): Promise<string> {
+    const job = await this.prisma.resumeJob.findUnique({
+      where: { id: jobId },
+      select: {
+        id: true,
+        userId: true,
+        jobDescription: true,
+        strategy: true,
+        status: true,
+      },
+    });
+
+    if (!job || job.userId !== userId) {
+      throw new NotFoundException(`Job with id ${jobId} not found`);
+    }
+
+    if (
+      job.status === JobStatus.QUEUED ||
+      job.status === JobStatus.PROCESSING
+    ) {
+      throw new HttpException("Job is already rebuilding", HttpStatus.CONFLICT);
+    }
+
+    await this.prisma.resumeJob.update({
+      where: { id: jobId },
+      data: {
+        status: JobStatus.QUEUED,
+        stage: "Queued",
+        progress: 0,
+        errorMessage: null,
+        completedAt: null,
+      },
+    });
+
+    await this.queueService.replaceJob(job.id, {
+      jobId: job.id,
+      userId,
+      jobDescription: job.jobDescription,
+      strategy: job.strategy,
     });
 
     return job.id;

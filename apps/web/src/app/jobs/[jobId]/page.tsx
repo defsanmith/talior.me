@@ -65,6 +65,7 @@ import Router from "@/lib/router";
 import {
   useGetJobByIdQuery,
   useLazyGetResumePdfQuery,
+  useRewriteJobMutation,
   useUpdateJobResumeMutation,
 } from "@/store/api/jobs/queries";
 import { useGetPresetsQuery } from "@/store/api/presets/queries";
@@ -77,6 +78,7 @@ import {
   ApplicationStatus,
   FontFamily,
   JobResponse,
+  JobStatus,
   ResumePreset,
 } from "@tailor.me/shared";
 
@@ -250,6 +252,8 @@ function ResumeBuilderEditor({
   const { data: presetsData } = useGetPresetsQuery();
   const presets = (presetsData?.data?.presets ?? []) as ResumePreset[];
   const [updateResume, { isLoading: isSaving }] = useUpdateJobResumeMutation();
+  const [rewriteJob, { isLoading: isRewritingRequest }] =
+    useRewriteJobMutation();
   const [updateJobDetails] = useUpdateJobDetailsMutation();
   const [applyAndGetNext, { isLoading: isApplying }] =
     useApplyAndGetNextMutation();
@@ -266,6 +270,7 @@ function ResumeBuilderEditor({
   const [isTrackingCopied, setIsTrackingCopied] = useState(false);
   const [trackingDialogOpen, setTrackingDialogOpen] = useState(false);
   const [editableHref, setEditableHref] = useState("");
+  const [isRewriting, setIsRewriting] = useState(false);
 
   // Initialise the preset selector once the presets list loads.
   // Match by saved styleOptions first; fall back to the user's default preset.
@@ -282,6 +287,20 @@ function ResumeBuilderEditor({
     const chosen = match ?? presets.find((p) => p.isDefault) ?? null;
     if (chosen) setSelectedPresetId(chosen.id);
   }, [presets]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (
+      job.status !== JobStatus.QUEUED &&
+      job.status !== JobStatus.PROCESSING
+    ) {
+      setIsRewriting(false);
+    }
+  }, [job.status]);
+
+  useEffect(() => {
+    setResume(initialResume);
+    setHasUnsavedChanges(false);
+  }, [initialResume]);
 
   // Auto-save with debounce
   const saveResume = useCallback(
@@ -583,6 +602,22 @@ function ResumeBuilderEditor({
     }
   };
 
+  const handleRewrite = async () => {
+    try {
+      setIsRewriting(true);
+      await rewriteJob(jobId).unwrap();
+    } catch (error) {
+      console.error("Failed to rewrite resume:", error);
+      setIsRewriting(false);
+      setSaveStatus("error");
+    }
+  };
+
+  const isBuilding =
+    isRewriting ||
+    job.status === JobStatus.QUEUED ||
+    job.status === JobStatus.PROCESSING;
+
   const handleDownload = async () => {
     setIsDownloading(true);
     try {
@@ -623,7 +658,22 @@ function ResumeBuilderEditor({
   };
 
   return (
-    <div>
+    <div className="relative">
+      {isBuilding && (
+        <div className="absolute inset-0 z-20 flex items-center justify-center rounded-lg bg-zinc-950/80 backdrop-blur-sm">
+          <div className="flex items-center gap-3 text-zinc-200">
+            <Loader2 className="h-6 w-6 animate-spin" />
+            <div>
+              <div className="text-sm font-medium">
+                {isRewriting ? "Rewriting resume..." : "Building resume..."}
+              </div>
+              <div className="text-xs text-zinc-400">
+                Please wait while the current job is rebuilt.
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
       {/* Header with save status */}
       <div>
         <div className="flex items-center justify-between pr-4">
@@ -679,6 +729,20 @@ function ResumeBuilderEditor({
                 {isApplying ? "Applying..." : "Apply & Next"}
               </Button>
             )}
+            <Button
+              onClick={handleRewrite}
+              variant="outline"
+              size="sm"
+              className="gap-2"
+              disabled={isBuilding || isRewritingRequest}
+            >
+              {isBuilding || isRewritingRequest ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <CheckCircle className="h-4 w-4" />
+              )}
+              {isBuilding || isRewritingRequest ? "Rewriting..." : "Rewrite"}
+            </Button>
             <ButtonGroup>
               <PresetSelector
                 presets={presets}

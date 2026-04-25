@@ -1047,6 +1047,10 @@ export class ResumeProcessor {
       },
     });
 
+    await this.prisma.resumeJobBullet.deleteMany({
+      where: { resumeJobId: jobId },
+    });
+
     // Save bullet mappings in parallel
     await Promise.all(
       selectedBullets.map(async (bullet) => {
