@@ -481,6 +481,7 @@ export class ResumeProcessor {
     selection: ContentSelection,
   ): SelectedBullet[] {
     const bullets: SelectedBullet[] = [];
+    const seenBulletIds = new Set<string>();
 
     // Extract experience bullets
     for (const expSelection of selection.experiences) {
@@ -490,8 +491,10 @@ export class ResumeProcessor {
       if (!experience) continue;
 
       for (const bulletId of expSelection.bulletIds) {
+        if (seenBulletIds.has(bulletId)) continue;
         const bullet = experience.bullets.find((b) => b.id === bulletId);
         if (bullet) {
+          seenBulletIds.add(bullet.id);
           bullets.push({
             id: bullet.id,
             content: bullet.content,
@@ -512,8 +515,10 @@ export class ResumeProcessor {
       if (!project) continue;
 
       for (const bulletId of projSelection.bulletIds) {
+        if (seenBulletIds.has(bulletId)) continue;
         const bullet = project.bullets.find((b) => b.id === bulletId);
         if (bullet) {
+          seenBulletIds.add(bullet.id);
           bullets.push({
             id: bullet.id,
             content: bullet.content,
@@ -773,26 +778,67 @@ export class ResumeProcessor {
       skillIds: string[];
     }>,
   ): EditableResume {
+    const dedupeById = <T extends { id: string }>(items: T[]): T[] => {
+      const seen = new Set<string>();
+      return items.filter((item) => {
+        if (seen.has(item.id)) return false;
+        seen.add(item.id);
+        return true;
+      });
+    };
+
+    const selectedExperiences = dedupeById(selection.experiences);
+    const selectedProjects = dedupeById(selection.projects);
+    const selectedEducation = dedupeById(selection.education);
+
+    const experienceBulletOwner = new Map<string, string>();
+    for (const experience of profileData.experiences) {
+      for (const bullet of experience.bullets) {
+        experienceBulletOwner.set(bullet.id, experience.id);
+      }
+    }
+
+    const projectBulletOwner = new Map<string, string>();
+    for (const project of profileData.projects) {
+      for (const bullet of project.bullets) {
+        projectBulletOwner.set(bullet.id, project.id);
+      }
+    }
+
+    const usedExperienceBulletIds = new Set<string>();
+    const usedProjectBulletIds = new Set<string>();
+
     // Build experience sections from AI selection with relevance reasons
-    const experiences = selection.experiences
+    const experiences = selectedExperiences
       .map((expSelection, index) => {
         const experience = profileData.experiences.find(
           (e) => e.id === expSelection.id,
         );
         if (!experience) return null;
 
-        const bullets = expSelection.bulletIds
-          .map((bulletId, bulletIndex) => {
-            const verified = verifiedBullets.get(bulletId);
-            if (!verified) return null;
-            return {
-              id: bulletId,
-              text: verified.text,
-              visible: true,
-              order: bulletIndex,
-            };
-          })
-          .filter((b): b is NonNullable<typeof b> => b !== null);
+        const uniqueBulletIds = [...new Set(expSelection.bulletIds)];
+        const bullets: Array<{
+          id: string;
+          text: string;
+          visible: true;
+          order: number;
+        }> = [];
+
+        for (const bulletId of uniqueBulletIds) {
+          if (experienceBulletOwner.get(bulletId) !== experience.id) continue;
+          if (usedExperienceBulletIds.has(bulletId)) continue;
+
+          const verified = verifiedBullets.get(bulletId);
+          if (!verified) continue;
+
+          usedExperienceBulletIds.add(bulletId);
+          bullets.push({
+            id: bulletId,
+            text: verified.text,
+            visible: true,
+            order: bullets.length,
+          });
+        }
 
         return {
           id: experience.id,
@@ -810,25 +856,36 @@ export class ResumeProcessor {
       .filter((e): e is NonNullable<typeof e> => e !== null);
 
     // Build project sections from AI selection with relevance reasons
-    const projects = selection.projects
+    const projects = selectedProjects
       .map((projSelection, index) => {
         const project = profileData.projects.find(
           (p) => p.id === projSelection.id,
         );
         if (!project) return null;
 
-        const bullets = projSelection.bulletIds
-          .map((bulletId, bulletIndex) => {
-            const verified = verifiedBullets.get(bulletId);
-            if (!verified) return null;
-            return {
-              id: bulletId,
-              text: verified.text,
-              visible: true,
-              order: bulletIndex,
-            };
-          })
-          .filter((b): b is NonNullable<typeof b> => b !== null);
+        const uniqueBulletIds = [...new Set(projSelection.bulletIds)];
+        const bullets: Array<{
+          id: string;
+          text: string;
+          visible: true;
+          order: number;
+        }> = [];
+
+        for (const bulletId of uniqueBulletIds) {
+          if (projectBulletOwner.get(bulletId) !== project.id) continue;
+          if (usedProjectBulletIds.has(bulletId)) continue;
+
+          const verified = verifiedBullets.get(bulletId);
+          if (!verified) continue;
+
+          usedProjectBulletIds.add(bulletId);
+          bullets.push({
+            id: bulletId,
+            text: verified.text,
+            visible: true,
+            order: bullets.length,
+          });
+        }
 
         return {
           id: project.id,
@@ -845,7 +902,7 @@ export class ResumeProcessor {
       .filter((p): p is NonNullable<typeof p> => p !== null);
 
     // Build education sections from AI selection with coursework and relevance reasons
-    const education = selection.education
+    const education = selectedEducation
       .map((eduSelection, index) => {
         const edu = profileData.education.find((e) => e.id === eduSelection.id);
         if (!edu) return null;
