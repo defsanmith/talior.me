@@ -58,6 +58,9 @@ export class JobsController {
       createJobDto.jobDescription,
       user.userId,
       strategy,
+      createJobDto.companyName ?? null,
+      createJobDto.jobPosition ?? null,
+      createJobDto.teamName ?? null,
     );
     return { jobId };
   }

@@ -19,6 +19,9 @@ export class JobsService {
     jobDescription: string,
     userId: string,
     strategy: string = "openai",
+    companyName: string | null = null,
+    jobPosition: string | null = null,
+    teamName: string | null = null,
   ): Promise<string> {
     // Inherit the user's global tracking preference so new jobs automatically
     // reflect whatever the user has configured at the account level.
@@ -27,11 +30,69 @@ export class JobsService {
       select: { trackingEnabled: true },
     });
 
+    let companyId: string | null = null;
+    let positionId: string | null = null;
+    let teamId: string | null = null;
+
+    if (companyName) {
+      const company = await this.prisma.company.upsert({
+        where: {
+          userId_name: {
+            userId,
+            name: companyName,
+          },
+        },
+        create: {
+          userId,
+          name: companyName,
+        },
+        update: {},
+      });
+      companyId = company.id;
+    }
+
+    if (jobPosition) {
+      const position = await this.prisma.position.upsert({
+        where: {
+          userId_title: {
+            userId,
+            title: jobPosition,
+          },
+        },
+        create: {
+          userId,
+          title: jobPosition,
+        },
+        update: {},
+      });
+      positionId = position.id;
+    }
+
+    if (teamName) {
+      const team = await this.prisma.team.upsert({
+        where: {
+          userId_name: {
+            userId,
+            name: teamName,
+          },
+        },
+        create: {
+          userId,
+          name: teamName,
+        },
+        update: {},
+      });
+      teamId = team.id;
+    }
+
     const job = await this.prisma.resumeJob.create({
       data: {
         userId,
         jobDescription,
         strategy,
+        companyId,
+        positionId,
+        teamId,
         status: JobStatus.QUEUED,
         stage: "Queued",
         progress: 0,

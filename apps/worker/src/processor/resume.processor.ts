@@ -69,7 +69,12 @@ export class ResumeProcessor {
 
     const jobRecord = await this.prisma.resumeJob.findUnique({
       where: { id: jobId },
-      select: { strategy: true },
+      select: {
+        strategy: true,
+        companyId: true,
+        positionId: true,
+        teamId: true,
+      },
     });
     if (jobRecord?.strategy === "bm25") {
       return this.bm25Processor.processBM25Job(job);
@@ -91,12 +96,13 @@ export class ResumeProcessor {
 
       const parsedJd = await this.ai.parseJobDescription(jobDescription);
 
-      // Upsert company, position, and team from parsed metadata
-      let companyId: string | null = null;
-      let positionId: string | null = null;
-      let teamId: string | null = null;
+      // Preserve any metadata already attached during submission and only
+      // backfill missing values from parsed JD.
+      let companyId: string | null = jobRecord?.companyId ?? null;
+      let positionId: string | null = jobRecord?.positionId ?? null;
+      let teamId: string | null = jobRecord?.teamId ?? null;
 
-      if (parsedJd.companyName) {
+      if (!companyId && parsedJd.companyName) {
         const company = await this.prisma.company.upsert({
           where: {
             userId_name: {
@@ -113,7 +119,7 @@ export class ResumeProcessor {
         companyId = company.id;
       }
 
-      if (parsedJd.jobPosition) {
+      if (!positionId && parsedJd.jobPosition) {
         const position = await this.prisma.position.upsert({
           where: {
             userId_title: {
@@ -130,7 +136,7 @@ export class ResumeProcessor {
         positionId = position.id;
       }
 
-      if (parsedJd.teamName) {
+      if (!teamId && parsedJd.teamName) {
         const team = await this.prisma.team.upsert({
           where: {
             userId_name: {
