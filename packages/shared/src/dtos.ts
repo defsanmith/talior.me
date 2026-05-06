@@ -93,7 +93,7 @@ export type UpdateJobStatusDto = z.infer<typeof UpdateJobStatusDtoSchema>;
 
 export const UpdateJobDetailsDtoSchema = z.object({
   notes: z.string().optional(),
-  applicationDate: z.string().optional(),
+  applicationDate: z.string().nullable().optional(),
   interviewDate: z.string().optional(),
   priority: z.number().int().optional(),
   salaryRange: z.string().optional(),

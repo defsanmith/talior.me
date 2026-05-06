@@ -18,6 +18,7 @@ import {
 } from "@dnd-kit/sortable";
 import {
   AlertCircle,
+  Calendar as CalendarIcon,
   Check,
   CheckCircle,
   Copy,
@@ -25,6 +26,7 @@ import {
   ExternalLink,
   Link2,
   Loader2,
+  X,
 } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -51,6 +53,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ButtonGroup } from "@/components/ui/button-group";
+import { Calendar } from "@/components/ui/calendar";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
@@ -61,6 +64,16 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
+  formatApplicationDate,
+  toApplicationDatePickerValue,
+  toMiddayUtcApplicationDateIsoFromDate,
+} from "@/lib/application-date";
 import Router from "@/lib/router";
 import {
   useGetJobByIdQuery,
@@ -77,6 +90,7 @@ import {
   ApplicationStatus,
   FontFamily,
   JobResponse,
+  JobStatus,
   ResumePreset,
 } from "@tailor.me/shared";
 
@@ -266,6 +280,13 @@ function ResumeBuilderEditor({
   const [isTrackingCopied, setIsTrackingCopied] = useState(false);
   const [trackingDialogOpen, setTrackingDialogOpen] = useState(false);
   const [editableHref, setEditableHref] = useState("");
+  const [isRewriting, setIsRewriting] = useState(false);
+  const [applicationDateOpen, setApplicationDateOpen] = useState(false);
+  const [applicationDateValue, setApplicationDateValue] = useState<
+    Date | undefined
+  >(() =>
+    toApplicationDatePickerValue(job.applicationDate),
+  );
 
   // Initialise the preset selector once the presets list loads.
   // Match by saved styleOptions first; fall back to the user's default preset.
@@ -282,6 +303,24 @@ function ResumeBuilderEditor({
     const chosen = match ?? presets.find((p) => p.isDefault) ?? null;
     if (chosen) setSelectedPresetId(chosen.id);
   }, [presets]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (
+      job.status !== JobStatus.QUEUED &&
+      job.status !== JobStatus.PROCESSING
+    ) {
+      setIsRewriting(false);
+    }
+  }, [job.status]);
+
+  useEffect(() => {
+    setResume(initialResume);
+    setHasUnsavedChanges(false);
+  }, [initialResume]);
+
+  useEffect(() => {
+    setApplicationDateValue(toApplicationDatePickerValue(job.applicationDate));
+  }, [job.applicationDate]);
 
   // Auto-save with debounce
   const saveResume = useCallback(
@@ -441,6 +480,27 @@ function ResumeBuilderEditor({
       }).unwrap();
     } catch (err) {
       console.error("Failed to update team:", err);
+    }
+  };
+
+  const handleApplicationDateChange = async (value: Date | undefined) => {
+    setApplicationDateValue(value);
+
+    try {
+      await updateJobDetails({
+        id: jobId,
+        data: {
+          applicationDate: value
+            ? toMiddayUtcApplicationDateIsoFromDate(value)
+            : null,
+        },
+      }).unwrap();
+      if (value) {
+        setApplicationDateOpen(false);
+      }
+    } catch (err) {
+      console.error("Failed to update application date:", err);
+      setApplicationDateValue(toApplicationDatePickerValue(job.applicationDate));
     }
   };
 
@@ -680,6 +740,45 @@ function ResumeBuilderEditor({
               </Button>
             )}
             <ButtonGroup>
+              <Popover
+                open={applicationDateOpen}
+                onOpenChange={setApplicationDateOpen}
+              >
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-[172px] justify-start gap-2"
+                  >
+                    <CalendarIcon className="h-4 w-4" />
+                    {applicationDateValue
+                      ? formatApplicationDate(applicationDateValue)
+                      : "Application Date"}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent align="end" className="w-auto p-0">
+                  <Calendar
+                    mode="single"
+                    selected={applicationDateValue}
+                    onSelect={handleApplicationDateChange}
+                    initialFocus
+                  />
+                  {applicationDateValue && (
+                    <div className="border-t p-2">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="w-full justify-start gap-2"
+                        onClick={() => handleApplicationDateChange(undefined)}
+                      >
+                        <X className="h-4 w-4" />
+                        Clear date
+                      </Button>
+                    </div>
+                  )}
+                </PopoverContent>
+              </Popover>
               <PresetSelector
                 presets={presets}
                 value={selectedPresetId}
