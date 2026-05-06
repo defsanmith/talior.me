@@ -263,9 +263,12 @@ export class TrackerService {
       throw new NotFoundException("Job not found");
     }
 
-    // Convert date strings to Date objects if provided
+    // Convert date strings to Date objects if provided. Null explicitly clears
+    // the field, while omission leaves the existing value unchanged.
     const data: any = { ...dto };
-    if (dto.applicationDate) {
+    if (dto.applicationDate === null) {
+      data.applicationDate = null;
+    } else if (dto.applicationDate) {
       data.applicationDate = new Date(dto.applicationDate);
     }
     if (dto.interviewDate) {

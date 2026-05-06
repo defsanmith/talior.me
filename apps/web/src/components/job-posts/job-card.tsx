@@ -1,3 +1,4 @@
+import { formatApplicationDate } from "@/lib/application-date";
 import { ApplicationStatus, JobResponse, JobStatus } from "@tailor.me/shared";
 import { Archive } from "lucide-react";
 import { Badge } from "../ui/badge";
@@ -16,12 +17,14 @@ export default function JobCard({
   onClick,
   showApplicationStatus = false,
   showGenerationStatus = false,
+  showApplicationDate = true,
   onArchive,
 }: {
   job: JobResponse;
   onClick: () => void;
   showApplicationStatus?: boolean;
   showGenerationStatus?: boolean;
+  showApplicationDate?: boolean;
   onArchive?: (jobId: string) => void;
 }) {
   const getStatusColor = (status: string) => {
@@ -84,6 +87,8 @@ export default function JobCard({
     }
   };
 
+  const showProgress = job.progress < 100;
+
   return (
     <Card
       className="group cursor-pointer transition-shadow hover:shadow-md"
@@ -92,7 +97,7 @@ export default function JobCard({
       <CardHeader>
         <div className="relative flex items-start justify-between gap-2">
           <div className="flex-1 space-y-1">
-            <CardTitle className="text-lg">
+            <CardTitle>
               {job.company?.name && job.position?.title
                 ? `${job.position.title} at ${job.company.name}`
                 : job.company?.name || job.position?.title
@@ -106,13 +111,8 @@ export default function JobCard({
                     })}
             </CardTitle>
             {job.team?.name && (
-              <div className="text-sm text-muted-foreground">
-                {job.team.name}
-              </div>
+              <CardDescription>{job.team.name}</CardDescription>
             )}
-            <CardDescription className="line-clamp-2">
-              {job.jobDescription.slice(0, 150)}...
-            </CardDescription>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             {job.strategy && (
@@ -145,19 +145,35 @@ export default function JobCard({
         </div>
       </CardHeader>
 
-      {job.progress < 100 && (
-        <CardContent>
-          <div className="space-y-2">
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-muted-foreground">Stage: {job.stage}</span>
-              <span className="font-medium">{job.progress}%</span>
-            </div>
-            <div className="h-2 w-full rounded-full bg-secondary">
-              <Progress value={job.progress} />
-            </div>
-          </div>
-        </CardContent>
-      )}
+      <CardContent className="flex flex-col gap-2 text-gray-600">
+        <p className="line-clamp-2 text-sm">{job.jobDescription}</p>
+
+        {(showProgress || job.applicationDate) && (
+          <>
+            {showProgress && (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">
+                    Stage: {job.stage}
+                  </span>
+                  <span className="font-medium">{job.progress}%</span>
+                </div>
+                <div className="h-2 w-full rounded-full bg-secondary">
+                  <Progress value={job.progress} />
+                </div>
+              </div>
+            )}
+            {showApplicationDate && job.applicationDate && (
+              <div className="text-xs">
+                Applied on{" "}
+                <span className="font-semibold">
+                  {formatApplicationDate(job.applicationDate)}
+                </span>
+              </div>
+            )}
+          </>
+        )}
+      </CardContent>
     </Card>
   );
 }

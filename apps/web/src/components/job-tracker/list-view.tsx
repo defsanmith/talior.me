@@ -11,6 +11,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import Router from "@/lib/router";
+import { formatApplicationDate } from "@/lib/application-date";
 import { useUpdateJobStatusMutation } from "@/store/api/tracker/mutations";
 import { ApplicationStatus } from "@tailor.me/shared";
 import { ExternalLink, MoreVertical } from "lucide-react";
@@ -198,15 +199,6 @@ function TableRow({ job, onClick }: TableRowProps) {
   const statusConfig =
     STATUS_CONFIG[job.applicationStatus || ApplicationStatus.READY_TO_APPLY];
 
-  const formatDate = (date: string | null) => {
-    if (!date) return "-";
-    return new Date(date).toLocaleDateString(undefined, {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-    });
-  };
-
   return (
     <tr
       className="cursor-pointer transition-colors hover:bg-muted/50"
@@ -224,7 +216,7 @@ function TableRow({ job, onClick }: TableRowProps) {
         </Badge>
       </td>
       <td className="px-4 py-3 text-sm text-muted-foreground">
-        {formatDate(job.applicationDate)}
+        {formatApplicationDate(job.applicationDate)}
       </td>
       <td className="px-4 py-3">
         <div className="max-w-xs truncate text-sm text-muted-foreground">
