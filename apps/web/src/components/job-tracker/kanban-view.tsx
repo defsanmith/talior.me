@@ -127,17 +127,6 @@ export function KanbanView({
     router.push(Router.jobDetails(jobId));
   };
 
-  const handleArchive = async (jobId: string) => {
-    try {
-      await updateJobStatus({
-        id: jobId,
-        data: { applicationStatus: ApplicationStatus.ARCHIVED },
-      }).unwrap();
-    } catch (error) {
-      console.error("Failed to archive job:", error);
-    }
-  };
-
   return (
     <DndContext
       sensors={sensors}
@@ -157,7 +146,6 @@ export function KanbanView({
             sortBy={sortBy}
             sortOrder={sortOrder}
             onJobClick={handleJobClick}
-            onArchive={handleArchive}
             activeId={activeId}
             onSetActiveJob={setActiveJob}
           />
@@ -183,7 +171,6 @@ interface KanbanColumnProps {
   sortBy?: string;
   sortOrder?: string;
   onJobClick: (jobId: string) => void;
-  onArchive: (jobId: string) => void;
   activeId: string | null;
   onSetActiveJob: (job: any) => void;
 }
@@ -198,10 +185,27 @@ function KanbanColumn({
   sortBy = "createdAt",
   sortOrder = "asc",
   onJobClick,
-  onArchive,
   activeId,
   onSetActiveJob,
 }: KanbanColumnProps) {
+  const [updateJobStatus] = useUpdateJobStatusMutation();
+
+  const handleArchive = async (jobId: string) => {
+    try {
+      await updateJobStatus({
+        id: jobId,
+        data: { applicationStatus: ApplicationStatus.ARCHIVED },
+      }).unwrap();
+
+      // Remove the archived job from the accumulated list so lazy-loaded items update immediately
+      setAccumulatedJobs((prev) => ({
+        ...prev,
+        jobs: prev.jobs.filter((j) => j.id !== jobId),
+      }));
+    } catch (error) {
+      console.error("Failed to archive job:", error);
+    }
+  };
   const [page, setPage] = useState(1);
   const [accumulatedJobs, setAccumulatedJobs] = useState<{
     jobs: any[];
@@ -378,7 +382,7 @@ function KanbanColumn({
                 key={job.id}
                 job={job}
                 onClick={() => onJobClick(job.id)}
-                onArchive={onArchive}
+                onArchive={handleArchive}
                 onDragStart={() => handleDragStart(job)}
                 isActive={activeId === job.id}
               />

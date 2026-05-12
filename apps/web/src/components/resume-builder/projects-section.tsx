@@ -22,6 +22,7 @@ import { ProfileProject } from "@tailor.me/shared";
 import {
   ChevronDown,
   ChevronRight,
+  Copy,
   Eye,
   EyeOff,
   Plus,
@@ -30,6 +31,7 @@ import {
   X,
 } from "lucide-react";
 import { useState } from "react";
+import { toast } from "sonner";
 import { Alert, AlertDescription, AlertTitle } from "../ui/alert";
 import { DraggableItem } from "./draggable-item";
 import { EditableText } from "./editable-text";
@@ -316,6 +318,24 @@ function ProjectItem({
     }
   };
 
+  const handleCopyBullets = async () => {
+    const visibleBullets = item.bullets.filter((b) => b.visible);
+    if (visibleBullets.length === 0) {
+      toast.error("No visible bullet points to copy");
+      return;
+    }
+
+    const bulletText = visibleBullets.map((b) => `- ${b.text}`).join("\n");
+
+    try {
+      await navigator.clipboard.writeText(bulletText);
+      toast.success("Bullets copied to clipboard");
+    } catch (error) {
+      toast.error("Failed to copy to clipboard");
+      console.error("Copy failed:", error);
+    }
+  };
+
   return (
     <DraggableItem id={item.id}>
       <div
@@ -356,6 +376,15 @@ function ProjectItem({
               ) : (
                 <EyeOff className="h-4 w-4" />
               )}
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleCopyBullets}
+              className="h-8 w-8 p-0"
+              title="Copy bullets to clipboard"
+            >
+              <Copy className="h-4 w-4" />
             </Button>
             <Button
               variant="ghost"
