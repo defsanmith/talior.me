@@ -1,4 +1,13 @@
-import { ParsedJD, RewrittenBullet } from "@tailor.me/shared";
+import {
+  EditPlan,
+  EvidenceCandidate,
+  EvidenceRewriteResult,
+  NormalizedRequirement,
+  ParsedJD,
+  RewrittenBullet,
+  SelectionResult,
+  VerificationResult,
+} from "@tailor.me/shared";
 
 // Types for AI content selection
 export interface ProfileExperience {
@@ -116,4 +125,30 @@ export interface IAIProvider {
     profile: ProfileData,
     parsedJd: ParsedJD,
   ): Promise<ContentSelection>;
+
+  rankEvidenceCandidates(
+    candidates: EvidenceCandidate[],
+    requirements: NormalizedRequirement[],
+    parsedJd: ParsedJD,
+    topK: number,
+  ): Promise<SelectionResult[]>;
+
+  createEditPlan(
+    candidate: EvidenceCandidate,
+    selection: SelectionResult,
+    requirements: NormalizedRequirement[],
+  ): Promise<EditPlan>;
+
+  rewriteFromEditPlan(
+    candidate: EvidenceCandidate,
+    editPlan: EditPlan,
+    parsedJd: ParsedJD,
+  ): Promise<EvidenceRewriteResult>;
+
+  verifyRewrite(
+    candidate: EvidenceCandidate,
+    rewrite: EvidenceRewriteResult,
+    editPlan: EditPlan,
+    parsedJd: ParsedJD,
+  ): Promise<VerificationResult>;
 }

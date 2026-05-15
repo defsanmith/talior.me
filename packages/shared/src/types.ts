@@ -58,6 +58,126 @@ export const RewrittenBulletSchema = z.object({
 
 export type RewrittenBullet = z.infer<typeof RewrittenBulletSchema>;
 
+export const NormalizedRequirementSchema = z.object({
+  id: z.string(),
+  text: z.string(),
+  category: z.enum(["required", "preferred", "responsibility", "keyword"]),
+  terms: z.array(z.string()).default([]),
+  weight: z.number().min(0).max(1).default(0.5),
+});
+
+export type NormalizedRequirement = z.infer<
+  typeof NormalizedRequirementSchema
+>;
+
+export const ProfileBulletClaimSchema = z.object({
+  claimType: z.enum(["metric", "skill", "scope", "action", "outcome", "other"]),
+  value: z.string(),
+  spanStart: z.number().int().nonnegative().optional(),
+  spanEnd: z.number().int().nonnegative().optional(),
+});
+
+export type ProfileBulletClaim = z.infer<typeof ProfileBulletClaimSchema>;
+
+const StringArraySchema = z.preprocess((value) => {
+  if (Array.isArray(value)) {
+    return value.map((item) =>
+      typeof item === "string" ? item : JSON.stringify(item),
+    );
+  }
+  if (typeof value === "string") {
+    return value.trim().length > 0 ? [value] : [];
+  }
+  if (value == null) return [];
+  return [String(value)];
+}, z.array(z.string()));
+
+const BooleanishSchema = z.preprocess((value) => {
+  if (typeof value === "boolean") return value;
+  if (Array.isArray(value)) return value.length > 0;
+  if (typeof value === "string") {
+    const normalized = value.trim().toLowerCase();
+    if (["false", "no", "none", "0", ""].includes(normalized)) return false;
+    return true;
+  }
+  return Boolean(value);
+}, z.boolean());
+
+const CopyRiskSchema = z.preprocess((value) => {
+  if (typeof value !== "string") return value;
+  const normalized = value.trim().toLowerCase();
+  if (normalized.startsWith("high")) return "high";
+  if (normalized.startsWith("medium")) return "medium";
+  if (normalized.startsWith("low")) return "low";
+  return normalized;
+}, z.enum(["low", "medium", "high"]));
+
+export const EvidenceCandidateSchema = z.object({
+  bulletId: z.string(),
+  content: z.string(),
+  parentId: z.string(),
+  parentType: z.enum(["experience", "project"]),
+  parentTitle: z.string().optional(),
+  parentCompany: z.string().optional(),
+  startDate: z.string().nullable().optional(),
+  endDate: z.string().nullable().optional(),
+  skills: StringArraySchema.default([]),
+  tags: StringArraySchema.default([]),
+  claims: z.array(ProfileBulletClaimSchema).default([]),
+  retrievalScore: z.number().default(0),
+  retrievalSource: z.enum(["opensearch", "lexical", "profile"]).default("profile"),
+});
+
+export type EvidenceCandidate = z.infer<typeof EvidenceCandidateSchema>;
+
+export const SelectionResultSchema = z.object({
+  bulletId: z.string(),
+  rank: z.number().int().positive(),
+  relevanceScore: z.number().min(0).max(1),
+  confidence: z.number().min(0).max(1),
+  matchedRequirements: StringArraySchema.default([]),
+  jobEvidence: StringArraySchema.default([]),
+  profileEvidence: StringArraySchema.default([]),
+  riskFlags: StringArraySchema.default([]),
+});
+
+export type SelectionResult = z.infer<typeof SelectionResultSchema>;
+
+export const EditPlanSchema = z.object({
+  bulletId: z.string(),
+  preservedFacts: StringArraySchema.default([]),
+  approvedTerms: StringArraySchema.default([]),
+  forbiddenInferences: StringArraySchema.default([]),
+  rewriteIntent: z.string().default("Clarify relevance while preserving facts."),
+});
+
+export type EditPlan = z.infer<typeof EditPlanSchema>;
+
+export const EvidenceRewriteResultSchema = z.object({
+  bulletId: z.string(),
+  rewriteText: z.string(),
+  preservedFacts: StringArraySchema.default([]),
+  alignedTerms: StringArraySchema.default([]),
+  forbiddenInferences: StringArraySchema.default([]),
+  newInformationAdded: BooleanishSchema.default(false),
+  riskFlags: StringArraySchema.default([]),
+});
+
+export type EvidenceRewriteResult = z.infer<
+  typeof EvidenceRewriteResultSchema
+>;
+
+export const VerificationResultSchema = z.object({
+  pass: BooleanishSchema,
+  unsupportedClaims: StringArraySchema.default([]),
+  droppedFacts: StringArraySchema.default([]),
+  copyRisk: CopyRiskSchema.default("low"),
+  naturalnessNotes: StringArraySchema.default([]),
+  fixInstructions: StringArraySchema.default([]),
+});
+
+export type VerificationResult = z.infer<typeof VerificationResultSchema>;
+
 export const ExperienceSectionSchema = z.object({
   company: z.string(),
   title: z.string(),

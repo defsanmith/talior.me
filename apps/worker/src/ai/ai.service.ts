@@ -47,4 +47,35 @@ export class AIService implements IAIProvider {
   async selectRelevantContent(profile: any, parsedJd: any) {
     return this.provider.selectRelevantContent(profile, parsedJd);
   }
+
+  async rankEvidenceCandidates(
+    candidates: any[],
+    requirements: any[],
+    parsedJd: any,
+    topK: number,
+  ) {
+    return this.provider.rankEvidenceCandidates(
+      candidates,
+      requirements,
+      parsedJd,
+      topK,
+    );
+  }
+
+  async createEditPlan(candidate: any, selection: any, requirements: any[]) {
+    return this.provider.createEditPlan(candidate, selection, requirements);
+  }
+
+  async rewriteFromEditPlan(candidate: any, editPlan: any, parsedJd: any) {
+    return this.provider.rewriteFromEditPlan(candidate, editPlan, parsedJd);
+  }
+
+  async verifyRewrite(
+    candidate: any,
+    rewrite: any,
+    editPlan: any,
+    parsedJd: any,
+  ) {
+    return this.provider.verifyRewrite(candidate, rewrite, editPlan, parsedJd);
+  }
 }

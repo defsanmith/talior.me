@@ -117,7 +117,11 @@ export default function JobCard({
           <div className="flex flex-wrap items-center gap-2">
             {job.strategy && (
               <Badge variant="outline" className="text-xs">
-                {job.strategy === "bm25" ? "Fast" : "AI"}
+                {job.strategy === "evidence"
+                  ? "Evidence"
+                  : job.strategy === "bm25"
+                    ? "Fast"
+                    : "AI"}
               </Badge>
             )}
             {showApplicationStatus && job.applicationStatus ? (

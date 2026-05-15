@@ -11,6 +11,7 @@ import { Job, Worker } from "bullmq";
 import { randomBytes } from "crypto";
 import { ContentSelection, ProfileData } from "../ai/ai-provider.interface";
 import { AIService } from "../ai/ai.service";
+import { EvidenceWorkflowService } from "../evidence/evidence-workflow.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { BM25Processor } from "./bm25.processor";
 
@@ -38,6 +39,7 @@ export class ResumeProcessor {
     private readonly prisma: PrismaService,
     private readonly ai: AIService,
     private readonly bm25Processor: BM25Processor,
+    private readonly evidenceWorkflow: EvidenceWorkflowService,
   ) {
     this.initializeWorker();
   }
@@ -78,6 +80,9 @@ export class ResumeProcessor {
     });
     if (jobRecord?.strategy === "bm25") {
       return this.bm25Processor.processBM25Job(job);
+    }
+    if (jobRecord?.strategy === "evidence") {
+      return this.evidenceWorkflow.processEvidenceJob(job);
     }
 
     try {

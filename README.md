@@ -186,12 +186,21 @@ tailor.me/
 
 ### AI Workflow
 
+Tailor.me supports three generation strategies:
+
+- **Evidence-first** (`evidence`): Recommended default. Retrieves candidate bullets, reranks with explicit evidence, creates constrained edit plans, rewrites, verifies, and stores trace evidence.
+- **AI Rewrite** (`openai`): Legacy AI selection and rewrite path.
+- **Fast Match** (`bm25`): Sparse retrieval path with no rewrite cost.
+
+Evidence-first workflow:
+
 1. **Parse JD**: Extract required skills and keywords
-2. **Retrieve**: Find relevant bullets from profile
-3. **Select**: Choose best-matching bullets
-4. **Rewrite**: AI-enhance bullets (grounded in original content)
-5. **Verify**: Ensure no hallucinations or scope inflation
-6. **Assemble**: Generate final resume JSON
+2. **Retrieve**: Find candidate bullets with OpenSearch/BM25 and lexical fallback
+3. **Rerank**: Score shortlist with matched job/profile evidence
+4. **Plan edits**: Preserve facts and define allowed alignment terms
+5. **Rewrite**: Generate constrained, grounded rewrites
+6. **Verify**: Reject unsupported claims, new metrics, scope inflation, and close copying
+7. **Assemble**: Generate final resume JSON
 
 ### Real-time Updates
 

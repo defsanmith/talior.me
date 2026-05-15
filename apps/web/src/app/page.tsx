@@ -39,7 +39,9 @@ export default function DashboardPage() {
   // Dialog state
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [jobDescription, setJobDescription] = useState("");
-  const [strategy, setStrategy] = useState<"openai" | "bm25">("openai");
+  const [strategy, setStrategy] = useState<"openai" | "bm25" | "evidence">(
+    "evidence",
+  );
   const [createJob, { isLoading: isCreating, error: createError }] =
     useCreateJobMutation();
 
@@ -194,7 +196,7 @@ export default function DashboardPage() {
     try {
       await createJob({ jobDescription, strategy }).unwrap();
       setJobDescription("");
-      setStrategy("openai");
+      setStrategy("evidence");
       setIsCreateDialogOpen(false);
     } catch (err) {
       console.error("Failed to create job:", err);
@@ -253,6 +255,20 @@ export default function DashboardPage() {
               <div className="space-y-2">
                 <Label>Generation method</Label>
                 <div className="flex flex-col gap-2 rounded-md border border-input bg-muted/30 p-3">
+                  <label className="flex cursor-pointer items-center gap-2">
+                    <input
+                      type="radio"
+                      name="strategy"
+                      value="evidence"
+                      checked={strategy === "evidence"}
+                      onChange={() => setStrategy("evidence")}
+                      className="h-4 w-4"
+                    />
+                    <span className="font-medium">Evidence-first</span>
+                    <span className="text-sm text-muted-foreground">
+                      Recommended, grounded rewrites with verification
+                    </span>
+                  </label>
                   <label className="flex cursor-pointer items-center gap-2">
                     <input
                       type="radio"

@@ -1,5 +1,19 @@
 import { Injectable, Logger } from "@nestjs/common";
-import { ParsedJD, ParsedJDSchema, RewrittenBullet } from "@tailor.me/shared";
+import {
+  EditPlan,
+  EditPlanSchema,
+  EvidenceCandidate,
+  EvidenceRewriteResult,
+  EvidenceRewriteResultSchema,
+  NormalizedRequirement,
+  ParsedJD,
+  ParsedJDSchema,
+  RewrittenBullet,
+  SelectionResult,
+  SelectionResultSchema,
+  VerificationResult,
+  VerificationResultSchema,
+} from "@tailor.me/shared";
 import OpenAI from "openai";
 import {
   ContentSelection,
@@ -14,6 +28,7 @@ export class OpenAIProvider implements IAIProvider {
   private readonly parseModel: string;
   private readonly rewriteModel: string;
   private readonly selectionModel: string;
+  private readonly verifierModel: string;
 
   constructor() {
     this.client = new OpenAI({
@@ -22,6 +37,8 @@ export class OpenAIProvider implements IAIProvider {
     this.parseModel = process.env.OPENAI_PARSE_MODEL || "gpt-4o-mini";
     this.rewriteModel = process.env.OPENAI_REWRITE_MODEL || "gpt-4o-mini";
     this.selectionModel = process.env.OPENAI_SELECTION_MODEL || "gpt-4o-mini";
+    this.verifierModel =
+      process.env.OPENAI_VERIFIER_MODEL || this.rewriteModel;
   }
 
   private handleError(error: any, operation: string): never {
@@ -281,6 +298,161 @@ Select the most relevant content for this job application.`,
       };
     } catch (error) {
       this.handleError(error, "selectRelevantContent");
+    }
+  }
+
+  async rankEvidenceCandidates(
+    candidates: EvidenceCandidate[],
+    requirements: NormalizedRequirement[],
+    parsedJd: ParsedJD,
+    topK: number,
+  ): Promise<SelectionResult[]> {
+    try {
+      const completion = await this.client.chat.completions.create({
+        model: this.selectionModel,
+        messages: [
+          {
+            role: "system",
+            content: `You are an evidence-first resume bullet ranker.
+Use only the provided job requirements and candidate bullets.
+Return JSON with a "selected" array. Each item must include bulletId, rank, relevanceScore, confidence, matchedRequirements, jobEvidence, profileEvidence, and riskFlags.
+Penalize keyword-only overlap, unsupported inference, and vague relevance.`,
+          },
+          {
+            role: "user",
+            content: JSON.stringify({
+              topK,
+              parsedJd,
+              requirements,
+              candidates: candidates.map((c) => ({
+                bulletId: c.bulletId,
+                content: c.content,
+                parentType: c.parentType,
+                parentTitle: c.parentTitle,
+                parentCompany: c.parentCompany,
+                skills: c.skills,
+                tags: c.tags,
+                claims: c.claims,
+                retrievalScore: c.retrievalScore,
+              })),
+            }),
+          },
+        ],
+        response_format: { type: "json_object" },
+      });
+
+      const result = JSON.parse(completion.choices[0].message.content || "{}");
+      return SelectionResultSchema.array()
+        .parse(result.selected ?? result)
+        .slice(0, topK);
+    } catch (error) {
+      this.handleError(error, "rankEvidenceCandidates");
+    }
+  }
+
+  async createEditPlan(
+    candidate: EvidenceCandidate,
+    selection: SelectionResult,
+    requirements: NormalizedRequirement[],
+  ): Promise<EditPlan> {
+    try {
+      const completion = await this.client.chat.completions.create({
+        model: this.rewriteModel,
+        messages: [
+          {
+            role: "system",
+            content: `You create constrained resume-bullet edit plans.
+Return JSON with bulletId, preservedFacts, approvedTerms, forbiddenInferences, and rewriteIntent.
+Preserved facts must come from the original bullet. Approved terms must come from matched job requirements. Forbidden inferences should name likely unsupported claims.`,
+          },
+          {
+            role: "user",
+            content: JSON.stringify({ candidate, selection, requirements }),
+          },
+        ],
+        response_format: { type: "json_object" },
+      });
+
+      const result = JSON.parse(completion.choices[0].message.content || "{}");
+      return EditPlanSchema.parse({ bulletId: candidate.bulletId, ...result });
+    } catch (error) {
+      this.handleError(error, `createEditPlan (${candidate.bulletId})`);
+    }
+  }
+
+  async rewriteFromEditPlan(
+    candidate: EvidenceCandidate,
+    editPlan: EditPlan,
+    parsedJd: ParsedJD,
+  ): Promise<EvidenceRewriteResult> {
+    try {
+      const completion = await this.client.chat.completions.create({
+        model: this.rewriteModel,
+        messages: [
+          {
+            role: "system",
+            content: `You are a factual, minimal-diff resume bullet editor.
+Rewrite only from the original bullet and edit plan.
+Do not add new metrics, tools, domains, ownership, seniority, or impact claims.
+Return JSON with bulletId, rewriteText, preservedFacts, alignedTerms, forbiddenInferences, newInformationAdded, and riskFlags.`,
+          },
+          {
+            role: "user",
+            content: JSON.stringify({
+              originalBullet: candidate.content,
+              skills: candidate.skills,
+              tags: candidate.tags,
+              editPlan,
+              parsedJd,
+            }),
+          },
+        ],
+        response_format: { type: "json_object" },
+      });
+
+      const result = JSON.parse(completion.choices[0].message.content || "{}");
+      return EvidenceRewriteResultSchema.parse({
+        bulletId: candidate.bulletId,
+        ...result,
+      });
+    } catch (error) {
+      this.handleError(error, `rewriteFromEditPlan (${candidate.bulletId})`);
+    }
+  }
+
+  async verifyRewrite(
+    candidate: EvidenceCandidate,
+    rewrite: EvidenceRewriteResult,
+    editPlan: EditPlan,
+    parsedJd: ParsedJD,
+  ): Promise<VerificationResult> {
+    try {
+      const completion = await this.client.chat.completions.create({
+        model: this.verifierModel,
+        messages: [
+          {
+            role: "system",
+            content: `You are a strict factual verifier for resume rewrites.
+Check unsupported claims, dropped preserved facts, copied job phrasing, metric changes, and naturalness.
+Return JSON with pass, unsupportedClaims, droppedFacts, copyRisk, naturalnessNotes, and fixInstructions.`,
+          },
+          {
+            role: "user",
+            content: JSON.stringify({
+              original: candidate.content,
+              rewrite: rewrite.rewriteText,
+              editPlan,
+              parsedJd,
+            }),
+          },
+        ],
+        response_format: { type: "json_object" },
+      });
+
+      const result = JSON.parse(completion.choices[0].message.content || "{}");
+      return VerificationResultSchema.parse(result);
+    } catch (error) {
+      this.handleError(error, `verifyRewrite (${candidate.bulletId})`);
     }
   }
 }

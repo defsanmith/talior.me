@@ -1,6 +1,20 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { Injectable, Logger } from "@nestjs/common";
-import { ParsedJD, ParsedJDSchema, RewrittenBullet } from "@tailor.me/shared";
+import {
+  EditPlan,
+  EditPlanSchema,
+  EvidenceCandidate,
+  EvidenceRewriteResult,
+  EvidenceRewriteResultSchema,
+  NormalizedRequirement,
+  ParsedJD,
+  ParsedJDSchema,
+  RewrittenBullet,
+  SelectionResult,
+  SelectionResultSchema,
+  VerificationResult,
+  VerificationResultSchema,
+} from "@tailor.me/shared";
 import {
   ContentSelection,
   IAIProvider,
@@ -14,6 +28,7 @@ export class GeminiProvider implements IAIProvider {
   private readonly parseModel: string;
   private readonly rewriteModel: string;
   private readonly selectionModel: string;
+  private readonly verifierModel: string;
 
   constructor() {
     this.client = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
@@ -21,6 +36,8 @@ export class GeminiProvider implements IAIProvider {
     this.rewriteModel = process.env.GEMINI_REWRITE_MODEL || "gemini-2.5-flash";
     this.selectionModel =
       process.env.GEMINI_SELECTION_MODEL || "gemini-2.5-flash";
+    this.verifierModel =
+      process.env.GEMINI_VERIFIER_MODEL || this.rewriteModel;
   }
 
   private handleError(error: any, operation: string): never {
@@ -283,6 +300,131 @@ Select the most relevant content for this job application.`;
       };
     } catch (error) {
       this.handleError(error, "selectRelevantContent");
+    }
+  }
+
+  private async generateJson<T>(modelName: string, prompt: string): Promise<T> {
+    const model = this.client.getGenerativeModel({
+      model: modelName,
+      generationConfig: {
+        responseMimeType: "application/json",
+      },
+    });
+    const result = await model.generateContent(prompt);
+    return JSON.parse(result.response.text()) as T;
+  }
+
+  async rankEvidenceCandidates(
+    candidates: EvidenceCandidate[],
+    requirements: NormalizedRequirement[],
+    parsedJd: ParsedJD,
+    topK: number,
+  ): Promise<SelectionResult[]> {
+    try {
+      const parsed = await this.generateJson<any>(
+        this.selectionModel,
+        `You are an evidence-first resume bullet ranker.
+Use only the provided job requirements and candidate bullets.
+Return JSON with a "selected" array. Each item must include bulletId, rank, relevanceScore, confidence, matchedRequirements, jobEvidence, profileEvidence, and riskFlags.
+
+${JSON.stringify({
+  topK,
+  parsedJd,
+  requirements,
+  candidates: candidates.map((c) => ({
+    bulletId: c.bulletId,
+    content: c.content,
+    parentType: c.parentType,
+    parentTitle: c.parentTitle,
+    parentCompany: c.parentCompany,
+    skills: c.skills,
+    tags: c.tags,
+    claims: c.claims,
+    retrievalScore: c.retrievalScore,
+  })),
+})}`,
+      );
+      return SelectionResultSchema.array()
+        .parse(parsed.selected ?? parsed)
+        .slice(0, topK);
+    } catch (error) {
+      this.handleError(error, "rankEvidenceCandidates");
+    }
+  }
+
+  async createEditPlan(
+    candidate: EvidenceCandidate,
+    selection: SelectionResult,
+    requirements: NormalizedRequirement[],
+  ): Promise<EditPlan> {
+    try {
+      const parsed = await this.generateJson<any>(
+        this.rewriteModel,
+        `Create a constrained resume-bullet edit plan.
+Return JSON with bulletId, preservedFacts, approvedTerms, forbiddenInferences, and rewriteIntent.
+Preserved facts must come from the original bullet. Approved terms must come from matched requirements.
+
+${JSON.stringify({ candidate, selection, requirements })}`,
+      );
+      return EditPlanSchema.parse({ bulletId: candidate.bulletId, ...parsed });
+    } catch (error) {
+      this.handleError(error, `createEditPlan (${candidate.bulletId})`);
+    }
+  }
+
+  async rewriteFromEditPlan(
+    candidate: EvidenceCandidate,
+    editPlan: EditPlan,
+    parsedJd: ParsedJD,
+  ): Promise<EvidenceRewriteResult> {
+    try {
+      const parsed = await this.generateJson<any>(
+        this.rewriteModel,
+        `You are a factual, minimal-diff resume bullet editor.
+Rewrite only from the original bullet and edit plan.
+Do not add new metrics, tools, domains, ownership, seniority, or impact claims.
+Return JSON with bulletId, rewriteText, preservedFacts, alignedTerms, forbiddenInferences, newInformationAdded, and riskFlags.
+
+${JSON.stringify({
+  originalBullet: candidate.content,
+  skills: candidate.skills,
+  tags: candidate.tags,
+  editPlan,
+  parsedJd,
+})}`,
+      );
+      return EvidenceRewriteResultSchema.parse({
+        bulletId: candidate.bulletId,
+        ...parsed,
+      });
+    } catch (error) {
+      this.handleError(error, `rewriteFromEditPlan (${candidate.bulletId})`);
+    }
+  }
+
+  async verifyRewrite(
+    candidate: EvidenceCandidate,
+    rewrite: EvidenceRewriteResult,
+    editPlan: EditPlan,
+    parsedJd: ParsedJD,
+  ): Promise<VerificationResult> {
+    try {
+      const parsed = await this.generateJson<any>(
+        this.verifierModel,
+        `You are a strict factual verifier for resume rewrites.
+Check unsupported claims, dropped preserved facts, copied job phrasing, metric changes, and naturalness.
+Return JSON with pass, unsupportedClaims, droppedFacts, copyRisk, naturalnessNotes, and fixInstructions.
+
+${JSON.stringify({
+  original: candidate.content,
+  rewrite: rewrite.rewriteText,
+  editPlan,
+  parsedJd,
+})}`,
+      );
+      return VerificationResultSchema.parse(parsed);
+    } catch (error) {
+      this.handleError(error, `verifyRewrite (${candidate.bulletId})`);
     }
   }
 }

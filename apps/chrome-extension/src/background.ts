@@ -163,7 +163,7 @@ async function submitJob(
         jobDescription: jobData.description,
         companyName: jobData.company || null,
         jobPosition: jobData.title || null,
-        strategy: "openai",
+        strategy: "evidence",
       }),
     });
 

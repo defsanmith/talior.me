@@ -30,7 +30,9 @@ import { PresetsService } from "../presets/presets.service";
 import { JobsService } from "./jobs.service";
 
 /** Request body for job creation; strategy may be omitted from shared type until package is rebuilt */
-type CreateJobBody = CreateJobDto & { strategy?: "openai" | "bm25" };
+type CreateJobBody = CreateJobDto & {
+  strategy?: "openai" | "bm25" | "evidence";
+};
 
 @Controller("api/jobs")
 export class JobsController {
@@ -53,7 +55,7 @@ export class JobsController {
       );
     }
 
-    const strategy = createJobDto.strategy ?? "openai";
+    const strategy = createJobDto.strategy ?? "evidence";
     const jobId = await this.jobsService.createJob(
       createJobDto.jobDescription,
       user.userId,

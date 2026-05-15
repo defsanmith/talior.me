@@ -18,7 +18,7 @@ export class JobsService {
   async createJob(
     jobDescription: string,
     userId: string,
-    strategy: string = "openai",
+    strategy: string = "evidence",
     companyName: string | null = null,
     jobPosition: string | null = null,
     teamName: string | null = null,

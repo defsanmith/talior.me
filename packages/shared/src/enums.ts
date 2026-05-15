@@ -13,6 +13,7 @@ export enum AIProvider {
 export enum ResumeGenerationStrategy {
   OPENAI = "openai",
   BM25 = "bm25",
+  EVIDENCE = "evidence",
 }
 
 export enum JobStage {

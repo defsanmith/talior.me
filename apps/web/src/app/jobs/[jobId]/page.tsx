@@ -714,9 +714,11 @@ function ResumeBuilderEditor({
               />
               {job?.strategy && (
                 <Badge variant="secondary" className="text-xs">
-                  {job.strategy === "bm25"
-                    ? "Fast Match (BM25)"
-                    : "AI Rewrite (OpenAI)"}
+                  {job.strategy === "evidence"
+                    ? "Evidence-first"
+                    : job.strategy === "bm25"
+                      ? "Fast Match (BM25)"
+                      : "AI Rewrite (OpenAI)"}
                 </Badge>
               )}
             </div>
