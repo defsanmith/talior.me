@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 
 # ── Base ────────────────────────────────────────────────────────────────────
-FROM node:20-alpine AS base
+FROM node:22-alpine AS base
 RUN --mount=type=cache,target=/root/.npm \
     npm install -g pnpm@9.15.0
 
@@ -50,7 +50,7 @@ RUN pnpm --filter @tailor.me/web build
 RUN mkdir -p ./apps/web/public
 
 # ── Runner ───────────────────────────────────────────────────────────────────
-FROM node:20-alpine AS runner
+FROM node:22-alpine AS runner
 WORKDIR /app
 
 ENV NODE_ENV=production

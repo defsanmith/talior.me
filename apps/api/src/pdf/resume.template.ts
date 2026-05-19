@@ -13,8 +13,6 @@ function fontPackageLatex(family: FontFamily): string {
       return "\\usepackage{palatino}";
     case FontFamily.CHARTER:
       return "\\usepackage{charter}";
-    case FontFamily.GARAMOND:
-      return "\\usepackage{ebgaramond}";
     case FontFamily.SOURCE_SANS_PRO:
       return "\\usepackage[default]{sourcesanspro}";
     case FontFamily.COMPUTER_MODERN:
@@ -85,16 +83,14 @@ export function generateResumeLatex(resume: EditableResume): string {
 
 ${fontPkg}
 \\usepackage{latexsym}
-\\usepackage[empty]{fullpage}
-\\usepackage{titlesec}
 \\usepackage{marvosym}
 \\usepackage[usenames,dvipsnames]{color}
 \\usepackage{verbatim}
-\\usepackage{enumitem}
 \\usepackage[hidelinks]{hyperref}
 \\usepackage{fancyhdr}
 \\usepackage[english]{babel}
 \\usepackage{tabularx}
+\\usepackage[margin=0.5in]{geometry}
 
 \\pagestyle{fancy}
 \\fancyhf{}
@@ -102,23 +98,21 @@ ${fontPkg}
 \\renewcommand{\\headrulewidth}{0pt}
 \\renewcommand{\\footrulewidth}{0pt}
 
-% Adjust margins
-\\addtolength{\\oddsidemargin}{-0.5in}
-\\addtolength{\\evensidemargin}{-0.5in}
-\\addtolength{\\textwidth}{1in}
-\\addtolength{\\topmargin}{-.5in}
-\\addtolength{\\textheight}{1.0in}
-
 \\urlstyle{same}
 
 \\raggedbottom
 \\raggedright
 \\setlength{\\tabcolsep}{0in}
 
-% Sections formatting
-\\titleformat{\\section}{
-  \\vspace{-4pt}\\scshape\\raggedright\\large
-}{}{0em}{}[\\color{black}\\titlerule \\vspace{-5pt}]
+% Sections formatting — replicates titlesec's \titleformat without the package
+\\makeatletter
+\\renewcommand\\section[1]{%
+  \\vspace{-4pt}%
+  {\\normalfont\\large\\scshape\\raggedright #1\\par}%
+  {\\color{black}\\hrule height 0.4pt}%
+  \\vspace{-5pt}%
+}
+\\makeatother
 
 %-------------------------
 % Custom commands
@@ -155,8 +149,8 @@ ${fontPkg}
 
 \\renewcommand\\labelitemii{$\\vcenter{\\hbox{\\tiny$\\bullet$}}$}
 
-\\newcommand{\\resumeSubHeadingListStart}{\\begin{itemize}[leftmargin=0.15in, label={}]}
-\\newcommand{\\resumeSubHeadingListEnd}{\\end{itemize}}
+\\newcommand{\\resumeSubHeadingListStart}{\\begin{list}{}{\\setlength{\\leftmargin}{0.15in}}}
+\\newcommand{\\resumeSubHeadingListEnd}{\\end{list}}
 \\newcommand{\\resumeItemListStart}{\\begin{itemize}}
 \\newcommand{\\resumeItemListEnd}{\\end{itemize}\\vspace{-5pt}}
 
@@ -372,7 +366,7 @@ function generateSkillsSection(resume: EditableResume): string {
 
   let content = `%-----------SKILLS-----------
 \\section{Technical Skills}
- \\begin{itemize}[leftmargin=0.15in, label={}]
+ \\begin{list}{}{\\setlength{\\leftmargin}{0.15in}}
     \\small{\\item{
 `;
 
@@ -387,7 +381,7 @@ function generateSkillsSection(resume: EditableResume): string {
   }
 
   content += `    }}
- \\end{itemize}
+ \\end{list}
 
 `;
   return content;

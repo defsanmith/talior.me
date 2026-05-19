@@ -1,11 +1,19 @@
-FROM node:20-alpine
+FROM node:22-alpine
 
-# Install texlive with commonly needed packages
+# Install only what pdflatex needs for the resume template:
+#   texlive                     — pdflatex engine + core packages (babel, color,
+#                                 tabularx, verbatim, latexsym, lmodern, tools)
+#   texmf-dist-latexrecommended — fancyhdr, hyperref
+#   texmf-dist-fontsrecommended — charter, mathptmx, palatino, helvet,
+#                                 marvosym, sourcesanspro
+# Packages intentionally avoided:
+#   texmf-dist-latexextra  — titlesec/fullpage/enumitem replaced with plain LaTeX
+#   texmf-dist-fontsextra  — ebgaramond removed from font options (~1.5 GB)
+#   texlive-luatex         — service only calls pdflatex
 RUN apk add --no-cache \
     texlive \
-    texlive-luatex \
-    texmf-dist-latexextra \
-    texmf-dist-fontsextra
+    texmf-dist-latexrecommended \
+    texmf-dist-fontsrecommended
 
 WORKDIR /app
 
