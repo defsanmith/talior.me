@@ -109,6 +109,7 @@ ${fontPkg}
 \\renewcommand\\section[1]{%
   \\vspace{-4pt}%
   {\\normalfont\\large\\scshape\\raggedright #1\\par}%
+  \\vspace{2pt}%
   {\\color{black}\\hrule height 0.4pt}%
   \\vspace{-5pt}%
 }
@@ -215,26 +216,17 @@ function generateHeaderSection(resume: EditableResume): string {
   // Build contact info parts
   const contactParts: string[] = [];
 
-  if (user?.phone) {
-    const formattedPhone = formatPhoneNumber(user.phone);
-    contactParts.push(escapeLatex(formattedPhone));
-  }
-
   if (user?.email) {
     const email = escapeLatex(user.email);
     contactParts.push(`\\href{mailto:${email}}{${email}}`);
   }
 
-  if (user?.location) {
-    contactParts.push(escapeLatex(user.location));
-  }
-
-  if (user?.openToRelocate) {
-    contactParts.push(`\\textit{${escapeLatex("Open to relocate")}}`);
+  if (user?.phone) {
+    const formattedPhone = formatPhoneNumber(user.phone);
+    contactParts.push(escapeLatex(formattedPhone));
   }
 
   if (user?.linkedin) {
-    // Clean up linkedin URL for display (remove https://, www., trailing slash)
     const linkedinDisplay = cleanUrlForDisplay(user.linkedin);
     const linkedinUrl = user.linkedin.startsWith("http")
       ? user.linkedin
@@ -255,6 +247,16 @@ function generateHeaderSection(resume: EditableResume): string {
     contactParts.push(
       `\\href{${escapeLatex(websiteUrl)}}{${escapeLatex(websiteDisplay)}}`,
     );
+  }
+
+  if (user?.location) {
+    const locationText = escapeLatex(user.location);
+    const relocateSuffix = user.openToRelocate
+      ? ` \\textit{(Open to relocate)}`
+      : "";
+    contactParts.push(`${locationText}${relocateSuffix}`);
+  } else if (user?.openToRelocate) {
+    contactParts.push(`\\textit{Open to relocate}`);
   }
 
   const contactLine = contactParts.length > 0 ? contactParts.join(" $|$ ") : "";
