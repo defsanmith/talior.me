@@ -235,6 +235,10 @@ function generateHeaderSection(resume: EditableResume): string {
     contactParts.push(escapeLatex(user.location));
   }
 
+  if (user?.openToRelocate) {
+    contactParts.push(`\\textit{${escapeLatex("Open to relocate")}}`);
+  }
+
   if (user?.linkedin) {
     // Clean up linkedin URL for display (remove https://, www., trailing slash)
     const linkedinDisplay = cleanUrlForDisplay(user.linkedin);

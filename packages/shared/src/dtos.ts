@@ -284,6 +284,7 @@ export const UpdateUserDtoSchema = z.object({
   location: z.string().nullable().optional(),
   website: z.string().nullable().optional(),
   linkedin: z.string().nullable().optional(),
+  openToRelocate: z.boolean().optional(),
   trackingEnabled: z.boolean().optional(),
   trackingSlugPrefix: z.string().min(1).max(50).optional(),
 });
@@ -416,6 +417,7 @@ export interface ProfileUser {
   lastName: string | null;
   phone: string | null;
   location: string | null;
+  openToRelocate: boolean;
   website: string | null;
   linkedin: string | null;
   trackingEnabled: boolean;

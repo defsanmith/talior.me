@@ -18,6 +18,7 @@ model User {
   lastName           String?
   phone              String?
   location           String?
+  openToRelocate     Boolean             @default(false)
   website            String?
   linkedin           String?
   trackingEnabled    Boolean             @default(false)

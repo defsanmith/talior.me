@@ -191,6 +191,7 @@ export class BM25Processor {
             email: user.email,
             phone: user.phone,
             location: user.location,
+            openToRelocate: user.openToRelocate,
             website: user.website,
             linkedin: user.linkedin,
           }
@@ -350,6 +351,7 @@ export class BM25Processor {
             email: profile.user.email ?? undefined,
             phone: profile.user.phone ?? undefined,
             location: profile.user.location ?? undefined,
+            openToRelocate: profile.user.openToRelocate,
             website: profile.user.website ?? undefined,
             linkedin: profile.user.linkedin ?? undefined,
           }

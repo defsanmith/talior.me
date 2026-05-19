@@ -424,6 +424,7 @@ export class ResumeProcessor {
             email: user.email,
             phone: user.phone,
             location: user.location,
+            openToRelocate: user.openToRelocate,
             website: user.website,
             linkedin: user.linkedin,
           }
@@ -971,6 +972,7 @@ export class ResumeProcessor {
             email: profileData.user.email || undefined,
             phone: profileData.user.phone || undefined,
             location: profileData.user.location || undefined,
+            openToRelocate: profileData.user.openToRelocate,
             website: profileData.user.website || undefined,
             linkedin: profileData.user.linkedin || undefined,
           }

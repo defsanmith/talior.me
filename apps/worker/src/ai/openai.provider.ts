@@ -206,7 +206,8 @@ HIRING MANAGER PERSPECTIVE:
 
 SELECTION STRATEGY:
 - From each experience, choose 2-5 bullets that directly align with essential and preferred skills
-- Select 2-3 most relevant projects that showcase technical depth and impact
+- Select 3-4 most relevant experiences that showcase technical depth and impact
+- Include projects that demonstrate key skills and initiative, especially if they align with job responsibilities
 - Include all education entries but only coursework that's directly relevant
 - Prioritize recent experiences and measurable achievements
 - Focus on transferable skills and domain-specific expertise
