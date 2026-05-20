@@ -7,6 +7,7 @@ import {
   Patch,
   Post,
   Put,
+  StreamableFile,
 } from "@nestjs/common";
 import {
   CreateBulletDto,
@@ -31,11 +32,15 @@ import {
   CurrentUser,
   JwtPayload,
 } from "../auth/decorators/current-user.decorator";
+import { PdfService } from "../pdf/pdf.service";
 import { ProfileService } from "./profile.service";
 
 @Controller("api/profile")
 export class ProfileController {
-  constructor(private readonly profileService: ProfileService) {}
+  constructor(
+    private readonly profileService: ProfileService,
+    private readonly pdfService: PdfService,
+  ) {}
 
   @Get()
   async getProfile(@CurrentUser() user: JwtPayload) {
@@ -60,6 +65,39 @@ export class ProfileController {
       skillCategories,
       certifications,
     };
+  }
+
+  @Get("export/pdf")
+  async exportProfilePdf(
+    @CurrentUser() user: JwtPayload,
+  ): Promise<StreamableFile> {
+    const [userData, experiences, education, projects, skills, skillCategories, certifications] =
+      await Promise.all([
+        this.profileService.getUser(user.userId),
+        this.profileService.getExperiences(user.userId),
+        this.profileService.getEducation(user.userId),
+        this.profileService.getProjects(user.userId),
+        this.profileService.getSkills(user.userId),
+        this.profileService.getSkillCategories(user.userId),
+        this.profileService.getCertifications(user.userId),
+      ]);
+
+    const profile = { user: userData, experiences, education, projects, skills, skillCategories, certifications } as any;
+    const pdfBuffer = await this.pdfService.generateProfilePdf(profile);
+
+    const sanitize = (str: string | null | undefined) =>
+      str ? str.replace(/[^a-zA-Z0-9-]/g, "_") : "";
+    const firstName = sanitize(userData?.firstName);
+    const lastName = sanitize(userData?.lastName);
+    let filename = "profile.pdf";
+    if (firstName && lastName) filename = `${firstName}_${lastName}_profile.pdf`;
+    else if (firstName) filename = `${firstName}_profile.pdf`;
+
+    return new StreamableFile(pdfBuffer, {
+      type: "application/pdf",
+      disposition: `attachment; filename="${filename}"`,
+      length: pdfBuffer.length,
+    });
   }
 
   // ============================================

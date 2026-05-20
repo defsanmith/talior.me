@@ -86,6 +86,16 @@ export const profileApi = appApi.injectEndpoints({
       providesTags: ["Profile"],
     }),
 
+    // Export profile as PDF blob
+    getProfileExportPdf: build.query<Blob, void>({
+      query: () => ({
+        url: `/profile/export/pdf`,
+        method: "GET",
+        responseHandler: (response) => response.blob(),
+      }),
+      keepUnusedDataFor: 0,
+    }),
+
     // User mutations
     updateUser: build.mutation<ApiResponse<ProfileUser>, UpdateUserDto>({
       query: (data) => ({
@@ -354,6 +364,7 @@ export const profileApi = appApi.injectEndpoints({
 
 export const {
   useGetProfileQuery,
+  useLazyGetProfileExportPdfQuery,
   useUpdateUserMutation,
   useCreateExperienceMutation,
   useUpdateExperienceMutation,
