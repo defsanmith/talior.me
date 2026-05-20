@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 
 # ── Base ────────────────────────────────────────────────────────────────────
-FROM node:20-alpine AS base
+FROM node:22-alpine AS base
 RUN --mount=type=cache,target=/root/.npm \
     npm install -g pnpm@9.15.0
 
@@ -72,7 +72,7 @@ RUN mkdir -p prisma && cp /app/apps/api/prisma/schema.prisma ./prisma/schema.pri
 RUN /app/apps/api/node_modules/.bin/prisma generate --schema=./prisma/schema.prisma
 
 # ── Runner ───────────────────────────────────────────────────────────────────
-FROM node:20-alpine AS runner
+FROM node:22-alpine AS runner
 WORKDIR /app/apps/api
 
 ENV NODE_ENV=production
@@ -92,11 +92,16 @@ EXPOSE 3001
 
 CMD ["node", "dist/main"]
 
-# ── Migrate: full build stage for running database migrations ─────────────────
-# Based on the build stage (all devDependencies present) rather than the lean
-# runner. prisma migrate deploy requires @prisma/engines (migration engine binary)
-# and several other transitive deps of the prisma CLI — all of which are
-# available in the build stage's pnpm virtual store. Image size is not a concern
-# here since this container runs once at startup and is then discarded.
-FROM build AS migrate
+# ── Migrate ──────────────────────────────────────────────────────────────────
+# Lean standalone image: node:22-alpine + prisma CLI only.
+# No workspace deps, no TypeScript, no build output — just the migration engine
+# binary and the schema + migrations folder. Goes from ~2 GB to ~300 MB.
+FROM node:22-alpine AS migrate
 WORKDIR /app/apps/api
+
+# Install only the prisma CLI (brings the migration engine binary with it).
+# Use --no-save so no package.json is created; pin to the same major as the app.
+RUN --mount=type=cache,target=/root/.npm \
+    npm install --no-save prisma@^6.1.0
+
+COPY apps/api/prisma ./prisma

@@ -37,10 +37,10 @@ A single-user monorepo application for building tailored resumes using AI. Suppo
    OPENAI_API_KEY=sk-...
    ```
 
-3. **Start infrastructure** (Postgres, Redis, OpenSearch, LaTeX service)
+3. **Start infrastructure** (Postgres, Redis, LaTeX service)
 
    ```bash
-   docker compose up -d postgres redis opensearch latex
+   docker compose up -d postgres redis latex
    ```
 
    > To run the **full stack in production mode** instead, see [Running with Docker (Production)](#running-with-docker-production) below.

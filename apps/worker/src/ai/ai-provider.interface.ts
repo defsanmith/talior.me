@@ -60,6 +60,7 @@ export interface ProfileUser {
   email: string | null;
   phone: string | null;
   location: string | null;
+  openToRelocate: boolean;
   website: string | null;
   linkedin: string | null;
 }

@@ -243,6 +243,7 @@ export const ResumeUserSchema = z.object({
   email: z.string().optional(),
   phone: z.string().optional(),
   location: z.string().optional(),
+  openToRelocate: z.boolean().optional(),
   website: z.string().optional(),
   websiteHref: z.string().optional(), // tracking URL override for the link; display stays as `website`
   linkedin: z.string().optional(),

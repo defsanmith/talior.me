@@ -43,6 +43,7 @@ services:
       retries: 3
 
   opensearch:
+    profiles: ["search"]
     image: opensearchproject/opensearch:2.18.0
     container_name: tailor-opensearch
     environment:
@@ -69,6 +70,7 @@ services:
       start_period: 90s
 
   opensearch-dashboards:
+    profiles: ["search"]
     image: opensearchproject/opensearch-dashboards:2.18.0
     container_name: tailor-opensearch-dashboards
     environment:
@@ -82,15 +84,11 @@ services:
   # ── Application services ────────────────────────────────────────────────────
 
   # Run Prisma migrations before the API / worker start.
-  # Uses the same image as the api so the schema + migration files are available.
   # Restarts on failure (e.g. if postgres isn't ready yet despite the healthcheck).
   migrate:
     build:
       context: .
       dockerfile: apps/api/Dockerfile
-      # The `migrate` stage extends the lean `runner` image by adding only the
-      # Prisma CLI binary. This keeps the production `api` image free of devDeps
-      # while still providing `prisma migrate deploy` for this one-shot service.
       target: migrate
     container_name: tailor-migrate
     command:
@@ -123,8 +121,6 @@ services:
         condition: service_completed_successfully
       redis:
         condition: service_healthy
-      opensearch:
-        condition: service_healthy
       latex:
         condition: service_healthy
 
@@ -140,8 +136,6 @@ services:
       migrate:
         condition: service_completed_successfully
       redis:
-        condition: service_healthy
-      opensearch:
         condition: service_healthy
 
   web:
@@ -161,4 +155,4 @@ services:
 volumes:
   postgres_data:
   redis_data:
-  opensearch_data:
+  opensearch_data: # only used with --profile search

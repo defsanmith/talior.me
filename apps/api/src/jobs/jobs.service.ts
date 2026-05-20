@@ -259,6 +259,7 @@ export class JobsService {
         email: user.email || undefined,
         phone: user.phone || undefined,
         location: user.location || undefined,
+        openToRelocate: user.openToRelocate ?? undefined,
         website: user.website || undefined,
         websiteHref: resume.user?.websiteHref,
         linkedin: user.linkedin || undefined,

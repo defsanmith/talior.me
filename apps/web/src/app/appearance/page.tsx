@@ -78,11 +78,6 @@ const FONT_OPTIONS: { value: FontFamily; label: string; sample: string }[] = [
     sample: "The quick brown fox",
   },
   {
-    value: FontFamily.GARAMOND,
-    label: "Garamond",
-    sample: "The quick brown fox",
-  },
-  {
     value: FontFamily.SOURCE_SANS_PRO,
     label: "Source Sans Pro",
     sample: "The quick brown fox",

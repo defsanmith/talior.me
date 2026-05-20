@@ -160,6 +160,22 @@ export function UserInfoSection({ user, isLoading }: UserInfoSectionProps) {
               placeholder="Add location (e.g., San Francisco, CA)"
               isLoading={isUpdating}
             />
+            <div className="flex items-center gap-2 pt-2">
+              <Checkbox
+                id="open-to-relocate"
+                checked={!!user.openToRelocate}
+                onCheckedChange={(checked) =>
+                  handleUpdate({ openToRelocate: checked === true })
+                }
+                disabled={isUpdating}
+              />
+              <Label
+                htmlFor="open-to-relocate"
+                className="cursor-pointer text-sm"
+              >
+                Open to relocate
+              </Label>
+            </div>
           </div>
 
           {/* Website */}
