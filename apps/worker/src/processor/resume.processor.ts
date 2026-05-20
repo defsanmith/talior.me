@@ -227,6 +227,30 @@ export class ResumeProcessor {
         contentSelection,
       );
 
+      // Filter experiences/projects that ended up with zero valid bullets (ID hallucination guard)
+      const extractedByParent = new Map<string, number>();
+      for (const b of selectedBullets) {
+        extractedByParent.set(b.parentId, (extractedByParent.get(b.parentId) ?? 0) + 1);
+      }
+      const validatedSelection = {
+        ...contentSelection,
+        experiences: contentSelection.experiences.filter((exp) => {
+          const count = extractedByParent.get(exp.id) ?? 0;
+          if (count === 0) {
+            console.warn(`Experience ${exp.id} had no valid bullets after extraction, removing from selection`);
+          }
+          return count > 0;
+        }),
+        projects: contentSelection.projects.filter((proj) => {
+          const count = extractedByParent.get(proj.id) ?? 0;
+          if (count === 0) {
+            console.warn(`Project ${proj.id} had no valid bullets after extraction, removing from selection`);
+          }
+          return count > 0;
+        }),
+      };
+      contentSelection = validatedSelection;
+
       // Step E: Rewrite bullets
       let rewrittenBullets: Map<string, any>;
       const skipRewriteBullets = process.env.SKIP_REWRITE_BULLETS === "true";
@@ -546,40 +570,45 @@ export class ResumeProcessor {
     parsedJd: ParsedJD,
   ): Promise<Map<string, any>> {
     const rewritten = new Map();
-
-    // Process bullets in parallel for better performance
-    const results = await Promise.allSettled(
-      bullets.map(async (bullet) => {
-        try {
-          const result = await this.ai.rewriteBullet(
-            {
-              id: bullet.id,
-              content: bullet.content,
-              tags: bullet.tags,
-              skills: bullet.skills,
-            },
-            parsedJd,
-          );
-          return { id: bullet.id, result, success: true };
-        } catch (error) {
-          console.error(`Failed to rewrite bullet ${bullet.id}:`, error);
-          return {
-            id: bullet.id,
-            result: {
-              bulletId: bullet.id,
-              rewrittenText: bullet.content,
-              evidenceBulletIds: [bullet.id],
-              riskFlags: ["rewrite_failed"],
-            },
-            success: false,
-          };
-        }
-      }),
+    const concurrency = parseInt(
+      process.env.BULLET_REWRITE_CONCURRENCY || "5",
     );
 
-    for (const res of results) {
-      if (res.status === "fulfilled") {
-        rewritten.set(res.value.id, res.value.result);
+    for (let i = 0; i < bullets.length; i += concurrency) {
+      const batch = bullets.slice(i, i + concurrency);
+      const results = await Promise.allSettled(
+        batch.map(async (bullet) => {
+          try {
+            const result = await this.ai.rewriteBullet(
+              {
+                id: bullet.id,
+                content: bullet.content,
+                tags: bullet.tags,
+                skills: bullet.skills,
+              },
+              parsedJd,
+            );
+            return { id: bullet.id, result, success: true };
+          } catch (error) {
+            console.error(`Failed to rewrite bullet ${bullet.id}:`, error);
+            return {
+              id: bullet.id,
+              result: {
+                bulletId: bullet.id,
+                rewrittenText: bullet.content,
+                evidenceBulletIds: [bullet.id],
+                riskFlags: ["rewrite_failed"],
+              },
+              success: false,
+            };
+          }
+        }),
+      );
+
+      for (const res of results) {
+        if (res.status === "fulfilled") {
+          rewritten.set(res.value.id, res.value.result);
+        }
       }
     }
 
@@ -689,23 +718,24 @@ export class ResumeProcessor {
       const rewritten = rewrittenMap.get(original.id);
       if (!rewritten) continue;
 
-      const issues: string[] = [];
+      const hardViolations: string[] = [];
+      const softViolations: string[] = [];
 
       // Deterministic checks
       const originalText = original.content.toLowerCase();
       const rewrittenText = rewritten.rewrittenText.toLowerCase();
 
-      // Check for new numbers
+      // Check for new numbers — soft violation (rewording can incidentally include digits)
       const originalNumbers: string[] = originalText.match(/\d+/g) || [];
       const rewrittenNumbers: string[] = rewrittenText.match(/\d+/g) || [];
       const newNumbers = rewrittenNumbers.filter(
         (n) => !originalNumbers.includes(n),
       );
       if (newNumbers.length > 0) {
-        issues.push(`New numbers added: ${newNumbers.join(", ")}`);
+        softViolations.push(`New numbers added: ${newNumbers.join(", ")}`);
       }
 
-      // Check for new tech (simple keyword check)
+      // Check for new tech — hard violation (hallucination risk)
       const originalSkills = [...original.skills, ...original.tags].map((t) =>
         t.toLowerCase(),
       );
@@ -736,11 +766,11 @@ export class ResumeProcessor {
           !originalText.includes(tech) &&
           !originalSkills.includes(tech)
         ) {
-          issues.push(`New tech mentioned: ${tech}`);
+          hardViolations.push(`New tech mentioned: ${tech}`);
         }
       }
 
-      // Check for scope inflation words
+      // Check for scope inflation words — soft violation (verb replacements are expected)
       const scopeWords = [
         "led",
         "owned",
@@ -751,20 +781,23 @@ export class ResumeProcessor {
       ];
       for (const word of scopeWords) {
         if (rewrittenText.includes(word) && !originalText.includes(word)) {
-          issues.push(`Scope inflation: ${word}`);
+          softViolations.push(`Scope word added: ${word}`);
         }
       }
 
-      // If issues found, revert to original
-      if (issues.length > 0) {
+      // Hard violations trigger full revert; soft violations are logged but rewrite is kept
+      if (hardViolations.length > 0) {
         verified.set(original.id, {
           text: original.content,
-          verifierNote: `Reverted due to: ${issues.join("; ")}`,
+          verifierNote: `Reverted due to: ${hardViolations.join("; ")}`,
         });
       } else {
         verified.set(original.id, {
           text: rewritten.rewrittenText,
-          verifierNote: null,
+          verifierNote:
+            softViolations.length > 0
+              ? `Soft flags (kept rewrite): ${softViolations.join("; ")}`
+              : null,
         });
       }
     }

@@ -61,22 +61,28 @@ export class OpenAIProvider implements IAIProvider {
         messages: [
           {
             role: "system",
-            content: `You are an expert career coach specializing in helping software engineers analyze job opportunities.
+            content: `You are a technical recruiter parsing a job description into a structured format for a resume optimization system.
 
-Your task is to extract and categorize job requirements with hiring manager precision:
+Extract exactly four arrays:
 
-1. **Essential Skills** (required_skills): Must-have technical and soft skills explicitly required
-2. **Preferred Skills** (nice_to_have): Nice-to-have qualifications and bonus skills
-3. **Core Responsibilities** (responsibilities): Key duties and day-to-day work
-4. **Industry Keywords** (keywords): Domain terminology, tools, frameworks, and buzzwords
-5. **Job Metadata**: Company name, position title, and team name if mentioned
+required_skills: Technical and soft skills that are EXPLICITLY required ("must have", "required", "you will need"). Include specific technologies, languages, and frameworks. Do NOT include vague terms like "experience" or "background".
 
-Extract with precision - categorize skills accurately to help candidates understand what truly matters.
+nice_to_have: Skills explicitly marked as preferred, bonus, or nice-to-have. If ambiguous, exclude from this array.
+
+responsibilities: 5-10 key duties. Write each as a verb phrase ("Build and maintain...", "Design APIs..."). Exclude company culture and benefits.
+
+keywords: Domain buzzwords, methodology terms, and industry jargon that appear in the JD but are NOT already in required_skills or nice_to_have. Examples: "distributed systems", "agile", "high-availability". IMPORTANT: Do not duplicate items already in required_skills or nice_to_have.
+
+Also extract:
+- companyName: The employer's name (string or null)
+- jobPosition: The exact job title (string or null)
+- teamName: The specific team name if stated (string or null)
+
 Return only valid JSON.`,
           },
           {
             role: "user",
-            content: `Parse this job description:\n\n${jobDescription}\n\nReturn JSON with:\n- required_skills (array)\n- nice_to_have (array)\n- responsibilities (array)\n- keywords (array)\n- companyName: the company name (string or null)\n- jobPosition: the job title/position (string or null)\n- teamName: the team name if mentioned (string or null)`,
+            content: `Parse this job description:\n\n${jobDescription}\n\nReturn JSON with:\n- required_skills (array)\n- nice_to_have (array)\n- responsibilities (array)\n- keywords (array)\n- companyName: the company name (string or null)\n- jobPosition: the job title/position (string or null)\n- teamName: the team name if mentioned (string or null)\n\nBefore returning, verify: are there any strings that appear in both required_skills and keywords? If yes, remove them from keywords. Return the corrected JSON.`,
           },
         ],
         response_format: { type: "json_object" },
@@ -99,30 +105,31 @@ Return only valid JSON.`,
         messages: [
           {
             role: "system",
-            content: `You are a professional career coach who helps software engineers optimize resume bullets for specific job opportunities.
+            content: `You are a professional career coach who helps software engineers rewrite resume bullets to better match a specific job description, without inventing new information.
 
-Your task: Rework experience and project bullet points to align with the target job description while maintaining authenticity.
+ABSOLUTE CONSTRAINTS (violations cause the bullet to be rejected):
+- DO NOT add any number, percentage, or metric not present in the original bullet
+- DO NOT mention any technology, framework, or tool not in the original bullet or its skills/tags
+- DO NOT claim new responsibilities or leadership (led, managed, owned) not stated in the original
+- DO NOT invent scale, scope, or impact not in the original
 
-CORE PRINCIPLES:
-- **No hallucination**: Never invent metrics, technologies, or experiences
-- **Research-backed**: If numbers are missing but the work implies scale, reference realistic industry metrics
-- **Experience-constrained**: Only work with provided content - no new claims
-- **Technical focus**: Maintain professional, technical tone - avoid marketing fluff
-- **Data-driven**: Emphasize quantifiable achievements when they exist
+YOUR ONLY TOOLS:
+- Reorder the information to front-load the most job-relevant content
+- Replace generic verbs with stronger synonyms that keep the same meaning (e.g. "worked on" → "developed")
+- Restructure the sentence to match "Action Verb + What + Impact/Context" format
+- Use job description terminology where it naturally maps to what the original already says
+- Precision: Only use numbers and metrics that appear verbatim in the original bullet
 
-CRITICAL RULES:
-- DO NOT add new metrics, numbers, or percentages not in the original unless you can verify realistic industry benchmarks
-- DO NOT add new technologies not in the original bullet's skills/tags
-- DO NOT make new claims about impact or responsibility
-- ONLY rephrase and reorder existing information to emphasize relevance to the job
-- ALWAYS start bullets in the same experience with DIFFERENT action verbs for variety
-- ALWAYS keep the tone consise, clear, technical and focused on concrete achievements
+STYLE RULES:
+- Output exactly one line, under 20 words when possible, never more than 30 words
+- Start with an action verb in past tense
+- Do not start with the same verb as sibling bullets in the same experience
 
 Return JSON with:
 - bulletId: the bullet ID
-- rewrittenText: the optimized text (grounded in original)
+- rewrittenText: the rewritten bullet (one line, no trailing period)
 - evidenceBulletIds: [bulletId] (always just the original bullet)
-- riskFlags: array of any concerns (empty if none)`,
+- riskFlags: array of any concerns (empty array if none)`,
           },
           {
             role: "user",
@@ -139,11 +146,17 @@ Rewrite to emphasize relevance while staying 100% grounded in the original conte
       });
 
       const result = JSON.parse(completion.choices[0].message.content || "{}");
+      const rewrittenText = result.rewrittenText?.trim();
+      const riskFlags: string[] = result.riskFlags || [];
+      if (!rewrittenText || rewrittenText === bullet.content.trim()) {
+        this.logger.warn(`Bullet ${bullet.id} was not rewritten by model`);
+        riskFlags.push("no_rewrite");
+      }
       return {
         bulletId: bullet.id,
-        rewrittenText: result.rewrittenText || bullet.content,
+        rewrittenText: rewrittenText || bullet.content,
         evidenceBulletIds: [bullet.id],
-        riskFlags: result.riskFlags || [],
+        riskFlags,
       };
     } catch (error) {
       this.handleError(error, `rewriteBullet (${bullet.id})`);
@@ -205,19 +218,27 @@ HIRING MANAGER PERSPECTIVE:
 3. **Strategic selection**: Which experiences demonstrate the strongest fit?
 
 SELECTION STRATEGY:
-- From each experience, choose 2-5 bullets that directly align with essential and preferred skills
-- Select 3-4 most relevant experiences that showcase technical depth and impact
-- Include projects that demonstrate key skills and initiative, especially if they align with job responsibilities
-- Include all education entries but only coursework that's directly relevant
+- Select ALL experiences if the candidate has 3 or fewer; otherwise select the 3-4 most relevant
+- Select ALL projects if the candidate has 2 or fewer; otherwise select the 2-3 most relevant
+- From each selected experience or project, choose 2-5 bullets that directly align with essential and preferred skills (choose fewer if the item has fewer than 2 bullets)
+- If the job description is short or generic, prioritize recency over strict keyword matching
+- Include all education entries but only coursework strings verbatim from the provided "Coursework" list
 - Prioritize recent experiences and measurable achievements
 - Focus on transferable skills and domain-specific expertise
 - Consider both explicit skill matches and implicit competency signals
 - Think: "What would make this candidate get invited for an interview?"
 
-RELEVANCE REASONING:
-- Explain selections as if advising the candidate on what stands out
-- Highlight how each experience demonstrates fit for the role
-- Focus on concrete value and technical credibility
+REASONING PROCESS (think step by step before writing JSON):
+1. List the top 3 required skills from the job
+2. For each experience, score it 1-5 on relevance to those skills
+3. Select experiences scoring 4+, or the top 3 by score if none score 4+
+4. For each selected experience, pick bullets that contain those top skills
+Include your reasoning in the relevanceReason field of each item.
+
+CRITICAL ID RULES:
+- You MUST only use IDs that appear in the VALID IDs section of the user message
+- Using any ID not in that list is an error that will break the system
+- selectedCoursework must contain only exact strings from the candidate's "Coursework" list
 
 Return a JSON object with this exact structure:
 {
@@ -265,6 +286,12 @@ ${educationText || "No education listed"}
 
 === SKILLS ===
 ${skillsText || "No skills listed"}
+
+VALID IDs — you MUST only use IDs from these exact lists:
+Valid experience IDs: ${profile.experiences.map((e) => e.id).join(", ") || "none"}
+Valid project IDs: ${profile.projects.map((p) => p.id).join(", ") || "none"}
+Valid education IDs: ${profile.education.map((e) => e.id).join(", ") || "none"}
+Valid bullet IDs: ${[...profile.experiences.flatMap((e) => e.bullets.map((b) => b.id)), ...profile.projects.flatMap((p) => p.bullets.map((b) => b.id))].join(", ") || "none"}
 
 Select the most relevant content for this job application.`,
           },

@@ -15,7 +15,11 @@ export class QueueService {
     this.resumeQueue = new Queue("resume-build", {
       connection,
       defaultJobOptions: {
-        attempts: 1,
+        attempts: 3,
+        backoff: {
+          type: "exponential",
+          delay: 5000,
+        },
         removeOnComplete: true,
         removeOnFail: false,
       },
