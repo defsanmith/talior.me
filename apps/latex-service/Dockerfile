@@ -3,7 +3,7 @@ FROM node:22-alpine
 # Install only what pdflatex needs for the resume template:
 #   texlive                     — pdflatex engine + core packages (babel, color,
 #                                 tabularx, verbatim, latexsym, lmodern, tools)
-#   texmf-dist-latexrecommended — fancyhdr, hyperref
+#   texmf-dist-latexrecommended — hyperref
 #   texmf-dist-fontsrecommended — charter, mathptmx, palatino, helvet,
 #                                 marvosym, sourcesanspro
 # Packages intentionally avoided:

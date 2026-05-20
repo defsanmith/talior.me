@@ -87,16 +87,11 @@ ${fontPkg}
 \\usepackage[usenames,dvipsnames]{color}
 \\usepackage{verbatim}
 \\usepackage[hidelinks]{hyperref}
-\\usepackage{fancyhdr}
 \\usepackage[english]{babel}
 \\usepackage{tabularx}
-\\usepackage[margin=0.5in]{geometry}
+\\usepackage[margin=0.5in, nohead, nofoot]{geometry}
 
-\\pagestyle{fancy}
-\\fancyhf{}
-\\fancyfoot{}
-\\renewcommand{\\headrulewidth}{0pt}
-\\renewcommand{\\footrulewidth}{0pt}
+\\pagestyle{empty}
 
 \\urlstyle{same}
 
