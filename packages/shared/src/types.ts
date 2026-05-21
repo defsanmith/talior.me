@@ -17,6 +17,26 @@ export const ParsedJDSchema = z.object({
   companyName: z.string().nullable().optional(),
   jobPosition: z.string().nullable().optional(),
   teamName: z.string().nullable().optional(),
+  seniorityLevel: z
+    .enum(["intern", "junior", "mid", "senior", "staff", "principal", "director", "vp", "unknown"])
+    .optional(),
+  remotePolicy: z
+    .enum(["remote", "hybrid", "onsite", "unknown"])
+    .optional(),
+  roleArchetype: z
+    .enum([
+      "backend",
+      "frontend",
+      "fullstack",
+      "devops",
+      "data",
+      "ml",
+      "mobile",
+      "security",
+      "management",
+      "other",
+    ])
+    .optional(),
 });
 
 export type ParsedJD = z.infer<typeof ParsedJDSchema>;

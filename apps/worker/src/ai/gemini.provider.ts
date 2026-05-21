@@ -64,37 +64,45 @@ export class GeminiProvider implements IAIProvider {
         },
       });
 
-      const prompt = `You are a technical recruiter parsing a job description into a structured format for a resume optimization system.
+      const prompt = `You are a senior technical recruiter parsing a job description into a structured format for a resume optimization system.
 
-Extract exactly four arrays:
+STEP 1 — CLASSIFY THE ROLE:
+Before extracting details, classify the posting along three axes:
+
+seniorityLevel: Infer from title, years-of-experience requirement, scope of responsibilities, and reporting structure.
+  "intern" | "junior" (0-2 yrs) | "mid" (2-5 yrs) | "senior" (5-8 yrs) | "staff" (8-12 yrs) | "principal" (12+ yrs) | "director" | "vp" | "unknown"
+
+remotePolicy: Look for explicit statements ("remote", "hybrid", "in-office", office location requirements).
+  "remote" | "hybrid" | "onsite" | "unknown"
+
+roleArchetype: Classify the primary function of the role.
+  "backend" | "frontend" | "fullstack" | "devops" | "data" | "ml" | "mobile" | "security" | "management" | "other"
+
+STEP 2 — EXTRACT STRUCTURED DATA:
 
 required_skills: Technical and soft skills that are EXPLICITLY required ("must have", "required", "you will need"). Include specific technologies, languages, and frameworks. Do NOT include vague terms like "experience" or "background".
 
 nice_to_have: Skills explicitly marked as preferred, bonus, or nice-to-have. If ambiguous, exclude from this array.
 
-responsibilities: 5-10 key duties. Write each as a verb phrase ("Build and maintain...", "Design APIs..."). Exclude company culture and benefits.
+responsibilities: 5-10 key duties. Write each as a verb phrase ("Build and maintain...", "Design APIs..."). Exclude company culture, benefits, and boilerplate.
 
 keywords: Domain buzzwords, methodology terms, and industry jargon that appear in the JD but are NOT already in required_skills or nice_to_have. Examples: "distributed systems", "agile", "high-availability". IMPORTANT: Do not duplicate items already in required_skills or nice_to_have.
 
-Also extract:
+Metadata:
 - companyName: The employer's name (string or null)
-- jobPosition: The exact job title (string or null)
+- jobPosition: The exact job title as written (string or null)
 - teamName: The specific team name if stated (string or null)
+
+SELF-VERIFICATION (do this before returning):
+1. Are there any strings that appear in both required_skills and keywords? If yes, remove them from keywords.
+2. Does every item in required_skills represent a concrete, assessable skill (not a vague trait)? Remove any that don't.
+3. Is seniorityLevel consistent with the years-of-experience mentioned? Adjust if not.
 
 Parse this job description:
 
 ${jobDescription}
 
-Return JSON with:
-- required_skills (array)
-- nice_to_have (array)
-- responsibilities (array)
-- keywords (array)
-- companyName: the company name (string or null)
-- jobPosition: the job title/position (string or null)
-- teamName: the team name if mentioned (string or null)
-
-Before returning, verify: are there any strings that appear in both required_skills and keywords? If yes, remove them from keywords. Return the corrected JSON.`;
+Return only valid JSON.`;
 
       const result = await model.generateContent(prompt);
       const response = result.response;
@@ -119,37 +127,48 @@ Before returning, verify: are there any strings that appear in both required_ski
         },
       });
 
-      const prompt = `You are a professional career coach who helps software engineers rewrite resume bullets to better match a specific job description, without inventing new information.
+      const prompt = `You are a professional career coach who helps software engineers rewrite resume bullets to better match a specific job description. You use ethical keyword injection: weaving JD vocabulary into existing experience without inventing anything.
 
 ABSOLUTE CONSTRAINTS (violations cause the bullet to be rejected):
 - DO NOT add any number, percentage, or metric not present in the original bullet
 - DO NOT mention any technology, framework, or tool not in the original bullet or its skills/tags
 - DO NOT claim new responsibilities or leadership (led, managed, owned) not stated in the original
 - DO NOT invent scale, scope, or impact not in the original
+- DO NOT fabricate outcomes, results, or achievements
 
-YOUR ONLY TOOLS:
-- Reorder the information to front-load the most job-relevant content
-- Replace generic verbs with stronger synonyms that keep the same meaning (e.g. "worked on" → "developed")
-- Restructure the sentence to match "Action Verb + What + Impact/Context" format
-- Use job description terminology where it naturally maps to what the original already says
-- Precision: Only use numbers and metrics that appear verbatim in the original bullet
+ETHICAL KEYWORD INJECTION:
+Your primary technique is mapping the candidate's existing language to JD terminology:
+- If the original says "built a data pipeline" and the JD says "ETL", rewrite as "Built ETL data pipeline..."
+- If the original says "worked with cloud services" and their skills include "AWS", rewrite as "Developed cloud infrastructure on AWS..."
+- Only inject keywords where there is a genuine semantic match between what the candidate did and what the JD asks for
+
+BANNED WORDS AND CLICHES — never use these:
+"leveraged", "utilized", "spearheaded", "facilitated", "passionate", "synergy", "stakeholders", "cross-functional", "best-in-class", "results-oriented", "proven track record", "cutting-edge"
+Prefer plain, strong verbs: built, led, designed, shipped, reduced, automated, migrated, implemented, ran, created, wrote, tested, deployed
 
 STYLE RULES:
+- Structure: Action Verb + What + Impact/Context
 - Output exactly one line, under 20 words when possible, never more than 30 words
-- Start with an action verb in past tense
-- Do not start with the same verb as sibling bullets in the same experience
+- Start with a past-tense action verb
+- No trailing period
+- Front-load the most JD-relevant content
+
+SELF-VERIFICATION (do this before returning):
+1. Does the rewritten bullet contain any technology, metric, or claim NOT present in the original or its skills/tags? If yes, remove it.
+2. Did you use any banned word? If yes, replace it.
+3. Is the core meaning preserved? If the original is about X, the rewrite must still be about X.
 
 Return JSON with:
 - bulletId: the bullet ID
-- rewrittenText: the rewritten bullet (one line, no trailing period)
+- rewrittenText: the rewritten bullet
 - evidenceBulletIds: [bulletId] (always just the original bullet)
-- riskFlags: array of any concerns (empty array if none)
+- riskFlags: array of any concerns (empty array if none). Flag "keyword_injected" if you mapped JD terminology onto existing content.
 
 Original bullet: "${bullet.content}"
 Skills/Tags: ${[...bullet.skills, ...bullet.tags].join(", ")}
 
-Job requires: ${jd.required_skills.join(", ")}
-Keywords: ${jd.keywords.join(", ")}
+JD required skills: ${jd.required_skills.join(", ")}
+JD keywords: ${jd.keywords.join(", ")}
 
 Rewrite to emphasize relevance while staying 100% grounded in the original content.`;
 
@@ -227,14 +246,16 @@ ${proj.bullets.map((b) => `    - [${b.id}] ${b.content}`).join("\n")}`,
         ...profile.projects.flatMap((p) => p.bullets.map((b) => b.id)),
       ];
 
-      const prompt = `You are a professional career coach with hiring manager expertise, helping software engineers strategically select resume content for specific job opportunities.
+      const prompt = `You are a professional career coach with hiring manager expertise, helping software engineers strategically select and prioritize resume content for specific job opportunities.
 
-Your task: Analyze the job requirements from a hiring manager's perspective and recommend which experiences from the master resume should be prioritized to maximize interview chances.
+STEP 1 — KEYWORD EXTRACTION (do this first, mentally):
+Identify the 10-15 most important keywords from the job requirements. These are the terms the hiring manager will scan for. They include required skills, domain terms, and key responsibilities.
 
-HIRING MANAGER PERSPECTIVE:
-1. **Identify key strengths**: What would make an ideal candidate stand out?
-2. **Recognize gaps**: What areas typically need attention for this role?
-3. **Strategic selection**: Which experiences demonstrate the strongest fit?
+STEP 2 — HIRING MANAGER PERSPECTIVE:
+Think like the hiring manager reading a stack of 200 resumes:
+1. What are the 3 must-have signals that earn a closer look?
+2. Which experiences demonstrate those signals most directly?
+3. Do the selected items together tell a coherent career narrative toward this role?
 
 SELECTION STRATEGY:
 - Select ALL experiences if the candidate has 3 or fewer; otherwise select the 3-4 most relevant
@@ -243,21 +264,29 @@ SELECTION STRATEGY:
 - If the job description is short or generic, prioritize recency over strict keyword matching
 - Include all education entries but only coursework strings verbatim from the provided "Coursework" list
 - Prioritize recent experiences and measurable achievements
-- Focus on transferable skills and domain-specific expertise
-- Consider both explicit skill matches and implicit competency signals
-- Think: "What would make this candidate get invited for an interview?"
+- Consider both explicit skill matches and implicit competency signals (e.g., "built distributed system" implies "scalability" even if the word isn't used)
+
+ORDERING:
+Return experiences and projects in PRIORITY ORDER — the most relevant item first. The resume will present them in this order. The first experience should be the one that most directly maps to the target role.
+
+NARRATIVE COHERENCE:
+The selected items should together demonstrate a clear career trajectory toward this role. Avoid selecting items that tell contradictory stories (e.g., don't mix deep backend work with UI-heavy projects if the role is purely backend).
 
 REASONING PROCESS (think step by step before writing JSON):
 1. List the top 3 required skills from the job
 2. For each experience, score it 1-5 on relevance to those skills
 3. Select experiences scoring 4+, or the top 3 by score if none score 4+
-4. For each selected experience, pick bullets that contain those top skills
+4. For each selected experience, pick bullets containing those top skills or demonstrating transferable competency
+5. Order selections: highest relevance first
 Include your reasoning in the relevanceReason field of each item.
 
 CRITICAL ID RULES:
 - You MUST only use IDs that appear in the VALID IDs section below
 - Using any ID not in that list is an error that will break the system
 - selectedCoursework must contain only exact strings from the candidate's "Coursework" list
+
+SELF-VERIFICATION:
+Before returning, check: does every ID in your response appear in the VALID IDs list? If not, remove it.
 
 Return a JSON object with this exact structure:
 {
@@ -289,6 +318,8 @@ Required Skills: ${parsedJd.required_skills.join(", ")}
 Nice to Have: ${parsedJd.nice_to_have.join(", ")}
 Responsibilities: ${parsedJd.responsibilities.join("; ")}
 Keywords: ${parsedJd.keywords.join(", ")}
+${parsedJd.roleArchetype ? `Role Archetype: ${parsedJd.roleArchetype}` : ""}
+${parsedJd.seniorityLevel ? `Seniority: ${parsedJd.seniorityLevel}` : ""}
 
 CANDIDATE PROFILE:
 
@@ -310,7 +341,7 @@ Valid project IDs: ${profile.projects.map((p) => p.id).join(", ") || "none"}
 Valid education IDs: ${profile.education.map((e) => e.id).join(", ") || "none"}
 Valid bullet IDs: ${allBulletIds.join(", ") || "none"}
 
-Select the most relevant content for this job application.`;
+Select and prioritize the most relevant content for this job application.`;
 
       const result = await model.generateContent(prompt);
       const response = result.response;
@@ -372,61 +403,93 @@ Select the most relevant content for this job application.`;
           ?.map((c) => `- ${c.title} (${c.issuer})`)
           .join("\n") || "None";
 
-      const prompt = `You are a senior technical recruiter performing a rigorous fit assessment between a candidate's profile and a job description.
+      const prompt = `You are a senior technical recruiter performing a rigorous, multi-step fit assessment between a candidate's profile and a job description. Think like a hiring manager reviewing the top of a 200-applicant funnel.
 
-Evaluate across 5 dimensions, each scored 1–5:
+STEP 1 — SKILL-BY-SKILL MAPPING:
+Before scoring, map EACH required skill from the JD to evidence in the candidate's profile:
+- For each required skill, find the closest match in the candidate's experiences, projects, skills list, or education.
+- If there is a direct match, note which experience/project demonstrates it.
+- If there is an adjacent/transferable match, note the gap and how the candidate might frame it.
+- If there is no match at all, flag it as a gap.
+
+This mapping is the foundation for accurate scoring. Do not score without completing it.
+
+STEP 2 — DIMENSION SCORING (5 dimensions, each 1–5):
 
 1. Skills Alignment (weight: 0.30)
-   1 = <30% of required skills present
-   3 = 50–70% of required skills present
-   5 = >90% of required skills present, including nice-to-haves
+   1 = <30% of required skills have ANY evidence in the profile
+   2 = 30–49% coverage, multiple hard requirements missing
+   3 = 50–70% coverage, core skills present but notable gaps
+   4 = 70–90% coverage, most required skills present with evidence
+   5 = >90% coverage including nice-to-haves, with direct experience
 
 2. Experience Relevance (weight: 0.25)
-   1 = No relevant experience for the role's responsibilities
-   3 = Some transferable experience from adjacent domains
-   5 = Direct, recent experience performing the same responsibilities
+   1 = No experience maps to the role's core responsibilities
+   2 = Tangentially related experience only
+   3 = Some transferable experience from adjacent domains or roles
+   4 = Strong transferable experience, similar scope and responsibility
+   5 = Direct, recent experience performing the same responsibilities at similar scale
 
 3. Seniority Fit (weight: 0.20)
-   1 = >3 levels off (junior applying to director)
-   3 = 1 level off, could stretch
-   5 = Exact level match based on years and scope
+   1 = >3 levels off (e.g., intern applying to senior)
+   2 = 2 levels off, significant stretch
+   3 = 1 level off, could stretch with strong interview
+   4 = Close match, within normal hiring range
+   5 = Exact level match based on years, scope, and demonstrated leadership
 
 4. Domain Match (weight: 0.15)
    1 = Completely different industry and problem space
-   3 = Adjacent industry with transferable patterns
+   2 = Different industry, some transferable patterns
+   3 = Adjacent industry or similar company type
+   4 = Same industry, different company scale/stage
    5 = Same industry, similar company type and scale
 
 5. Posting Quality (weight: 0.10)
-   1 = Vague, no specific requirements, suspicious
-   3 = Standard posting with some gaps
-   5 = Well-specified, detailed, legitimate
+   Evaluate the posting itself for legitimacy and specificity. Look for these signals:
+   - Tech specificity: Does it name exact tools/versions or just buzzwords?
+   - Requirements realism: Are requirements internally consistent (e.g., not "5 years React" for a junior role)?
+   - Detail level: Does it describe actual projects/team structure?
+   - Red flags: Reposted frequently? Unrealistic scope? No salary info for regulated markets?
+   1 = Vague, contradictory, or suspicious (possible ghost job)
+   3 = Standard posting with some missing details
+   5 = Well-specified, detailed, internally consistent, legitimate
 
-GAP ANALYSIS RULES:
-For each required skill or responsibility where the candidate falls short, classify as:
-- "hard-blocker": Fundamental requirement the candidate cannot demonstrate
-- "moderate": Significant gap but potentially mitigatable through adjacent experience
-- "nice-to-have": Listed as required but commonly waived for strong candidates
+STEP 3 — GAP ANALYSIS:
+For EVERY required skill or responsibility where the candidate falls short, create a gap entry:
+- "hard-blocker": Fundamental requirement the candidate cannot demonstrate AND cannot reasonably frame around (e.g., specific certification required by law, 10+ years when they have 2)
+- "moderate": Significant gap but mitigatable — the candidate has adjacent experience that could be framed
+- "nice-to-have": Listed as required but commonly waived for strong candidates in practice
 
-STRENGTHS: List 3–5 specific areas where the candidate's profile strongly matches.
+MANDATORY: Every gap MUST include a mitigationSuggestion with specific, actionable framing advice. Examples:
+- "Frame your X experience as evidence of Y capability — both involve Z"
+- "Highlight your coursework in X and self-directed project Y to bridge this gap"
+- "This is typically waived if the candidate demonstrates strong fundamentals in Z"
 
-SUMMARY: Write 2–3 sentences describing the overall fit from a recruiter's perspective.
+STEP 4 — STRENGTHS & SUMMARY:
+- Strengths: List 3–5 specific areas where the candidate's profile strongly matches. Be concrete — reference specific experiences, not generic traits.
+- Summary: Write 2–3 sentences describing the overall fit from a recruiter's perspective. Include the single strongest signal and the single biggest concern.
+
+SELF-VERIFICATION:
+1. Does overallScore equal the weighted average of your dimension scores (to 1 decimal)?
+2. Is every required skill accounted for — either in strengths or in gaps?
+3. Does the recommendation label match the score (>=4.0 strong-fit, 3.0–3.99 moderate-fit, <3.0 weak-fit)?
 
 Return ONLY valid JSON matching this exact schema:
 {
-  "overallScore": <weighted average of dimensions, 1 decimal>,
+  "overallScore": <weighted average, 1 decimal>,
   "dimensions": [
-    { "name": "<dimension name>", "score": <1-5>, "weight": <0.xx>, "reasoning": "<1-2 sentences>" }
+    { "name": "<dimension name>", "score": <1-5>, "weight": <0.xx>, "reasoning": "<2-3 sentences citing specific evidence>" }
   ],
   "gaps": [
-    { "requirement": "<what's missing>", "severity": "<hard-blocker|moderate|nice-to-have>", "detail": "<explanation>", "mitigationSuggestion": "<optional suggestion>" }
+    { "requirement": "<what's missing>", "severity": "<hard-blocker|moderate|nice-to-have>", "detail": "<explanation>", "mitigationSuggestion": "<specific framing advice>" }
   ],
-  "strengths": ["<strength 1>", "<strength 2>", ...],
+  "strengths": ["<concrete strength referencing specific experience>", ...],
   "recommendation": "<strong-fit|moderate-fit|weak-fit>",
-  "summary": "<2-3 sentence verdict>",
+  "summary": "<2-3 sentence verdict with strongest signal and biggest concern>",
   "autoGenerate": false
 }
 
-The "autoGenerate" field should always be false — the caller will set this based on the user's threshold preference. Compute "recommendation" based on overallScore: >=4.0 is "strong-fit", 3.0–3.99 is "moderate-fit", <3.0 is "weak-fit".
+The "autoGenerate" field should always be false — the caller will set this based on the user's threshold preference.
 
 JOB DESCRIPTION (raw):
 ${jobDescription}
@@ -438,6 +501,8 @@ Responsibilities: ${parsedJd.responsibilities.join("; ")}
 Keywords: ${parsedJd.keywords.join(", ")}
 Company: ${parsedJd.companyName || "Unknown"}
 Position: ${parsedJd.jobPosition || "Unknown"}
+${parsedJd.seniorityLevel ? `Seniority Level: ${parsedJd.seniorityLevel}` : ""}
+${parsedJd.roleArchetype ? `Role Archetype: ${parsedJd.roleArchetype}` : ""}
 
 CANDIDATE PROFILE:
 
@@ -455,7 +520,7 @@ All Skills: ${allSkills || "None listed"}
 Certifications:
 ${certsSummary}
 
-Evaluate this candidate's fit for the role.`;
+Perform the full evaluation: skill mapping, dimension scoring, gap analysis with mitigation strategies, and summary.`;
 
       const result = await model.generateContent(prompt);
       const response = result.response;
