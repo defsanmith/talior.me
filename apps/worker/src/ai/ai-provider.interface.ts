@@ -1,4 +1,4 @@
-import { ParsedJD, RewrittenBullet } from "@tailor.me/shared";
+import { ParsedJD, ProfileEvaluation, RewrittenBullet } from "@tailor.me/shared";
 
 // Types for AI content selection
 export interface ProfileExperience {
@@ -117,4 +117,14 @@ export interface IAIProvider {
     profile: ProfileData,
     parsedJd: ParsedJD,
   ): Promise<ContentSelection>;
+
+  /**
+   * Evaluate how well the user's profile fits a specific job description.
+   * Returns a multi-dimensional scoring with gap analysis.
+   */
+  evaluateProfileFit(
+    profile: ProfileData,
+    parsedJd: ParsedJD,
+    jobDescription: string,
+  ): Promise<ProfileEvaluation>;
 }

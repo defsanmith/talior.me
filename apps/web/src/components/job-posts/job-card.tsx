@@ -1,3 +1,4 @@
+import { cn } from "@/lib/utils";
 import { formatApplicationDate } from "@/lib/application-date";
 import { ApplicationStatus, JobResponse, JobStatus } from "@tailor.me/shared";
 import { Archive } from "lucide-react";
@@ -31,6 +32,8 @@ export default function JobCard({
     switch (status) {
       case JobStatus.COMPLETED:
         return "bg-green-100 text-green-800 hover:bg-green-100";
+      case JobStatus.EVALUATED:
+        return "bg-orange-100 text-orange-800 hover:bg-orange-100";
       case JobStatus.PROCESSING:
         return "bg-blue-100 text-blue-800 hover:bg-blue-100";
       case JobStatus.QUEUED:
@@ -40,6 +43,12 @@ export default function JobCard({
       default:
         return "bg-gray-100 text-gray-800 hover:bg-gray-100";
     }
+  };
+
+  const getEvaluationScoreColor = (score: number) => {
+    if (score >= 4) return "text-emerald-700 bg-emerald-100";
+    if (score >= 3) return "text-yellow-700 bg-yellow-100";
+    return "text-red-700 bg-red-100";
   };
 
   const getApplicationStatusColor = (status: string) => {
@@ -115,6 +124,16 @@ export default function JobCard({
             )}
           </div>
           <div className="flex flex-wrap items-center gap-2">
+            {(job as any).evaluation?.overallScore != null && (
+              <Badge
+                className={cn(
+                  "text-xs font-semibold",
+                  getEvaluationScoreColor((job as any).evaluation.overallScore),
+                )}
+              >
+                {(job as any).evaluation.overallScore.toFixed(1)}/5
+              </Badge>
+            )}
             {job.strategy && (
               <Badge variant="outline" className="text-xs">
                 {job.strategy === "bm25" ? "Fast" : "AI"}
@@ -127,7 +146,9 @@ export default function JobCard({
                 {getApplicationStatusLabel(job.applicationStatus)}
               </Badge>
             ) : showGenerationStatus && job.status ? (
-              <Badge className={getStatusColor(job.status)}>{job.status}</Badge>
+              <Badge className={getStatusColor(job.status)}>
+                {job.status === JobStatus.EVALUATED ? "Review" : job.status}
+              </Badge>
             ) : null}
             {onArchive &&
               job.applicationStatus !== ApplicationStatus.ARCHIVED && (

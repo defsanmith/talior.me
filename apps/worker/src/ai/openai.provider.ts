@@ -1,5 +1,11 @@
 import { Injectable, Logger } from "@nestjs/common";
-import { ParsedJD, ParsedJDSchema, RewrittenBullet } from "@tailor.me/shared";
+import {
+  ParsedJD,
+  ParsedJDSchema,
+  ProfileEvaluation,
+  ProfileEvaluationSchema,
+  RewrittenBullet,
+} from "@tailor.me/shared";
 import OpenAI from "openai";
 import {
   ContentSelection,
@@ -14,6 +20,7 @@ export class OpenAIProvider implements IAIProvider {
   private readonly parseModel: string;
   private readonly rewriteModel: string;
   private readonly selectionModel: string;
+  private readonly evaluationModel: string;
 
   constructor() {
     this.client = new OpenAI({
@@ -22,6 +29,7 @@ export class OpenAIProvider implements IAIProvider {
     this.parseModel = process.env.OPENAI_PARSE_MODEL || "gpt-4o-mini";
     this.rewriteModel = process.env.OPENAI_REWRITE_MODEL || "gpt-4o-mini";
     this.selectionModel = process.env.OPENAI_SELECTION_MODEL || "gpt-4o-mini";
+    this.evaluationModel = process.env.OPENAI_EVALUATION_MODEL || "gpt-4o";
   }
 
   private handleError(error: any, operation: string): never {
@@ -309,6 +317,145 @@ Select the most relevant content for this job application.`,
       };
     } catch (error) {
       this.handleError(error, "selectRelevantContent");
+    }
+  }
+
+  async evaluateProfileFit(
+    profile: ProfileData,
+    parsedJd: ParsedJD,
+    jobDescription: string,
+  ): Promise<ProfileEvaluation> {
+    try {
+      const experiencesSummary = profile.experiences
+        .map(
+          (exp) =>
+            `- ${exp.title} at ${exp.company} (${exp.startDate} – ${exp.endDate || "Present"}): ${exp.bullets.length} bullets. Skills: ${exp.bullets.flatMap((b) => b.skills).filter((v, i, a) => a.indexOf(v) === i).join(", ") || "none"}`,
+        )
+        .join("\n");
+
+      const projectsSummary = profile.projects
+        .map(
+          (proj) =>
+            `- ${proj.name}: ${proj.bullets.length} bullets. Skills: ${proj.skills.join(", ") || "none"}`,
+        )
+        .join("\n");
+
+      const educationSummary = profile.education
+        .map(
+          (edu) =>
+            `- ${edu.degree} at ${edu.institution} (${edu.graduationDate || "N/A"})`,
+        )
+        .join("\n");
+
+      const allSkills = profile.skillCategories
+        .flatMap((cat) => cat.skills.map((s) => s.name))
+        .join(", ");
+
+      const certsSummary =
+        profile.certifications
+          ?.map((c) => `- ${c.title} (${c.issuer})`)
+          .join("\n") || "None";
+
+      const completion = await this.client.chat.completions.create({
+        model: this.evaluationModel,
+        messages: [
+          {
+            role: "system",
+            content: `You are a senior technical recruiter performing a rigorous fit assessment between a candidate's profile and a job description.
+
+Evaluate across 5 dimensions, each scored 1–5:
+
+1. Skills Alignment (weight: 0.30)
+   1 = <30% of required skills present
+   3 = 50–70% of required skills present
+   5 = >90% of required skills present, including nice-to-haves
+
+2. Experience Relevance (weight: 0.25)
+   1 = No relevant experience for the role's responsibilities
+   3 = Some transferable experience from adjacent domains
+   5 = Direct, recent experience performing the same responsibilities
+
+3. Seniority Fit (weight: 0.20)
+   1 = >3 levels off (junior applying to director)
+   3 = 1 level off, could stretch
+   5 = Exact level match based on years and scope
+
+4. Domain Match (weight: 0.15)
+   1 = Completely different industry and problem space
+   3 = Adjacent industry with transferable patterns
+   5 = Same industry, similar company type and scale
+
+5. Posting Quality (weight: 0.10)
+   1 = Vague, no specific requirements, suspicious
+   3 = Standard posting with some gaps
+   5 = Well-specified, detailed, legitimate
+
+GAP ANALYSIS RULES:
+For each required skill or responsibility where the candidate falls short, classify as:
+- "hard-blocker": Fundamental requirement the candidate cannot demonstrate (e.g., 10 years experience when they have 2, specific certification required by law)
+- "moderate": Significant gap but potentially mitigatable through adjacent experience
+- "nice-to-have": Listed as required but commonly waived for strong candidates
+
+STRENGTHS: List 3–5 specific areas where the candidate's profile strongly matches.
+
+SUMMARY: Write 2–3 sentences describing the overall fit from a recruiter's perspective.
+
+Return ONLY valid JSON matching this exact schema:
+{
+  "overallScore": <weighted average of dimensions, 1 decimal>,
+  "dimensions": [
+    { "name": "<dimension name>", "score": <1-5>, "weight": <0.xx>, "reasoning": "<1-2 sentences>" }
+  ],
+  "gaps": [
+    { "requirement": "<what's missing>", "severity": "<hard-blocker|moderate|nice-to-have>", "detail": "<explanation>", "mitigationSuggestion": "<optional suggestion>" }
+  ],
+  "strengths": ["<strength 1>", "<strength 2>", ...],
+  "recommendation": "<strong-fit|moderate-fit|weak-fit>",
+  "summary": "<2-3 sentence verdict>",
+  "autoGenerate": false
+}
+
+The "autoGenerate" field should always be false — the caller will set this based on the user's threshold preference. Compute "recommendation" based on overallScore: >=4.0 is "strong-fit", 3.0–3.99 is "moderate-fit", <3.0 is "weak-fit".`,
+          },
+          {
+            role: "user",
+            content: `JOB DESCRIPTION (raw):
+${jobDescription}
+
+PARSED REQUIREMENTS:
+Required Skills: ${parsedJd.required_skills.join(", ")}
+Nice to Have: ${parsedJd.nice_to_have.join(", ")}
+Responsibilities: ${parsedJd.responsibilities.join("; ")}
+Keywords: ${parsedJd.keywords.join(", ")}
+Company: ${parsedJd.companyName || "Unknown"}
+Position: ${parsedJd.jobPosition || "Unknown"}
+
+CANDIDATE PROFILE:
+
+Experiences:
+${experiencesSummary || "None"}
+
+Projects:
+${projectsSummary || "None"}
+
+Education:
+${educationSummary || "None"}
+
+All Skills: ${allSkills || "None listed"}
+
+Certifications:
+${certsSummary}
+
+Evaluate this candidate's fit for the role.`,
+          },
+        ],
+        response_format: { type: "json_object" },
+      });
+
+      const result = JSON.parse(completion.choices[0].message.content || "{}");
+      return ProfileEvaluationSchema.parse(result);
+    } catch (error) {
+      this.handleError(error, "evaluateProfileFit");
     }
   }
 }

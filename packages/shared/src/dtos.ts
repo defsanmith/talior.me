@@ -287,6 +287,7 @@ export const UpdateUserDtoSchema = z.object({
   openToRelocate: z.boolean().optional(),
   trackingEnabled: z.boolean().optional(),
   trackingSlugPrefix: z.string().min(1).max(50).optional(),
+  autoGenerateThreshold: z.number().min(1).max(5).optional(),
 });
 export type UpdateUserDto = z.infer<typeof UpdateUserDtoSchema>;
 
@@ -422,6 +423,7 @@ export interface ProfileUser {
   linkedin: string | null;
   trackingEnabled: boolean;
   trackingSlugPrefix: string;
+  autoGenerateThreshold: number;
   createdAt: Date;
   updatedAt: Date;
 }

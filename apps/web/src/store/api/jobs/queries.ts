@@ -94,6 +94,28 @@ export const jobApi = appApi.injectEndpoints({
         { type: "Jobs", id: jobId },
       ],
     }),
+    triggerGeneration: build.mutation<ApiResponse<{ success: boolean }>, string>(
+      {
+        query: (jobId) => ({
+          url: `/jobs/${jobId}/generate`,
+          method: "POST",
+        }),
+        invalidatesTags: (result, error, jobId) => [
+          { type: "Jobs", id: jobId },
+          "Jobs",
+        ],
+      },
+    ),
+    reEvaluate: build.mutation<ApiResponse<{ success: boolean }>, string>({
+      query: (jobId) => ({
+        url: `/jobs/${jobId}/re-evaluate`,
+        method: "POST",
+      }),
+      invalidatesTags: (result, error, jobId) => [
+        { type: "Jobs", id: jobId },
+        "Jobs",
+      ],
+    }),
     getResumePdf: build.query<Blob, string>({
       query: (jobId) => ({
         url: `/jobs/${jobId}/resume/pdf`,
@@ -116,4 +138,6 @@ export const {
   useUpdateJobResumeMutation,
   useUpdateJobMetadataMutation,
   useLazyGetResumePdfQuery,
+  useTriggerGenerationMutation,
+  useReEvaluateMutation,
 } = jobApi;

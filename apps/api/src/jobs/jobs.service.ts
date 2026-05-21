@@ -1,7 +1,12 @@
-import { Injectable, NotFoundException } from "@nestjs/common";
+import {
+  Injectable,
+  BadRequestException,
+  NotFoundException,
+} from "@nestjs/common";
 import {
   EditableResume,
   JobStatus,
+  ProfileEvaluation,
   UpdateJobMetadataDto,
   UpdateResumeDto,
 } from "@tailor.me/shared";
@@ -105,6 +110,7 @@ export class JobsService {
       userId,
       jobDescription,
       strategy,
+      phase: strategy === "bm25" ? undefined : "evaluate",
     });
 
     return job.id;
@@ -265,6 +271,92 @@ export class JobsService {
         linkedin: user.linkedin || undefined,
       },
     };
+  }
+
+  async triggerGeneration(jobId: string, userId: string): Promise<void> {
+    const job = await this.prisma.resumeJob.findUnique({
+      where: { id: jobId },
+    });
+
+    if (!job || job.userId !== userId) {
+      throw new NotFoundException("Job not found");
+    }
+
+    if (job.status !== JobStatus.EVALUATED) {
+      throw new BadRequestException(
+        "Job must be in EVALUATED status to trigger generation",
+      );
+    }
+
+    await this.prisma.resumeJob.update({
+      where: { id: jobId },
+      data: {
+        status: JobStatus.PROCESSING,
+        stage: "Queued for generation",
+        progress: 0,
+      },
+    });
+
+    await this.queueService.addJob(`${jobId}-generate`, {
+      jobId,
+      userId,
+      jobDescription: job.jobDescription,
+      strategy: job.strategy,
+      phase: "generate",
+    });
+  }
+
+  async reEvaluate(jobId: string, userId: string): Promise<void> {
+    const job = await this.prisma.resumeJob.findUnique({
+      where: { id: jobId },
+    });
+
+    if (!job || job.userId !== userId) {
+      throw new NotFoundException("Job not found");
+    }
+
+    if (
+      job.status !== JobStatus.EVALUATED &&
+      job.status !== JobStatus.COMPLETED
+    ) {
+      throw new BadRequestException(
+        "Job must be in EVALUATED or COMPLETED status to re-evaluate",
+      );
+    }
+
+    await this.prisma.resumeJob.update({
+      where: { id: jobId },
+      data: {
+        evaluation: undefined,
+        evaluatedAt: null,
+        status: JobStatus.QUEUED,
+        stage: "Queued",
+        progress: 0,
+      },
+    });
+
+    await this.queueService.addJob(`${jobId}-reeval`, {
+      jobId,
+      userId,
+      jobDescription: job.jobDescription,
+      strategy: job.strategy,
+      phase: "evaluate",
+    });
+  }
+
+  async getEvaluation(
+    jobId: string,
+    userId: string,
+  ): Promise<ProfileEvaluation | null> {
+    const job = await this.prisma.resumeJob.findUnique({
+      where: { id: jobId },
+    });
+
+    if (!job || job.userId !== userId) {
+      throw new NotFoundException("Job not found");
+    }
+
+    return (job.evaluation as unknown as ProfileEvaluation) ?? null;
   }
 
   async updateJobMetadata(

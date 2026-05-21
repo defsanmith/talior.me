@@ -49,6 +49,40 @@ export interface Team {
   updatedAt: Date;
 }
 
+// ============================================
+// Profile Evaluation Types
+// ============================================
+
+export const EvaluationDimensionSchema = z.object({
+  name: z.string(),
+  score: z.number().min(1).max(5),
+  weight: z.number(),
+  reasoning: z.string(),
+});
+
+export type EvaluationDimension = z.infer<typeof EvaluationDimensionSchema>;
+
+export const GapAnalysisItemSchema = z.object({
+  requirement: z.string(),
+  severity: z.enum(["hard-blocker", "moderate", "nice-to-have"]),
+  detail: z.string(),
+  mitigationSuggestion: z.string().optional(),
+});
+
+export type GapAnalysisItem = z.infer<typeof GapAnalysisItemSchema>;
+
+export const ProfileEvaluationSchema = z.object({
+  overallScore: z.number().min(1).max(5),
+  dimensions: z.array(EvaluationDimensionSchema),
+  gaps: z.array(GapAnalysisItemSchema),
+  recommendation: z.enum(["strong-fit", "moderate-fit", "weak-fit"]),
+  summary: z.string(),
+  autoGenerate: z.boolean(),
+  strengths: z.array(z.string()),
+});
+
+export type ProfileEvaluation = z.infer<typeof ProfileEvaluationSchema>;
+
 export const RewrittenBulletSchema = z.object({
   bulletId: z.string(),
   rewrittenText: z.string(),
@@ -313,6 +347,8 @@ export interface JobResponse {
   trackingSlug?: string | null;
   trackingEnabled?: boolean;
   applicationUrl?: string | null;
+  evaluation?: any;
+  evaluatedAt?: string | Date | null;
   externalJobSource?: ExternalJobSourceResponse | null;
   createdAt: Date;
   updatedAt: Date;

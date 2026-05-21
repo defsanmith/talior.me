@@ -13,12 +13,15 @@ import { ContentSelection, ProfileData } from "../ai/ai-provider.interface";
 import { AIService } from "../ai/ai.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { BM25Processor } from "./bm25.processor";
+import { EvaluationProcessor } from "./evaluation.processor";
+import { ProfileFetcher } from "./profile-fetcher";
 
 interface JobData {
   jobId: string;
   userId: string;
   jobDescription: string;
   strategy?: string;
+  phase?: "evaluate" | "generate";
 }
 
 interface SelectedBullet {
@@ -38,6 +41,8 @@ export class ResumeProcessor {
     private readonly prisma: PrismaService,
     private readonly ai: AIService,
     private readonly bm25Processor: BM25Processor,
+    private readonly evaluationProcessor: EvaluationProcessor,
+    private readonly profileFetcher: ProfileFetcher,
   ) {
     this.initializeWorker();
   }
@@ -50,7 +55,13 @@ export class ResumeProcessor {
 
     this.worker = new Worker<JobData>(
       "resume-build",
-      async (job) => this.processJob(job),
+      async (job) => {
+        const phase = job.data.phase;
+        if (!phase) return this.processJob(job);
+        if (phase === "evaluate")
+          return this.evaluationProcessor.processEvaluation(job);
+        return this.processJob(job);
+      },
       {
         connection,
         concurrency: parseInt(process.env.WORKER_CONCURRENCY || "10"),
@@ -71,6 +82,7 @@ export class ResumeProcessor {
       where: { id: jobId },
       select: {
         strategy: true,
+        parsedJd: true,
         companyId: true,
         positionId: true,
         teamId: true,
@@ -81,7 +93,7 @@ export class ResumeProcessor {
     }
 
     try {
-      // Step A: Parse JD (includes metadata extraction)
+      // Step A: Parse JD (skip if already parsed from evaluation phase)
       await this.updateJobStatus(
         jobId,
         JobStatus.PROCESSING,
@@ -94,75 +106,78 @@ export class ResumeProcessor {
         userId,
       });
 
-      const parsedJd = await this.ai.parseJobDescription(jobDescription);
+      let parsedJd: ParsedJD;
 
-      // Preserve any metadata already attached during submission and only
-      // backfill missing values from parsed JD.
-      let companyId: string | null = jobRecord?.companyId ?? null;
-      let positionId: string | null = jobRecord?.positionId ?? null;
-      let teamId: string | null = jobRecord?.teamId ?? null;
+      if (jobRecord?.parsedJd) {
+        parsedJd = jobRecord.parsedJd as unknown as ParsedJD;
+      } else {
+        parsedJd = await this.ai.parseJobDescription(jobDescription);
 
-      if (!companyId && parsedJd.companyName) {
-        const company = await this.prisma.company.upsert({
-          where: {
-            userId_name: {
+        let companyId: string | null = jobRecord?.companyId ?? null;
+        let positionId: string | null = jobRecord?.positionId ?? null;
+        let teamId: string | null = jobRecord?.teamId ?? null;
+
+        if (!companyId && parsedJd.companyName) {
+          const company = await this.prisma.company.upsert({
+            where: {
+              userId_name: {
+                userId,
+                name: parsedJd.companyName,
+              },
+            },
+            create: {
               userId,
               name: parsedJd.companyName,
             },
-          },
-          create: {
-            userId,
-            name: parsedJd.companyName,
-          },
-          update: {},
-        });
-        companyId = company.id;
-      }
+            update: {},
+          });
+          companyId = company.id;
+        }
 
-      if (!positionId && parsedJd.jobPosition) {
-        const position = await this.prisma.position.upsert({
-          where: {
-            userId_title: {
+        if (!positionId && parsedJd.jobPosition) {
+          const position = await this.prisma.position.upsert({
+            where: {
+              userId_title: {
+                userId,
+                title: parsedJd.jobPosition,
+              },
+            },
+            create: {
               userId,
               title: parsedJd.jobPosition,
             },
-          },
-          create: {
-            userId,
-            title: parsedJd.jobPosition,
-          },
-          update: {},
-        });
-        positionId = position.id;
-      }
+            update: {},
+          });
+          positionId = position.id;
+        }
 
-      if (!teamId && parsedJd.teamName) {
-        const team = await this.prisma.team.upsert({
-          where: {
-            userId_name: {
+        if (!teamId && parsedJd.teamName) {
+          const team = await this.prisma.team.upsert({
+            where: {
+              userId_name: {
+                userId,
+                name: parsedJd.teamName,
+              },
+            },
+            create: {
               userId,
               name: parsedJd.teamName,
             },
-          },
-          create: {
-            userId,
-            name: parsedJd.teamName,
-          },
-          update: {},
-        });
-        teamId = team.id;
-      }
+            update: {},
+          });
+          teamId = team.id;
+        }
 
-      // Update job with parsed JD and linked metadata
-      await this.prisma.resumeJob.update({
-        where: { id: jobId },
-        data: {
-          parsedJd: parsedJd as any,
-          companyId,
-          positionId,
-          teamId,
-        },
-      });
+        await this.prisma.resumeJob.update({
+          where: { id: jobId },
+          data: {
+            parsedJd: parsedJd as any,
+            companyId,
+            positionId,
+            teamId,
+          },
+        });
+      }
 
       // Step B: Retrieve full profile
       await this.updateJobStatus(
@@ -388,120 +403,8 @@ export class ResumeProcessor {
     }
   }
 
-  /**
-   * Fetches the complete user profile for AI-based selection
-   */
   private async fetchFullProfile(userId: string): Promise<ProfileData> {
-    const [
-      user,
-      experiences,
-      projects,
-      education,
-      skillCategories,
-      certifications,
-    ] = await Promise.all([
-      this.prisma.user.findUnique({
-        where: { id: userId },
-      }),
-      this.prisma.experience.findMany({
-        where: { userId },
-        orderBy: { startDate: "desc" },
-        include: {
-          bullets: {
-            include: {
-              skills: {
-                include: { skill: true },
-              },
-            },
-          },
-        },
-      }),
-      this.prisma.project.findMany({
-        where: { userId },
-        include: {
-          bullets: true,
-          skills: {
-            include: { skill: true },
-          },
-        },
-      }),
-      this.prisma.education.findMany({
-        where: { userId },
-      }),
-      this.prisma.skillCategory.findMany({
-        where: { userId },
-        include: {
-          skills: true,
-        },
-      }),
-      this.prisma.certification.findMany({
-        where: { userId },
-        orderBy: { issueDate: "desc" },
-      }),
-    ]);
-
-    return {
-      user: user
-        ? {
-            firstName: user.firstName,
-            lastName: user.lastName,
-            email: user.email,
-            phone: user.phone,
-            location: user.location,
-            openToRelocate: user.openToRelocate,
-            website: user.website,
-            linkedin: user.linkedin,
-          }
-        : null,
-      experiences: experiences.map((exp) => ({
-        id: exp.id,
-        company: exp.company,
-        title: exp.title,
-        location: exp.location,
-        startDate: exp.startDate,
-        endDate: exp.endDate,
-        bullets: exp.bullets.map((b) => ({
-          id: b.id,
-          content: b.content,
-          skills: b.skills.map((bs: any) => bs.skill.name),
-        })),
-      })),
-      projects: projects.map((proj) => ({
-        id: proj.id,
-        name: proj.name,
-        date: proj.date,
-        url: proj.url,
-        skills: proj.skills.map((ps: any) => ps.skill.name),
-        bullets: proj.bullets.map((b) => ({
-          id: b.id,
-          content: b.content,
-        })),
-      })),
-      education: education.map((edu: any) => ({
-        id: edu.id,
-        institution: edu.institution,
-        degree: edu.degree,
-        location: edu.location,
-        graduationDate: edu.graduationDate,
-        coursework: edu.coursework || [],
-      })),
-      skillCategories: skillCategories.map((cat) => ({
-        id: cat.id,
-        name: cat.name,
-        skills: cat.skills.map((s) => ({
-          id: s.id,
-          name: s.name,
-        })),
-      })),
-      certifications: certifications.map((cert) => ({
-        id: cert.id,
-        title: cert.title,
-        issuer: cert.issuer,
-        issueDate: cert.issueDate,
-        expirationDate: cert.expirationDate,
-        credentialUrl: cert.credentialUrl,
-      })),
-    };
+    return this.profileFetcher.fetchFullProfile(userId);
   }
 
   /**

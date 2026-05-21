@@ -85,7 +85,15 @@ export class EventsGateway
         jobId,
         progress: data.progress,
         stage: data.stage,
+        status: data.status,
       });
+
+      if (data.evaluation) {
+        this.server.to(`user:${userId}`).emit("job.evaluated", {
+          jobId,
+          evaluation: data.evaluation,
+        });
+      }
     });
 
     queueEvents.on("completed", async ({ jobId }: any) => {

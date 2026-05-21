@@ -31,6 +31,8 @@ import {
 import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
+import { EvaluationBanner } from "@/components/evaluation/evaluation-banner";
+import { EvaluationReport } from "@/components/evaluation/evaluation-report";
 import { InlineCompanyCombobox } from "@/components/job-tracker/inline-company-combobox";
 import { InlinePositionCombobox } from "@/components/job-tracker/inline-position-combobox";
 import { InlineTeamCombobox } from "@/components/job-tracker/inline-team-combobox";
@@ -78,6 +80,8 @@ import Router from "@/lib/router";
 import {
   useGetJobByIdQuery,
   useLazyGetResumePdfQuery,
+  useReEvaluateMutation,
+  useTriggerGenerationMutation,
   useUpdateJobResumeMutation,
 } from "@/store/api/jobs/queries";
 import { useGetPresetsQuery } from "@/store/api/presets/queries";
@@ -237,14 +241,99 @@ export default function JobDetailPage() {
     );
   }
 
-  // Render the editor with initial data
-  const initialResume = migrateResume(response.data.result);
+  const { job, result } = response.data;
+  const status = job.status;
+
+  // Processing / Queued — show progress
+  if (status === JobStatus.QUEUED || status === JobStatus.PROCESSING) {
+    return <ProcessingView job={job} />;
+  }
+
+  // Evaluated — show full evaluation report (no resume yet)
+  if (status === JobStatus.EVALUATED && job.evaluation) {
+    return <EvaluatedView jobId={jobId} job={job} />;
+  }
+
+  // Completed (or evaluated without evaluation data — backward compat)
+  const initialResume = migrateResume(result);
   return (
     <ResumeBuilderEditor
       jobId={jobId}
       initialResume={initialResume}
-      job={response.data.job}
+      job={job}
     />
+  );
+}
+
+function ProcessingView({ job }: { job: JobResponse }) {
+  return (
+    <div className="flex min-h-[60vh] flex-col items-center justify-center gap-4">
+      <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      <div className="text-center">
+        <h2 className="text-lg font-semibold">{job.stage || "Processing..."}</h2>
+        <p className="text-sm text-muted-foreground">
+          This may take a minute
+        </p>
+      </div>
+      <div className="w-64">
+        <div className="mb-1 flex justify-between text-xs text-muted-foreground">
+          <span>{job.stage}</span>
+          <span>{job.progress}%</span>
+        </div>
+        <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
+          <div
+            className="h-full rounded-full bg-primary transition-all"
+            style={{ width: `${job.progress}%` }}
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function EvaluatedView({ jobId, job }: { jobId: string; job: JobResponse }) {
+  const [triggerGeneration, { isLoading: isGenerateLoading }] =
+    useTriggerGenerationMutation();
+  const [reEvaluate, { isLoading: isReEvaluateLoading }] =
+    useReEvaluateMutation();
+
+  const evaluation = job.evaluation;
+  if (!evaluation) return null;
+
+  const handleGenerate = async () => {
+    try {
+      await triggerGeneration(jobId).unwrap();
+    } catch (err) {
+      console.error("Failed to trigger generation:", err);
+    }
+  };
+
+  const handleReEvaluate = async () => {
+    try {
+      await reEvaluate(jobId).unwrap();
+    } catch (err) {
+      console.error("Failed to re-evaluate:", err);
+    }
+  };
+
+  return (
+    <div className="py-6">
+      <div className="mb-6 text-center">
+        <h1 className="text-2xl font-bold">Profile Evaluation</h1>
+        <p className="text-sm text-muted-foreground">
+          {job.company?.name && job.position?.title
+            ? `${job.position.title} at ${job.company.name}`
+            : "Review your fit before generating a resume"}
+        </p>
+      </div>
+      <EvaluationReport
+        evaluation={evaluation}
+        onGenerate={handleGenerate}
+        onReEvaluate={handleReEvaluate}
+        isGenerateLoading={isGenerateLoading}
+        isReEvaluateLoading={isReEvaluateLoading}
+      />
+    </div>
   );
 }
 
@@ -839,6 +928,9 @@ function ResumeBuilderEditor({
       <div className="flex h-[calc(100vh-176px)]">
         {/* Left Panel - Editor */}
         <div className="w-1/2 overflow-y-auto p-4 pl-0">
+          {/* Evaluation Banner (collapsed) for completed jobs */}
+          {job?.evaluation && <EvaluationBanner evaluation={job.evaluation} />}
+
           {/* Job Description Info */}
           {job?.parsedJd && (
             <div className="mb-6 rounded-lg border bg-card p-4">

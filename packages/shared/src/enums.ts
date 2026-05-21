@@ -1,6 +1,7 @@
 export enum JobStatus {
   QUEUED = "QUEUED",
   PROCESSING = "PROCESSING",
+  EVALUATED = "EVALUATED",
   COMPLETED = "COMPLETED",
   FAILED = "FAILED",
 }
@@ -17,6 +18,7 @@ export enum ResumeGenerationStrategy {
 
 export enum JobStage {
   PARSING_JD = "Parsing job description",
+  EVALUATING_FIT = "Evaluating profile fit",
   RETRIEVING_BULLETS = "Retrieving candidate bullets",
   SELECTING_BULLETS = "Selecting best bullets",
   REWRITING_BULLETS = "Rewriting bullets",

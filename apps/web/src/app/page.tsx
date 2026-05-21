@@ -158,6 +158,16 @@ export default function DashboardPage() {
       dispatch(trackerApi.util.invalidateTags(["Jobs"]));
     });
 
+    socket.on(
+      "job.evaluated",
+      ({ jobId }: { jobId?: string } = {}) => {
+        if (jobId) {
+          dispatch(jobApi.util.invalidateTags([{ type: "Jobs", id: jobId }]));
+        }
+        dispatch(trackerApi.util.invalidateTags(["Jobs"]));
+      },
+    );
+
     socket.on("job.failed", () => {
       dispatch(trackerApi.util.invalidateTags(["Jobs"]));
     });
@@ -165,6 +175,7 @@ export default function DashboardPage() {
     return () => {
       socket.off("job.progress");
       socket.off("job.completed");
+      socket.off("job.evaluated");
       socket.off("job.failed");
     };
   }, [socketRef, dispatch]);

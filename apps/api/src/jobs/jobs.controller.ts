@@ -119,6 +119,36 @@ export class JobsController {
     };
   }
 
+  @Post(":jobId/generate")
+  async triggerGeneration(
+    @Param("jobId") jobId: string,
+    @CurrentUser() user: JwtPayload,
+  ): Promise<{ success: boolean }> {
+    await this.jobsService.triggerGeneration(jobId, user.userId);
+    return { success: true };
+  }
+
+  @Post(":jobId/re-evaluate")
+  async reEvaluate(
+    @Param("jobId") jobId: string,
+    @CurrentUser() user: JwtPayload,
+  ): Promise<{ success: boolean }> {
+    await this.jobsService.reEvaluate(jobId, user.userId);
+    return { success: true };
+  }
+
+  @Get(":jobId/evaluation")
+  async getEvaluation(
+    @Param("jobId") jobId: string,
+    @CurrentUser() user: JwtPayload,
+  ): Promise<{ evaluation: any }> {
+    const evaluation = await this.jobsService.getEvaluation(
+      jobId,
+      user.userId,
+    );
+    return { evaluation };
+  }
+
   @Patch(":jobId/resume")
   async updateJobResume(
     @Param("jobId") jobId: string,

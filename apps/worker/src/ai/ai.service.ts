@@ -47,4 +47,12 @@ export class AIService implements IAIProvider {
   async selectRelevantContent(profile: any, parsedJd: any) {
     return this.provider.selectRelevantContent(profile, parsedJd);
   }
+
+  async evaluateProfileFit(
+    profile: any,
+    parsedJd: any,
+    jobDescription: string,
+  ) {
+    return this.provider.evaluateProfileFit(profile, parsedJd, jobDescription);
+  }
 }
