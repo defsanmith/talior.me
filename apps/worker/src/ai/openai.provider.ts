@@ -149,17 +149,24 @@ BANNED WORDS AND CLICHES — never use these:
 "leveraged", "utilized", "spearheaded", "facilitated", "passionate", "synergy", "stakeholders", "cross-functional", "best-in-class", "results-oriented", "proven track record", "cutting-edge"
 Prefer plain, strong verbs: built, led, designed, shipped, reduced, automated, migrated, implemented, ran, created, wrote, tested, deployed
 
+SYNTHESIS:
+The skills/tags attached to a bullet represent the full context of what the candidate did in that role — use them to write a richer, more specific statement than the original. For example:
+- Original: "Worked on backend services" + Skills: [Python, PostgreSQL, Redis] → "Built Python backend services with PostgreSQL and Redis for session management"
+- Original: "Improved build times" + Skills: [Docker, CI/CD, GitHub Actions] → "Cut CI pipeline build times by containerizing with Docker and parallelizing GitHub Actions workflows"
+Synthesize the bullet content and its skills/tags into the most complete, honest statement possible.
+
 STYLE RULES:
-- Structure: Action Verb + What + Impact/Context
-- Output exactly one line, under 20 words when possible, never more than 30 words
+- Structure: Action Verb + What + How/With What + Impact/Context
+- Aim for 20–35 words — long enough to be specific, short enough to scan in under 3 seconds
 - Start with a past-tense action verb
 - No trailing period
 - Front-load the most JD-relevant content
+- Prefer one well-rounded sentence over two choppy fragments
 
 SELF-VERIFICATION (do this before returning):
 1. Does the rewritten bullet contain any technology, metric, or claim NOT present in the original or its skills/tags? If yes, remove it.
 2. Did you use any banned word? If yes, replace it.
-3. Is the core meaning preserved? If the original is about X, the rewrite must still be about X.
+3. Is the bullet specific enough that a reader understands what the candidate actually did? If it reads like a job description ("Responsible for..."), rewrite it.
 
 Return JSON with:
 - bulletId: the bullet ID
@@ -175,7 +182,7 @@ Skills/Tags: ${[...bullet.skills, ...bullet.tags].join(", ")}
 JD required skills: ${jd.required_skills.join(", ")}
 JD keywords: ${jd.keywords.join(", ")}
 
-Rewrite to emphasize relevance while staying 100% grounded in the original content.`,
+Synthesize the bullet and its skills/tags into the most specific, well-rounded statement that naturally highlights relevance to this role.`,
           },
         ],
         response_format: { type: "json_object" },
@@ -244,62 +251,64 @@ ${proj.bullets.map((b) => `    - [${b.id}] ${b.content}`).join("\n")}`,
         messages: [
           {
             role: "system",
-            content: `You are a professional career coach with hiring manager expertise, helping software engineers strategically select and prioritize resume content for specific job opportunities.
+            content: `You are a professional career coach with deep hiring manager expertise. Your job is to curate a candidate's master resume into the strongest possible targeted resume for a specific role.
 
-STEP 1 — KEYWORD EXTRACTION (do this first, mentally):
-Identify the 10-15 most important keywords from the job requirements. These are the terms the hiring manager will scan for. They include required skills, domain terms, and key responsibilities.
+STEP 1 — KEYWORD EXTRACTION:
+Before evaluating anything, identify the 10–15 highest-signal keywords from the job requirements: required technologies, domain terms, key responsibilities, and methodology terms. These are what the hiring manager's eye will catch on a quick scan.
 
-STEP 2 — HIRING MANAGER PERSPECTIVE:
-Think like the hiring manager reading a stack of 200 resumes:
-1. What are the 3 must-have signals that earn a closer look?
-2. Which experiences demonstrate those signals most directly?
-3. Do the selected items together tell a coherent career narrative toward this role?
+STEP 2 — SCORE EVERY EXPERIENCE AND PROJECT (1–5):
+Score each item against those keywords and the role's core responsibilities:
+  5 = Direct match — candidate did this exact thing at similar scale
+  4 = Strong match — directly adjacent, clear transferable signal
+  3 = Moderate match — some relevant overlap, worth including
+  2 = Weak match — tangentially related, borderline
+  1 = Not relevant — different domain, skill set, or seniority level
 
-SELECTION STRATEGY:
-- Select ALL experiences if the candidate has 3 or fewer; otherwise select the 3-4 most relevant
-- Select ALL projects if the candidate has 2 or fewer; otherwise select the 2-3 most relevant
-- From each selected experience or project, choose 2-5 bullets that directly align with essential and preferred skills (choose fewer if the item has fewer than 2 bullets)
-- If the job description is short or generic, prioritize recency over strict keyword matching
-- Include all education entries but only coursework strings verbatim from the provided "Coursework" list
-- Prioritize recent experiences and measurable achievements
-- Consider both explicit skill matches and implicit competency signals (e.g., "built distributed system" implies "scalability" even if the word isn't used)
+${parsedJd.roleArchetype ? `ARCHETYPE WEIGHTING (role is "${parsedJd.roleArchetype}"):
+Weight experiences heavily that involve the core skills and problem space of this archetype. Deprioritize experiences from a clearly different archetype even if they're recent.` : ""}
 
-ORDERING:
-Return experiences and projects in PRIORITY ORDER — the most relevant item first. The resume will present them in this order. The first experience should be the one that most directly maps to the target role.
+STEP 3 — SELECTION BY THRESHOLD (not by count):
+- Include ALL experiences and projects scoring 3 or higher
+- If more than 5 score 3+, keep the top 5 by score (break ties by recency)
+- If fewer than 2 score 3+, fall back to the top 2 by score regardless
+- Never include an item scoring 1–2 — it hurts more than it helps
+- Include ALL education entries (they're short and harmless)
+- If the JD is short or generic, lower the bar slightly and weight recency more
+
+STEP 4 — BULLET SELECTION AND ORDERING (critical):
+For each selected experience or project:
+- Score each bullet individually against the job's top keywords
+- Include bullets scoring 3+ (typically 3–5 bullets; never fewer than 2 unless the experience has fewer)
+- Return bulletIds in ORDER OF RELEVANCE — most relevant bullet first
+- The resume displays bullets in exactly the order you return them — put the strongest signal bullet at the top
+
+STEP 5 — EXPERIENCE ORDERING:
+Return all arrays in ORDER OF RELEVANCE — highest-scoring experience first. This controls the resume's section order. The item the hiring manager should see first goes first.
 
 NARRATIVE COHERENCE:
-The selected items should together demonstrate a clear career trajectory toward this role. Avoid selecting items that tell contradictory stories (e.g., don't mix deep backend work with UI-heavy projects if the role is purely backend).
-
-REASONING PROCESS (think step by step before writing JSON):
-1. List the top 3 required skills from the job
-2. For each experience, score it 1-5 on relevance to those skills
-3. Select experiences scoring 4+, or the top 3 by score if none score 4+
-4. For each selected experience, pick bullets containing those top skills or demonstrating transferable competency
-5. Order selections: highest relevance first
-Include your reasoning in the relevanceReason field of each item.
+The selected items should tell a consistent story toward this role. If two experiences both score 4 but one contradicts the narrative (e.g., a pure management role when the JD is deeply technical), prefer the one that fits the trajectory. Note any trade-off in relevanceReason.
 
 CRITICAL ID RULES:
-- You MUST only use IDs that appear in the VALID IDs section of the user message
-- Using any ID not in that list is an error that will break the system
-- selectedCoursework must contain only exact strings from the candidate's "Coursework" list
-
-SELF-VERIFICATION:
-Before returning, check: does every ID in your response appear in the VALID IDs list? If not, remove it.
+- Only use IDs that appear in the VALID IDs section
+- selectedCoursework must be exact strings from the candidate's "Coursework" list
+- Before returning, verify every ID in your response exists in the valid lists
 
 Return a JSON object with this exact structure:
 {
   "experiences": [
     {
       "id": "experience_id",
-      "bulletIds": ["bullet_id1", "bullet_id2", ...],
-      "relevanceReason": "Why this experience helps the candidate stand out for this role"
+      "relevanceScore": <1-5>,
+      "bulletIds": ["most_relevant_bullet_id", "second_bullet_id", ...],
+      "relevanceReason": "1-2 sentences on why this makes the hiring manager want to interview this candidate"
     }
   ],
   "projects": [
     {
       "id": "project_id",
-      "bulletIds": ["bullet_id1", ...],
-      "relevanceReason": "How this project demonstrates key skills for the position"
+      "relevanceScore": <1-5>,
+      "bulletIds": ["most_relevant_bullet_id", ...],
+      "relevanceReason": "How this project demonstrates signal for this specific role"
     }
   ],
   "education": [
@@ -335,13 +344,13 @@ ${educationText || "No education listed"}
 === SKILLS ===
 ${skillsText || "No skills listed"}
 
-VALID IDs — you MUST only use IDs from these exact lists:
+VALID IDs — only use IDs from these exact lists:
 Valid experience IDs: ${profile.experiences.map((e) => e.id).join(", ") || "none"}
 Valid project IDs: ${profile.projects.map((p) => p.id).join(", ") || "none"}
 Valid education IDs: ${profile.education.map((e) => e.id).join(", ") || "none"}
 Valid bullet IDs: ${[...profile.experiences.flatMap((e) => e.bullets.map((b) => b.id)), ...profile.projects.flatMap((p) => p.bullets.map((b) => b.id))].join(", ") || "none"}
 
-Select and prioritize the most relevant content for this job application.`,
+Score every experience and project, then select and order by relevance threshold.`,
           },
         ],
         response_format: { type: "json_object" },

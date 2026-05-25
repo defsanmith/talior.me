@@ -77,12 +77,14 @@ export interface ProfileData {
 export interface ContentSelection {
   experiences: Array<{
     id: string;
-    bulletIds: string[];
+    bulletIds: string[];       // ordered by JD relevance — most relevant bullet first
+    relevanceScore: number;    // 1–5, used for threshold filtering
     relevanceReason: string;
   }>;
   projects: Array<{
     id: string;
-    bulletIds: string[];
+    bulletIds: string[];       // ordered by JD relevance — most relevant bullet first
+    relevanceScore: number;    // 1–5
     relevanceReason: string;
   }>;
   education: Array<{

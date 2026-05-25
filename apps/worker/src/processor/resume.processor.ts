@@ -204,11 +204,13 @@ export class ResumeProcessor {
           experiences: profileData.experiences.map((exp) => ({
             id: exp.id,
             bulletIds: [],
+            relevanceScore: 3,
             relevanceReason: "All experiences included (selection disabled)",
           })),
           projects: profileData.projects.map((proj) => ({
             id: proj.id,
             bulletIds: [],
+            relevanceScore: 3,
             relevanceReason: "All projects included (selection disabled)",
           })),
           education: profileData.education.map((edu) => ({
@@ -242,7 +244,9 @@ export class ResumeProcessor {
         contentSelection,
       );
 
-      // Filter experiences/projects that ended up with zero valid bullets (ID hallucination guard)
+      // Filter experiences/projects:
+      // 1. Drop anything with relevanceScore < 3 (genuinely irrelevant — threshold guard)
+      // 2. Drop anything that ended up with zero valid bullets (ID hallucination guard)
       const extractedByParent = new Map<string, number>();
       for (const b of selectedBullets) {
         extractedByParent.set(b.parentId, (extractedByParent.get(b.parentId) ?? 0) + 1);
@@ -250,6 +254,11 @@ export class ResumeProcessor {
       const validatedSelection = {
         ...contentSelection,
         experiences: contentSelection.experiences.filter((exp) => {
+          const score = exp.relevanceScore ?? 3; // default to 3 if missing (backward compat)
+          if (score < 3) {
+            console.warn(`Experience ${exp.id} scored ${score}/5 relevance, removing from selection`);
+            return false;
+          }
           const count = extractedByParent.get(exp.id) ?? 0;
           if (count === 0) {
             console.warn(`Experience ${exp.id} had no valid bullets after extraction, removing from selection`);
@@ -257,6 +266,11 @@ export class ResumeProcessor {
           return count > 0;
         }),
         projects: contentSelection.projects.filter((proj) => {
+          const score = proj.relevanceScore ?? 3;
+          if (score < 3) {
+            console.warn(`Project ${proj.id} scored ${score}/5 relevance, removing from selection`);
+            return false;
+          }
           const count = extractedByParent.get(proj.id) ?? 0;
           if (count === 0) {
             console.warn(`Project ${proj.id} had no valid bullets after extraction, removing from selection`);
