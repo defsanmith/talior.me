@@ -1,7 +1,7 @@
-import { cn } from "@/lib/utils";
 import { formatApplicationDate } from "@/lib/application-date";
+import { cn } from "@/lib/utils";
 import { ApplicationStatus, JobResponse, JobStatus } from "@tailor.me/shared";
-import { Archive } from "lucide-react";
+import { Archive, FileCheck2 } from "lucide-react";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
 import {
@@ -46,9 +46,9 @@ export default function JobCard({
   };
 
   const getEvaluationScoreColor = (score: number) => {
-    if (score >= 4) return "text-emerald-700 bg-emerald-100";
-    if (score >= 3) return "text-yellow-700 bg-yellow-100";
-    return "text-red-700 bg-red-100";
+    if (score >= 4) return "text-emerald-700 bg-emerald-100 hover:bg-emerald-100";
+    if (score >= 3) return "text-yellow-700 bg-yellow-100 hover:bg-yellow-100";
+    return "text-red-700 bg-red-100 hover:bg-red-100";
   };
 
   const getApplicationStatusColor = (status: string) => {
@@ -100,13 +100,13 @@ export default function JobCard({
 
   return (
     <Card
-      className="group cursor-pointer transition-shadow hover:shadow-md"
+      className="group relative cursor-pointer transition-shadow hover:shadow-md"
       onClick={onClick}
     >
-      <CardHeader>
-        <div className="relative flex items-start justify-between gap-2">
-          <div className="flex-1 space-y-1">
-            <CardTitle>
+      <CardHeader className="pb-2">
+        <div className="relative flex items-start">
+          <div className="min-w-0 flex-1 space-y-1.5">
+            <CardTitle className="line-clamp-2 text-sm font-semibold leading-tight">
               {job.company?.name && job.position?.title
                 ? `${job.position.title} at ${job.company.name}`
                 : job.company?.name || job.position?.title
@@ -120,74 +120,81 @@ export default function JobCard({
                     })}
             </CardTitle>
             {job.team?.name && (
-              <CardDescription>{job.team.name}</CardDescription>
+              <CardDescription className="text-xs">
+                {job.team.name}
+              </CardDescription>
             )}
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            {(job as any).evaluation?.overallScore != null && (
-              <Badge
-                className={cn(
-                  "text-xs font-semibold",
-                  getEvaluationScoreColor((job as any).evaluation.overallScore),
-                )}
-              >
-                {(job as any).evaluation.overallScore.toFixed(1)}/5
-              </Badge>
-            )}
-            {job.strategy && (
-              <Badge variant="outline" className="text-xs">
-                {job.strategy === "bm25" ? "Fast" : "AI"}
-              </Badge>
-            )}
-            {showApplicationStatus && job.applicationStatus ? (
-              <Badge
-                className={getApplicationStatusColor(job.applicationStatus)}
-              >
-                {getApplicationStatusLabel(job.applicationStatus)}
-              </Badge>
-            ) : showGenerationStatus && job.status ? (
-              <Badge className={getStatusColor(job.status)}>
-                {job.status === JobStatus.EVALUATED ? "Review" : job.status}
-              </Badge>
-            ) : null}
-            {onArchive &&
-              job.applicationStatus !== ApplicationStatus.ARCHIVED && (
-                <Button
-                  variant="outline"
-                  size="icon"
-                  className="absolute right-0 top-0 hidden h-8 w-8 shrink-0 p-0 group-hover:flex"
-                  onClick={handleArchive}
-                  title="Archive"
-                >
-                  <Archive className="h-4 w-4" />
-                </Button>
+            <div className="flex flex-wrap items-center gap-1.5">
+              {job.resultResume != null && (
+                <Badge className="gap-1 bg-emerald-100 text-xs font-medium text-emerald-800 hover:bg-emerald-100">
+                  <FileCheck2 className="h-3 w-3" />
+                  Resume
+                </Badge>
               )}
+              {(job as any).evaluation?.overallScore != null && (
+                <Badge
+                  className={cn(
+                    "text-xs font-semibold",
+                    getEvaluationScoreColor(
+                      (job as any).evaluation.overallScore,
+                    ),
+                  )}
+                >
+                  {(job as any).evaluation.overallScore.toFixed(1)}/5
+                </Badge>
+              )}
+              {job.strategy && (
+                <Badge variant="outline" className="text-xs">
+                  {job.strategy === "bm25" ? "Fast" : "AI"}
+                </Badge>
+              )}
+              {showApplicationStatus && job.applicationStatus ? (
+                <Badge
+                  className={getApplicationStatusColor(job.applicationStatus)}
+                >
+                  {getApplicationStatusLabel(job.applicationStatus)}
+                </Badge>
+              ) : showGenerationStatus && job.status ? (
+                <Badge className={getStatusColor(job.status)}>
+                  {job.status === JobStatus.EVALUATED ? "Review" : job.status}
+                </Badge>
+              ) : null}
+            </div>
           </div>
         </div>
+        {onArchive && job.applicationStatus !== ApplicationStatus.ARCHIVED && (
+          <Button
+            variant="ghost"
+            size="icon"
+            className="absolute right-2 top-2 hidden h-7 w-7 p-0 group-hover:flex"
+            onClick={handleArchive}
+            title="Archive"
+          >
+            <Archive className="h-3.5 w-3.5" />
+          </Button>
+        )}
       </CardHeader>
 
-      <CardContent className="flex flex-col gap-2 text-gray-600">
-        <p className="line-clamp-2 text-sm">{job.jobDescription}</p>
+      <CardContent className="flex flex-col gap-2 pb-3 text-gray-600">
+        <p className="line-clamp-2 text-xs text-muted-foreground">
+          {job.jobDescription}
+        </p>
 
         {(showProgress || job.applicationDate) && (
           <>
             {showProgress && (
-              <div className="space-y-2">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">
-                    Stage: {job.stage}
-                  </span>
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-muted-foreground">{job.stage}</span>
                   <span className="font-medium">{job.progress}%</span>
                 </div>
-                <div className="h-2 w-full rounded-full bg-secondary">
-                  <Progress value={job.progress} />
-                </div>
+                <Progress value={job.progress} className="h-1.5" />
               </div>
             )}
             {showApplicationDate && job.applicationDate && (
-              <div className="text-xs">
-                Applied on{" "}
-                <span className="font-semibold">
+              <div className="text-xs text-muted-foreground">
+                Applied{" "}
+                <span className="font-semibold text-foreground">
                   {formatApplicationDate(job.applicationDate)}
                 </span>
               </div>

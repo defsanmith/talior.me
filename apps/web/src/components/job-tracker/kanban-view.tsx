@@ -1,6 +1,5 @@
 "use client";
 
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import Router from "@/lib/router";
 import { useUpdateJobStatusMutation } from "@/store/api/tracker/mutations";
@@ -17,8 +16,9 @@ import {
   useSensor,
   useSensors,
 } from "@dnd-kit/core";
+import { cn } from "@/lib/utils";
 import { ApplicationStatus } from "@tailor.me/shared";
-import { Loader2 } from "lucide-react";
+import { Inbox, Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import JobCard from "../job-posts/job-card";
@@ -36,36 +36,50 @@ const STATUS_COLUMNS = [
     id: ApplicationStatus.READY_TO_APPLY,
     label: "Ready to Apply",
     color: "bg-blue-100 text-blue-800",
+    borderColor: "border-t-blue-400",
+    dotColor: "bg-blue-400",
   },
   {
     id: ApplicationStatus.APPLIED,
     label: "Applied",
     color: "bg-yellow-100 text-yellow-800",
+    borderColor: "border-t-yellow-400",
+    dotColor: "bg-yellow-400",
   },
   {
     id: ApplicationStatus.INTERVIEWING,
     label: "Interviewing",
     color: "bg-purple-100 text-purple-800",
+    borderColor: "border-t-purple-400",
+    dotColor: "bg-purple-400",
   },
   {
     id: ApplicationStatus.ACCEPTED,
     label: "Accepted",
     color: "bg-green-100 text-green-800",
+    borderColor: "border-t-green-400",
+    dotColor: "bg-green-400",
   },
   {
     id: ApplicationStatus.REJECTED,
     label: "Rejected",
     color: "bg-red-100 text-red-800",
+    borderColor: "border-t-red-400",
+    dotColor: "bg-red-400",
   },
   {
     id: ApplicationStatus.NOT_MOVING_FORWARD,
     label: "Not Moving Forward",
     color: "bg-gray-100 text-gray-800",
+    borderColor: "border-t-gray-400",
+    dotColor: "bg-gray-400",
   },
   {
     id: ApplicationStatus.ARCHIVED,
     label: "Archived",
     color: "bg-slate-100 text-slate-800",
+    borderColor: "border-t-slate-400",
+    dotColor: "bg-slate-400",
   },
 ] as const;
 
@@ -353,27 +367,32 @@ function KanbanColumn({
   return (
     <div
       ref={setNodeRef}
-      className="flex min-w-[320px] flex-1 flex-col rounded-lg bg-muted/50 p-4"
+      className={cn(
+        "flex min-w-[300px] flex-1 flex-col rounded-lg border-t-2 bg-muted/30 p-3",
+        column.borderColor,
+      )}
     >
       {/* Column Header */}
-      <div className="mb-4 flex items-center justify-between">
+      <div className="mb-3 flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <h3 className="font-semibold">{column.label}</h3>
-          <Badge variant="secondary" className="h-6">
-            {total}
-          </Badge>
+          <span className={cn("h-2 w-2 rounded-full", column.dotColor)} />
+          <h3 className="text-sm font-semibold tracking-tight">{column.label}</h3>
         </div>
+        <span className="rounded-full bg-background px-2 py-0.5 text-xs font-medium text-muted-foreground ring-1 ring-border">
+          {total}
+        </span>
       </div>
 
       {/* Jobs List */}
-      <div className="flex flex-1 flex-col gap-3 overflow-y-auto">
+      <div className="flex flex-1 flex-col gap-2.5 overflow-y-auto">
         {isLoading && allJobs.length === 0 ? (
           <div className="flex items-center justify-center p-8">
-            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
           </div>
         ) : allJobs.length === 0 ? (
-          <div className="rounded-lg border-2 border-dashed border-muted-foreground/20 p-8 text-center text-sm text-muted-foreground">
-            No jobs
+          <div className="flex flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-muted-foreground/15 p-8 text-center">
+            <Inbox className="h-6 w-6 text-muted-foreground/30" />
+            <p className="text-xs text-muted-foreground">No jobs here</p>
           </div>
         ) : (
           <>
