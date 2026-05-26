@@ -1,17 +1,148 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { GoogleGenerativeAI, Schema, SchemaType } from "@google/generative-ai";
 import { Injectable, Logger } from "@nestjs/common";
 import {
+  ContentSelectionSchema,
   ParsedJD,
   ParsedJDSchema,
   ProfileEvaluation,
   ProfileEvaluationSchema,
   RewrittenBullet,
+  RewrittenBulletSchema,
 } from "@tailor.me/shared";
 import {
   ContentSelection,
   IAIProvider,
   ProfileData,
 } from "./ai-provider.interface";
+
+// ── Gemini response schemas ──────────────────────────────────────────────────
+// Gemini uses its own Schema format (not JSON Schema) — define explicitly.
+
+const parsedJdGeminiSchema: Schema = {
+  type: SchemaType.OBJECT,
+  properties: {
+    required_skills: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING } },
+    nice_to_have:    { type: SchemaType.ARRAY, items: { type: SchemaType.STRING } },
+    responsibilities:{ type: SchemaType.ARRAY, items: { type: SchemaType.STRING } },
+    keywords:        { type: SchemaType.ARRAY, items: { type: SchemaType.STRING } },
+    companyName:     { type: SchemaType.STRING, nullable: true },
+    jobPosition:     { type: SchemaType.STRING, nullable: true },
+    teamName:        { type: SchemaType.STRING, nullable: true },
+    seniorityLevel:  {
+      type: SchemaType.STRING,
+      enum: ["intern","junior","mid","senior","staff","principal","director","vp","unknown"],
+      nullable: true,
+    },
+    remotePolicy: {
+      type: SchemaType.STRING,
+      enum: ["remote","hybrid","onsite","unknown"],
+      nullable: true,
+    },
+    roleArchetype: {
+      type: SchemaType.STRING,
+      enum: ["backend","frontend","fullstack","devops","data","ml","mobile","security","management","other"],
+      nullable: true,
+    },
+  },
+  required: ["required_skills","nice_to_have","responsibilities","keywords"],
+};
+
+const rewrittenBulletGeminiSchema: Schema = {
+  type: SchemaType.OBJECT,
+  properties: {
+    bulletId:          { type: SchemaType.STRING },
+    rewrittenText:     { type: SchemaType.STRING },
+    evidenceBulletIds: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING } },
+    riskFlags:         { type: SchemaType.ARRAY, items: { type: SchemaType.STRING } },
+  },
+  required: ["bulletId","rewrittenText","evidenceBulletIds","riskFlags"],
+};
+
+const contentSelectionGeminiSchema: Schema = {
+  type: SchemaType.OBJECT,
+  properties: {
+    experiences: {
+      type: SchemaType.ARRAY,
+      items: {
+        type: SchemaType.OBJECT,
+        properties: {
+          id:             { type: SchemaType.STRING },
+          relevanceScore: { type: SchemaType.NUMBER },
+          bulletIds:      { type: SchemaType.ARRAY, items: { type: SchemaType.STRING } },
+          relevanceReason:{ type: SchemaType.STRING },
+        },
+        required: ["id","relevanceScore","bulletIds","relevanceReason"],
+      },
+    },
+    projects: {
+      type: SchemaType.ARRAY,
+      items: {
+        type: SchemaType.OBJECT,
+        properties: {
+          id:             { type: SchemaType.STRING },
+          relevanceScore: { type: SchemaType.NUMBER },
+          bulletIds:      { type: SchemaType.ARRAY, items: { type: SchemaType.STRING } },
+          relevanceReason:{ type: SchemaType.STRING },
+        },
+        required: ["id","relevanceScore","bulletIds","relevanceReason"],
+      },
+    },
+    education: {
+      type: SchemaType.ARRAY,
+      items: {
+        type: SchemaType.OBJECT,
+        properties: {
+          id:                 { type: SchemaType.STRING },
+          selectedCoursework: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING } },
+          relevanceReason:    { type: SchemaType.STRING },
+        },
+        required: ["id","selectedCoursework","relevanceReason"],
+      },
+    },
+  },
+  required: ["experiences","projects","education"],
+};
+
+const profileEvaluationGeminiSchema: Schema = {
+  type: SchemaType.OBJECT,
+  properties: {
+    overallScore: { type: SchemaType.NUMBER },
+    dimensions: {
+      type: SchemaType.ARRAY,
+      items: {
+        type: SchemaType.OBJECT,
+        properties: {
+          name:      { type: SchemaType.STRING },
+          score:     { type: SchemaType.NUMBER },
+          weight:    { type: SchemaType.NUMBER },
+          reasoning: { type: SchemaType.STRING },
+        },
+        required: ["name","score","weight","reasoning"],
+      },
+    },
+    gaps: {
+      type: SchemaType.ARRAY,
+      items: {
+        type: SchemaType.OBJECT,
+        properties: {
+          requirement:          { type: SchemaType.STRING },
+          severity:             { type: SchemaType.STRING, enum: ["hard-blocker","moderate","nice-to-have"] },
+          detail:               { type: SchemaType.STRING },
+          mitigationSuggestion: { type: SchemaType.STRING, nullable: true },
+        },
+        required: ["requirement","severity","detail"],
+      },
+    },
+    recommendation: {
+      type: SchemaType.STRING,
+      enum: ["strong-fit","moderate-fit","weak-fit"],
+    },
+    summary:      { type: SchemaType.STRING },
+    autoGenerate: { type: SchemaType.BOOLEAN },
+    strengths:    { type: SchemaType.ARRAY, items: { type: SchemaType.STRING } },
+  },
+  required: ["overallScore","dimensions","gaps","recommendation","summary","autoGenerate","strengths"],
+};
 
 @Injectable()
 export class GeminiProvider implements IAIProvider {
@@ -61,6 +192,7 @@ export class GeminiProvider implements IAIProvider {
         model: this.parseModel,
         generationConfig: {
           responseMimeType: "application/json",
+          responseSchema: parsedJdGeminiSchema,
         },
       });
 
@@ -105,11 +237,10 @@ ${jobDescription}
 Return only valid JSON.`;
 
       const result = await model.generateContent(prompt);
-      const response = result.response;
-      const text = response.text();
+      const text = result.response.text();
 
-      const parsed = JSON.parse(text);
-      return ParsedJDSchema.parse(parsed);
+      const raw = JSON.parse(text);
+      return ParsedJDSchema.parse(raw);
     } catch (error) {
       this.handleError(error, "parseJobDescription");
     }
@@ -124,6 +255,7 @@ Return only valid JSON.`;
         model: this.rewriteModel,
         generationConfig: {
           responseMimeType: "application/json",
+          responseSchema: rewrittenBulletGeminiSchema,
         },
       });
 
@@ -180,12 +312,12 @@ JD keywords: ${jd.keywords.join(", ")}
 Synthesize the bullet and its skills/tags into the most specific, well-rounded statement that naturally highlights relevance to this role.`;
 
       const result = await model.generateContent(prompt);
-      const response = result.response;
-      const text = response.text();
+      const text = result.response.text();
 
-      const parsed = JSON.parse(text);
-      const rewrittenText = parsed.rewrittenText?.trim();
-      const riskFlags: string[] = parsed.riskFlags || [];
+      const raw = JSON.parse(text);
+      const validated = RewrittenBulletSchema.parse(raw);
+      const rewrittenText = validated.rewrittenText?.trim();
+      const riskFlags: string[] = [...(validated.riskFlags || [])];
       if (!rewrittenText || rewrittenText === bullet.content.trim()) {
         this.logger.warn(`Bullet ${bullet.id} was not rewritten by model`);
         riskFlags.push("no_rewrite");
@@ -193,7 +325,7 @@ Synthesize the bullet and its skills/tags into the most specific, well-rounded s
       return {
         bulletId: bullet.id,
         rewrittenText: rewrittenText || bullet.content,
-        evidenceBulletIds: [bullet.id],
+        evidenceBulletIds: validated.evidenceBulletIds,
         riskFlags,
       };
     } catch (error) {
@@ -245,6 +377,7 @@ ${proj.bullets.map((b) => `    - [${b.id}] ${b.content}`).join("\n")}`,
         model: this.selectionModel,
         generationConfig: {
           responseMimeType: "application/json",
+          responseSchema: contentSelectionGeminiSchema,
         },
       });
 
@@ -353,17 +486,10 @@ Valid bullet IDs: ${allBulletIds.join(", ") || "none"}
 Score every experience and project, then select and order by relevance threshold.`;
 
       const result = await model.generateContent(prompt);
-      const response = result.response;
-      const text = response.text();
+      const text = result.response.text();
 
-      const parsed = JSON.parse(text);
-
-      // Validate and return with defaults
-      return {
-        experiences: parsed.experiences || [],
-        projects: parsed.projects || [],
-        education: parsed.education || [],
-      };
+      const raw = JSON.parse(text);
+      return ContentSelectionSchema.parse(raw);
     } catch (error) {
       this.handleError(error, "selectRelevantContent");
     }
@@ -379,6 +505,7 @@ Score every experience and project, then select and order by relevance threshold
         model: this.evaluationModel,
         generationConfig: {
           responseMimeType: "application/json",
+          responseSchema: profileEvaluationGeminiSchema,
         },
       });
 
@@ -532,11 +659,10 @@ ${certsSummary}
 Perform the full evaluation: skill mapping, dimension scoring, gap analysis with mitigation strategies, and summary.`;
 
       const result = await model.generateContent(prompt);
-      const response = result.response;
-      const text = response.text();
+      const text = result.response.text();
 
-      const parsed = JSON.parse(text);
-      return ProfileEvaluationSchema.parse(parsed);
+      const raw = JSON.parse(text);
+      return ProfileEvaluationSchema.parse(raw);
     } catch (error) {
       this.handleError(error, "evaluateProfileFit");
     }

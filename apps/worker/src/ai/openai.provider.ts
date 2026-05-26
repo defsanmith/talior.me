@@ -1,12 +1,15 @@
 import { Injectable, Logger } from "@nestjs/common";
 import {
+  ContentSelectionSchema,
   ParsedJD,
   ParsedJDSchema,
   ProfileEvaluation,
   ProfileEvaluationSchema,
   RewrittenBullet,
+  RewrittenBulletSchema,
 } from "@tailor.me/shared";
 import OpenAI from "openai";
+import { zodResponseFormat } from "openai/helpers/zod";
 import {
   ContentSelection,
   IAIProvider,
@@ -64,7 +67,7 @@ export class OpenAIProvider implements IAIProvider {
 
   async parseJobDescription(jobDescription: string): Promise<ParsedJD> {
     try {
-      const completion = await this.client.chat.completions.create({
+      const completion = await this.client.beta.chat.completions.parse({
         model: this.parseModel,
         messages: [
           {
@@ -110,11 +113,10 @@ Return only valid JSON.`,
             content: `Parse this job description:\n\n${jobDescription}`,
           },
         ],
-        response_format: { type: "json_object" },
+        response_format: zodResponseFormat(ParsedJDSchema, "parsed_jd"),
       });
 
-      const result = JSON.parse(completion.choices[0].message.content || "{}");
-      return ParsedJDSchema.parse(result);
+      return completion.choices[0].message.parsed as ParsedJD;
     } catch (error) {
       this.handleError(error, "parseJobDescription");
     }
@@ -125,7 +127,7 @@ Return only valid JSON.`,
     jd: ParsedJD,
   ): Promise<RewrittenBullet> {
     try {
-      const completion = await this.client.chat.completions.create({
+      const completion = await this.client.beta.chat.completions.parse({
         model: this.rewriteModel,
         messages: [
           {
@@ -185,12 +187,12 @@ JD keywords: ${jd.keywords.join(", ")}
 Synthesize the bullet and its skills/tags into the most specific, well-rounded statement that naturally highlights relevance to this role.`,
           },
         ],
-        response_format: { type: "json_object" },
+        response_format: zodResponseFormat(RewrittenBulletSchema, "rewritten_bullet"),
       });
 
-      const result = JSON.parse(completion.choices[0].message.content || "{}");
-      const rewrittenText = result.rewrittenText?.trim();
-      const riskFlags: string[] = result.riskFlags || [];
+      const result = completion.choices[0].message.parsed as RewrittenBullet;
+      const rewrittenText = result?.rewrittenText?.trim();
+      const riskFlags: string[] = result?.riskFlags || [];
       if (!rewrittenText || rewrittenText === bullet.content.trim()) {
         this.logger.warn(`Bullet ${bullet.id} was not rewritten by model`);
         riskFlags.push("no_rewrite");
@@ -246,7 +248,7 @@ ${proj.bullets.map((b) => `    - [${b.id}] ${b.content}`).join("\n")}`,
         )
         .join("\n\n");
 
-      const completion = await this.client.chat.completions.create({
+      const completion = await this.client.beta.chat.completions.parse({
         model: this.selectionModel,
         messages: [
           {
@@ -353,16 +355,14 @@ Valid bullet IDs: ${[...profile.experiences.flatMap((e) => e.bullets.map((b) => 
 Score every experience and project, then select and order by relevance threshold.`,
           },
         ],
-        response_format: { type: "json_object" },
+        response_format: zodResponseFormat(ContentSelectionSchema, "content_selection"),
       });
 
-      const result = JSON.parse(completion.choices[0].message.content || "{}");
-
-      // Validate and return with defaults
+      const result = completion.choices[0].message.parsed as ContentSelection;
       return {
-        experiences: result.experiences || [],
-        projects: result.projects || [],
-        education: result.education || [],
+        experiences: result?.experiences || [],
+        projects: result?.projects || [],
+        education: result?.education || [],
       };
     } catch (error) {
       this.handleError(error, "selectRelevantContent");
@@ -405,7 +405,7 @@ Score every experience and project, then select and order by relevance threshold
           ?.map((c) => `- ${c.title} (${c.issuer})`)
           .join("\n") || "None";
 
-      const completion = await this.client.chat.completions.create({
+      const completion = await this.client.beta.chat.completions.parse({
         model: this.evaluationModel,
         messages: [
           {
@@ -532,11 +532,10 @@ ${certsSummary}
 Perform the full evaluation: skill mapping, dimension scoring, gap analysis with mitigation strategies, and summary.`,
           },
         ],
-        response_format: { type: "json_object" },
+        response_format: zodResponseFormat(ProfileEvaluationSchema, "profile_evaluation"),
       });
 
-      const result = JSON.parse(completion.choices[0].message.content || "{}");
-      return ProfileEvaluationSchema.parse(result);
+      return completion.choices[0].message.parsed as ProfileEvaluation;
     } catch (error) {
       this.handleError(error, "evaluateProfileFit");
     }

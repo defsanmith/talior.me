@@ -112,6 +112,34 @@ export const RewrittenBulletSchema = z.object({
 
 export type RewrittenBullet = z.infer<typeof RewrittenBulletSchema>;
 
+export const ContentSelectionSchema = z.object({
+  experiences: z.array(
+    z.object({
+      id: z.string(),
+      relevanceScore: z.number().min(1).max(5),
+      bulletIds: z.array(z.string()),
+      relevanceReason: z.string(),
+    }),
+  ),
+  projects: z.array(
+    z.object({
+      id: z.string(),
+      relevanceScore: z.number().min(1).max(5),
+      bulletIds: z.array(z.string()),
+      relevanceReason: z.string(),
+    }),
+  ),
+  education: z.array(
+    z.object({
+      id: z.string(),
+      selectedCoursework: z.array(z.string()),
+      relevanceReason: z.string(),
+    }),
+  ),
+});
+
+export type ContentSelectionType = z.infer<typeof ContentSelectionSchema>;
+
 export const ExperienceSectionSchema = z.object({
   company: z.string(),
   title: z.string(),
