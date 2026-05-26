@@ -83,10 +83,21 @@ export function CompanyCombobox({
           aria-expanded={open}
           className={cn("justify-between", className)}
         >
-          <span className="truncate">
+          <span className={cn("flex-1 truncate text-left", !selectedCompany && "text-muted-foreground")}>
             {selectedCompany ? selectedCompany.name : placeholder}
           </span>
-          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+          {value ? (
+            <span
+              role="button"
+              aria-label="Clear selection"
+              className="ml-2 shrink-0 rounded-sm opacity-40 hover:opacity-100 transition-opacity"
+              onPointerDown={(e) => { e.stopPropagation(); e.preventDefault(); onChange(undefined); }}
+            >
+              <X className="h-4 w-4" />
+            </span>
+          ) : (
+            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+          )}
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-[300px] p-0" align="start">

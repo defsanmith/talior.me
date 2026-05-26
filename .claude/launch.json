@@ -1,0 +1,15 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "web",
+      "runtimeExecutable": "/opt/homebrew/bin/pnpm",
+      "runtimeArgs": ["--filter", "@tailor.me/web", "dev"],
+      "port": 3000,
+      "autoPort": true,
+      "env": {
+        "PATH": "/Users/sanmith/.nvm/versions/node/v22.14.0/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin"
+      }
+    }
+  ]
+}
