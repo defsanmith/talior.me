@@ -76,8 +76,11 @@ import {
   toApplicationDatePickerValue,
   toMiddayUtcApplicationDateIsoFromDate,
 } from "@/lib/application-date";
+import { useSocket } from "@/hooks/useSocket";
 import Router from "@/lib/router";
+import { useAppDispatch } from "@/store";
 import {
+  jobApi,
   useGetJobByIdQuery,
   useLazyGetResumePdfQuery,
   useReEvaluateMutation,
@@ -216,7 +219,69 @@ export default function JobDetailPage() {
   const params = useParams();
   const jobId = params?.jobId as string;
 
+  const dispatch = useAppDispatch();
+  const socketRef = useSocket();
   const { data: response, isLoading, error } = useGetJobByIdQuery(jobId);
+
+  // Real-time progress updates — keep the cached job in sync without polling.
+  useEffect(() => {
+    const socket = socketRef.current;
+    if (!socket || !jobId) return;
+
+    const handleProgress = ({
+      jobId: eventJobId,
+      progress,
+      stage,
+      status,
+    }: {
+      jobId?: string;
+      progress?: number;
+      stage?: string;
+      status?: string;
+    } = {}) => {
+      if (eventJobId !== jobId) return;
+
+      const normalizedProgress =
+        typeof progress === "number"
+          ? Math.max(0, Math.min(100, progress))
+          : undefined;
+
+      dispatch(
+        jobApi.util.updateQueryData("getJobById", jobId, (draft) => {
+          if (!draft?.data?.job) return;
+          if (typeof normalizedProgress === "number") {
+            draft.data.job.progress = normalizedProgress;
+          }
+          if (typeof stage === "string" && stage.length > 0) {
+            draft.data.job.stage = stage;
+          }
+          if (typeof status === "string" && status.length > 0) {
+            draft.data.job.status = status;
+          }
+        }),
+      );
+    };
+
+    const handleCompleted = ({ jobId: eventJobId }: { jobId?: string } = {}) => {
+      if (eventJobId !== jobId) return;
+      dispatch(jobApi.util.invalidateTags([{ type: "Jobs", id: jobId }]));
+    };
+
+    const handleEvaluated = ({ jobId: eventJobId }: { jobId?: string } = {}) => {
+      if (eventJobId !== jobId) return;
+      dispatch(jobApi.util.invalidateTags([{ type: "Jobs", id: jobId }]));
+    };
+
+    socket.on("job.progress", handleProgress);
+    socket.on("job.completed", handleCompleted);
+    socket.on("job.evaluated", handleEvaluated);
+
+    return () => {
+      socket.off("job.progress", handleProgress);
+      socket.off("job.completed", handleCompleted);
+      socket.off("job.evaluated", handleEvaluated);
+    };
+  }, [socketRef, jobId, dispatch]);
 
   // Wait for data to load, then render the editor
   if (isLoading) {
