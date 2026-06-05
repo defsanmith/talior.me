@@ -8,6 +8,7 @@ export default class Router {
   static PROFILE_CERTIFICATIONS = "/profile/certifications";
   static APPEARANCE = "/appearance";
   static SETTINGS = "/settings";
+  static SETTINGS_API_KEYS = "/settings/api-keys";
   static DASHBOARD = "/";
   static JOBS = "/jobs";
 
