@@ -1,11 +1,58 @@
 import { BadRequestException, Injectable } from "@nestjs/common";
 import {
+  EditableResume,
   EditableResumeSchema,
   JobStage,
   JobStatus,
 } from "@tailor.me/shared";
+import { format, parse, parseISO, isValid } from "date-fns";
 import { PrismaService } from "../prisma/prisma.service";
 import { SubmitResumeDto } from "./dto/submit-resume.dto";
+
+function normalizeDate(dateStr: string | null | undefined): string | null | undefined {
+  if (!dateStr) return dateStr;
+
+  const FORMAT = "MMM yyyy";
+
+  // YYYY-MM or YYYY-MM-DD — use parseISO to avoid timezone shifts
+  if (/^\d{4}-\d{2}(-\d{2})?$/.test(dateStr)) {
+    const d = parseISO(dateStr);
+    return isValid(d) ? format(d, FORMAT) : dateStr;
+  }
+
+  // Try common written formats
+  const candidates = ["MMM yyyy", "MMMM yyyy", "MM/yyyy", "yyyy"];
+  for (const fmt of candidates) {
+    const d = parse(dateStr, fmt, new Date());
+    if (isValid(d)) return format(d, FORMAT);
+  }
+
+  return dateStr;
+}
+
+function normalizeDates(resume: EditableResume): EditableResume {
+  return {
+    ...resume,
+    experiences: resume.experiences.map((exp) => ({
+      ...exp,
+      startDate: normalizeDate(exp.startDate) ?? exp.startDate,
+      endDate: normalizeDate(exp.endDate) ?? null,
+    })),
+    education: resume.education.map((edu) => ({
+      ...edu,
+      graduationDate: normalizeDate(edu.graduationDate) ?? null,
+    })),
+    projects: resume.projects.map((proj) => ({
+      ...proj,
+      date: normalizeDate(proj.date) ?? null,
+    })),
+    certifications: resume.certifications.map((cert) => ({
+      ...cert,
+      issueDate: normalizeDate(cert.issueDate) ?? null,
+      expirationDate: normalizeDate(cert.expirationDate) ?? null,
+    })),
+  };
+}
 
 @Injectable()
 export class WebhookService {
@@ -70,7 +117,7 @@ export class WebhookService {
         stage: JobStage.COMPLETED,
         progress: 100,
         completedAt: new Date(),
-        resultResume: parsed.data,
+        resultResume: normalizeDates(parsed.data),
         trackingEnabled: user?.trackingEnabled ?? false,
         notes: dto.notes ?? null,
         priority: dto.priority ?? 0,
