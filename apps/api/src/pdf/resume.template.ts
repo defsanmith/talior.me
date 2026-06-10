@@ -331,10 +331,15 @@ function generateExperienceSection(resume: EditableResume): string {
     const startDate = escapeLatex(item.startDate || "Start");
     const endDate = item.endDate ? escapeLatex(item.endDate) : "Present";
 
+    let expHeader = `{\\textbf{${title}} $|$ ${company}`;
+    if (location) {
+      expHeader += ` $|$ \\emph{${location}}`;
+    }
+    expHeader += "}";
+
     content += `
-    \\resumeSubheading
-    {${title}}{${startDate} -- ${endDate}}
-    {${company}}{${location}}
+    \\resumeProjectHeading
+    ${expHeader}{${startDate} -- ${endDate}}
 `;
 
     if (visibleBullets.length > 0) {
