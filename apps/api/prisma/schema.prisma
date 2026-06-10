@@ -39,6 +39,7 @@ model User {
   certifications     Certification[]
   resumePresets      ResumePreset[]
   externalJobSources ExternalJobSource[] @relation("ExternalJobSources")
+  apiKeys            ApiKey[]
 
   @@map("users")
 }
@@ -334,6 +335,22 @@ model Certification {
 
   @@index([userId])
   @@map("certifications")
+}
+
+model ApiKey {
+  id         String    @id @default(cuid())
+  userId     String
+  name       String
+  prefix     String    @unique
+  hash       String
+  lastUsedAt DateTime?
+  createdAt  DateTime  @default(now())
+  expiresAt  DateTime?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("api_keys")
 }
 
 model ExternalJobSource {

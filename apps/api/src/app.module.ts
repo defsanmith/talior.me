@@ -1,5 +1,6 @@
 import { Module } from "@nestjs/common";
 import { APP_GUARD } from "@nestjs/core";
+import { ApiKeyModule } from "./api-keys/api-keys.module";
 import { AuthModule } from "./auth/auth.module";
 import { JwtAuthGuard } from "./auth/jwt-auth.guard";
 import { EventsModule } from "./events/events.module";
@@ -11,6 +12,7 @@ import { ProfileModule } from "./profile/profile.module";
 import { QueueModule } from "./queue/queue.module";
 import { SearchModule } from "./search/search.module";
 import { TrackerModule } from "./tracker/tracker.module";
+import { WebhookModule } from "./webhook/webhook.module";
 
 @Module({
   imports: [
@@ -24,6 +26,8 @@ import { TrackerModule } from "./tracker/tracker.module";
     PresetsModule,
     TrackerModule,
     SearchModule,
+    ApiKeyModule,
+    WebhookModule,
   ],
   providers: [
     {

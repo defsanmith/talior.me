@@ -1,0 +1,912 @@
+openapi: 3.1.0
+info:
+  title: Tailor.me Webhook API
+  description: |
+    Webhook endpoint for third-party resume generators to push a finished resume
+    and job details into a user's Tailor.me account.
+
+    ## Authentication
+
+    All webhook requests require an API key passed in the `X-API-Key` header.
+    Keys are created via the Tailor.me web app under **Settings → API Keys**,
+    or programmatically via the key-management endpoints below.
+
+    A key is always scoped to the account of the user who created it.
+    Submitted resumes are stored under that user's account automatically —
+    no `userId` field is required in the request body.
+
+    ## Key format
+
+    Keys look like `tlr_` followed by 48 hex characters (52 chars total).
+    The first 8 characters (`tlr_XXXX`) identify the key on the server;
+    the remaining characters provide the cryptographic secret.
+  version: 1.0.0
+  contact:
+    name: Tailor.me
+
+servers:
+  - url: http://localhost:3001
+    description: Local development
+  - url: https://api.tailor.me
+    description: Production
+
+security:
+  - ApiKeyAuth: []
+
+tags:
+  - name: Webhook
+    description: Receive generated resumes from external tools
+  - name: API Keys
+    description: Create and manage API keys (requires JWT authentication)
+
+paths:
+  /api/webhook/resume:
+    post:
+      tags:
+        - Webhook
+      summary: Submit a generated resume
+      description: |
+        Creates a completed `ResumeJob` entry in the authenticated user's account
+        with the supplied resume and job metadata.
+
+        The job is stored with `status: COMPLETED` and `progress: 100` —
+        no further processing is triggered.  The entry immediately appears
+        in the user's job list on the dashboard.
+
+        ### resultResume validation
+
+        The `resultResume` object is validated against the internal
+        `EditableResume` schema before the record is created.
+        A `400` is returned with a descriptive message if validation fails.
+
+        ### Idempotency
+
+        This endpoint is **not idempotent** — each call creates a new job entry.
+        If you want to avoid duplicates, check for an existing entry by
+        `companyName` + `jobPosition` before submitting.
+      operationId: submitResume
+      security:
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SubmitResumeRequest"
+            examples:
+              minimal:
+                summary: Minimal — job description + resume only
+                value:
+                  jobDescription: >-
+                    Senior Software Engineer at Acme Corp. You will design and
+                    build distributed systems at scale. Requirements: 5+ years
+                    of backend experience, strong knowledge of Go or Rust.
+                  resultResume:
+                    experiences:
+                      - id: exp-1
+                        company: Previous Corp
+                        title: Software Engineer
+                        startDate: "2021-01"
+                        endDate: "2024-03"
+                        bullets:
+                          - id: b-1
+                            text: Built high-throughput data pipelines handling 1M events/day
+                            visible: true
+                            order: 0
+                        visible: true
+                        order: 0
+                    skillCategories: []
+                    education: []
+                    projects: []
+                    certifications: []
+                    sectionOrder:
+                      - id: experience
+                        type: experience
+                        visible: true
+                        order: 0
+              full:
+                summary: Full — with metadata and style options
+                value:
+                  jobDescription: >-
+                    Senior Software Engineer at Acme Corp. You will design and
+                    build distributed systems at scale.
+                  companyName: Acme Corp
+                  jobPosition: Senior Software Engineer
+                  teamName: Platform
+                  strategy: openai
+                  notes: Applied via referral from John
+                  priority: 8
+                  salaryRange: "$180k–$220k"
+                  applicationUrl: https://jobs.acme.com/swe-12345
+                  resultResume:
+                    user:
+                      firstName: Jane
+                      lastName: Doe
+                      email: jane@example.com
+                      phone: "+1 555-0100"
+                      location: San Francisco, CA
+                      linkedin: linkedin.com/in/janedoe
+                    summary: >-
+                      Experienced backend engineer specialising in distributed
+                      systems and high-throughput data pipelines.
+                    styleOptions:
+                      fontFamily: COMPUTER_MODERN
+                      fontSize: 11
+                    sectionOrder:
+                      - id: experience
+                        type: experience
+                        visible: true
+                        order: 0
+                      - id: education
+                        type: education
+                        visible: true
+                        order: 1
+                      - id: skills
+                        type: skills
+                        visible: true
+                        order: 2
+                      - id: projects
+                        type: projects
+                        visible: true
+                        order: 3
+                      - id: certifications
+                        type: certifications
+                        visible: true
+                        order: 4
+                    experiences:
+                      - id: exp-1
+                        company: Previous Corp
+                        title: Software Engineer
+                        location: New York, NY
+                        startDate: "2021-01"
+                        endDate: "2024-03"
+                        bullets:
+                          - id: b-1
+                            text: Built high-throughput data pipelines handling 1M events/day
+                            visible: true
+                            order: 0
+                        visible: true
+                        order: 0
+                    skillCategories:
+                      - id: sc-1
+                        name: Languages
+                        skills:
+                          - id: sk-1
+                            name: Go
+                            visible: true
+                          - id: sk-2
+                            name: Rust
+                            visible: true
+                        visible: true
+                        order: 0
+                    education:
+                      - id: edu-1
+                        institution: State University
+                        degree: B.S. Computer Science
+                        graduationDate: "2021-05"
+                        coursework: []
+                        visible: true
+                        order: 0
+                    projects: []
+                    certifications: []
+      responses:
+        "201":
+          description: Resume job created successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SubmitResumeResponse"
+              example:
+                success: true
+                data:
+                  jobId: clxyz1234abcd
+                statusCode: 201
+                timestamp: "2026-06-04T10:30:00.000Z"
+        "400":
+          description: Validation error — invalid request body or resume structure
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                missingField:
+                  summary: Missing required field
+                  value:
+                    success: false
+                    error: jobDescription must be longer than or equal to 10 characters
+                    statusCode: 400
+                    timestamp: "2026-06-04T10:30:00.000Z"
+                invalidResume:
+                  summary: Invalid resume structure
+                  value:
+                    success: false
+                    error: "Invalid resume structure: Required at experiences[0].id"
+                    statusCode: 400
+                    timestamp: "2026-06-04T10:30:00.000Z"
+        "401":
+          description: Missing or invalid API key
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                missing:
+                  summary: No key provided
+                  value:
+                    success: false
+                    error: Missing X-API-Key header
+                    statusCode: 401
+                    timestamp: "2026-06-04T10:30:00.000Z"
+                invalid:
+                  summary: Key does not match any record
+                  value:
+                    success: false
+                    error: Invalid API key
+                    statusCode: 401
+                    timestamp: "2026-06-04T10:30:00.000Z"
+                expired:
+                  summary: Key has passed its expiry date
+                  value:
+                    success: false
+                    error: API key has expired
+                    statusCode: 401
+                    timestamp: "2026-06-04T10:30:00.000Z"
+
+    delete:
+      tags:
+        - API Keys
+      summary: Delete an API key
+      description: |
+        Permanently revokes an API key.  Any webhook calls using this key
+        will immediately begin returning `401 Unauthorized`.
+      operationId: deleteApiKey
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: The ID of the API key to delete
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Key deleted successfully (no body)
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          description: Key not found or does not belong to the authenticated user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                error: API key not found
+                statusCode: 404
+                timestamp: "2026-06-04T10:30:00.000Z"
+
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+      description: >-
+        API key obtained from the Tailor.me web app (Settings → API Keys).
+        Keys are prefixed with `tlr_` and are 52 characters long.
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: >-
+        JWT access token obtained from `POST /api/auth/login`.
+        Used only for key-management endpoints, not the webhook.
+
+  responses:
+    Unauthorized:
+      description: Not authenticated
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            success: false
+            error: Unauthorized
+            statusCode: 401
+            timestamp: "2026-06-04T10:30:00.000Z"
+
+  schemas:
+    # ─── Webhook request ──────────────────────────────────────────────────────
+
+    SubmitResumeRequest:
+      type: object
+      required:
+        - jobDescription
+        - resultResume
+      properties:
+        jobDescription:
+          type: string
+          minLength: 10
+          description: Raw text of the job description used to tailor the resume.
+          example: >-
+            Senior Software Engineer at Acme Corp. You will design and build
+            distributed systems at scale. Requirements: 5+ years of backend
+            experience, strong knowledge of Go or Rust.
+        resultResume:
+          $ref: "#/components/schemas/EditableResume"
+        companyName:
+          type: string
+          nullable: true
+          description: >-
+            Name of the company. A Company record is upserted per user,
+            so submitting the same name twice reuses the same record.
+          example: Acme Corp
+        jobPosition:
+          type: string
+          nullable: true
+          description: Job title / position name.
+          example: Senior Software Engineer
+        teamName:
+          type: string
+          nullable: true
+          description: Team or department name within the company.
+          example: Platform
+        strategy:
+          type: string
+          enum:
+            - openai
+            - bm25
+          default: openai
+          description: >-
+            Strategy label that was used to generate the resume.
+            Stored for informational purposes only; no processing is triggered.
+        notes:
+          type: string
+          nullable: true
+          description: Free-text notes about this application.
+          example: Applied via referral from John
+        priority:
+          type: integer
+          minimum: 0
+          maximum: 10
+          default: 0
+          description: Priority score for this application (0 = lowest, 10 = highest).
+        salaryRange:
+          type: string
+          nullable: true
+          description: Expected or listed salary range.
+          example: "$180k–$220k"
+        applicationUrl:
+          type: string
+          format: uri
+          nullable: true
+          description: Direct link to the job posting or application form.
+          example: https://jobs.acme.com/swe-12345
+
+    # ─── Webhook response ─────────────────────────────────────────────────────
+
+    SubmitResumeResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: object
+          properties:
+            jobId:
+              type: string
+              description: ID of the newly created ResumeJob record.
+              example: clxyz1234abcd
+        statusCode:
+          type: integer
+          example: 201
+        timestamp:
+          type: string
+          format: date-time
+
+    # ─── API key management ───────────────────────────────────────────────────
+
+    CreateApiKeyRequest:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          maxLength: 100
+          description: Human-readable label for the key.
+          example: Resume Generator
+        expiresAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: >-
+            Optional expiry date in ISO 8601 format.
+            Omit or set to null for a key that never expires.
+          example: "2027-01-01T00:00:00.000Z"
+
+    ApiKeyEntry:
+      type: object
+      properties:
+        id:
+          type: string
+          example: clkey123abc
+        name:
+          type: string
+          example: Resume Generator
+        prefix:
+          type: string
+          description: First 8 characters of the key, used to identify it. Never the full key.
+          example: "tlr_ab12"
+        lastUsedAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: Timestamp of the most recent successful webhook call using this key.
+        createdAt:
+          type: string
+          format: date-time
+        expiresAt:
+          type: string
+          format: date-time
+          nullable: true
+
+    ListApiKeysResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/ApiKeyEntry"
+        statusCode:
+          type: integer
+          example: 200
+        timestamp:
+          type: string
+          format: date-time
+
+    CreateApiKeyResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          allOf:
+            - $ref: "#/components/schemas/ApiKeyEntry"
+            - type: object
+              properties:
+                key:
+                  type: string
+                  description: >-
+                    Full plaintext API key. Shown exactly once — store it
+                    immediately.
+                  example: tlr_ab12cd34ef56gh78ij90kl12mn34op56qr78st90uv12wx34yz56ab78cd90ef12
+        statusCode:
+          type: integer
+          example: 201
+        timestamp:
+          type: string
+          format: date-time
+
+    # ─── Shared error response ────────────────────────────────────────────────
+
+    ErrorResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: string
+          description: Human-readable error message.
+        statusCode:
+          type: integer
+        timestamp:
+          type: string
+          format: date-time
+
+    # ─── EditableResume and sub-schemas ───────────────────────────────────────
+
+    EditableResume:
+      type: object
+      description: >-
+        A fully structured resume with per-section visibility and ordering
+        controls. All array fields default to `[]` and all object fields
+        are optional, so you only need to include sections that are relevant.
+      properties:
+        user:
+          $ref: "#/components/schemas/ResumeUser"
+        summary:
+          type: string
+          nullable: true
+          description: Professional summary shown at the top of the resume.
+          example: >-
+            Experienced backend engineer specialising in distributed systems
+            and high-throughput data pipelines.
+        styleOptions:
+          $ref: "#/components/schemas/ResumeStyleOptions"
+        sectionOrder:
+          type: array
+          default:
+            - { id: education, type: education, visible: true, order: 0 }
+            - { id: experience, type: experience, visible: true, order: 1 }
+            - { id: skills, type: skills, visible: true, order: 2 }
+            - { id: projects, type: projects, visible: true, order: 3 }
+            - {
+                id: certifications,
+                type: certifications,
+                visible: true,
+                order: 4,
+              }
+          items:
+            $ref: "#/components/schemas/SectionOrder"
+        education:
+          type: array
+          default: []
+          items:
+            $ref: "#/components/schemas/ResumeEducation"
+        experiences:
+          type: array
+          default: []
+          items:
+            $ref: "#/components/schemas/ResumeExperience"
+        skillCategories:
+          type: array
+          default: []
+          items:
+            $ref: "#/components/schemas/ResumeSkillCategory"
+        projects:
+          type: array
+          default: []
+          items:
+            $ref: "#/components/schemas/ResumeProject"
+        certifications:
+          type: array
+          default: []
+          items:
+            $ref: "#/components/schemas/ResumeCertification"
+
+    ResumeUser:
+      type: object
+      description: Contact information shown in the resume header.
+      properties:
+        firstName:
+          type: string
+          example: Jane
+        lastName:
+          type: string
+          example: Doe
+        email:
+          type: string
+          format: email
+          example: jane@example.com
+        phone:
+          type: string
+          example: "+1 555-0100"
+        location:
+          type: string
+          example: San Francisco, CA
+        openToRelocate:
+          type: boolean
+          default: false
+        website:
+          type: string
+          description: Display URL shown on the resume.
+          example: janedoe.dev
+        websiteHref:
+          type: string
+          description: >-
+            Actual href used for the website link (e.g. a tracking URL).
+            Defaults to `website` when omitted.
+          example: https://track.tailor.me/r/abc123
+        linkedin:
+          type: string
+          description: LinkedIn profile URL or handle.
+          example: linkedin.com/in/janedoe
+
+    ResumeStyleOptions:
+      type: object
+      properties:
+        fontFamily:
+          type: string
+          enum:
+            - COMPUTER_MODERN
+            - TIMES
+            - HELVETICA
+            - PALATINO
+            - CHARTER
+            - SOURCE_SANS_PRO
+          default: COMPUTER_MODERN
+        fontSize:
+          type: integer
+          enum: [10, 11, 12]
+          default: 11
+
+    SectionOrder:
+      type: object
+      required:
+        - id
+        - type
+        - visible
+        - order
+      properties:
+        id:
+          type: string
+          description: Matches the section type value.
+          example: experience
+        type:
+          type: string
+          enum:
+            - education
+            - experience
+            - skills
+            - projects
+            - certifications
+        visible:
+          type: boolean
+          default: true
+        order:
+          type: integer
+          minimum: 0
+
+    ResumeBullet:
+      type: object
+      required:
+        - id
+        - text
+        - visible
+        - order
+      properties:
+        id:
+          type: string
+          example: b-1
+        text:
+          type: string
+          example: Built high-throughput data pipelines handling 1M events/day
+        visible:
+          type: boolean
+          default: true
+        order:
+          type: integer
+          minimum: 0
+
+    ResumeCoursework:
+      type: object
+      required:
+        - id
+        - name
+        - visible
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+          example: Distributed Systems
+        visible:
+          type: boolean
+          default: true
+
+    ResumeEducation:
+      type: object
+      required:
+        - id
+        - institution
+        - degree
+        - graduationDate
+        - visible
+        - order
+      properties:
+        id:
+          type: string
+          example: edu-1
+        institution:
+          type: string
+          example: State University
+        degree:
+          type: string
+          example: B.S. Computer Science
+        location:
+          type: string
+          nullable: true
+          example: Berkeley, CA
+        graduationDate:
+          type: string
+          nullable: true
+          description: Free-form date string (e.g. "May 2021" or "2021-05").
+          example: "2021-05"
+        coursework:
+          type: array
+          default: []
+          items:
+            $ref: "#/components/schemas/ResumeCoursework"
+        visible:
+          type: boolean
+          default: true
+        order:
+          type: integer
+          minimum: 0
+        relevanceReason:
+          type: string
+          nullable: true
+          description: AI explanation for why this entry was included.
+
+    ResumeExperience:
+      type: object
+      required:
+        - id
+        - company
+        - title
+        - startDate
+        - endDate
+        - visible
+        - order
+      properties:
+        id:
+          type: string
+          example: exp-1
+        company:
+          type: string
+          example: Previous Corp
+        title:
+          type: string
+          example: Software Engineer
+        location:
+          type: string
+          nullable: true
+          example: New York, NY
+        startDate:
+          type: string
+          description: Free-form date string (e.g. "Jan 2021" or "2021-01").
+          example: "2021-01"
+        endDate:
+          type: string
+          nullable: true
+          description: Free-form date string, or null for current position.
+          example: "2024-03"
+        bullets:
+          type: array
+          default: []
+          items:
+            $ref: "#/components/schemas/ResumeBullet"
+        visible:
+          type: boolean
+          default: true
+        order:
+          type: integer
+          minimum: 0
+        relevanceReason:
+          type: string
+          nullable: true
+          description: AI explanation for why this entry was included.
+
+    ResumeSkillItem:
+      type: object
+      required:
+        - id
+        - name
+        - visible
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+          example: Go
+        visible:
+          type: boolean
+          default: true
+
+    ResumeSkillCategory:
+      type: object
+      required:
+        - id
+        - name
+        - visible
+        - order
+      properties:
+        id:
+          type: string
+          example: sc-1
+        name:
+          type: string
+          example: Languages
+        skills:
+          type: array
+          default: []
+          items:
+            $ref: "#/components/schemas/ResumeSkillItem"
+        visible:
+          type: boolean
+          default: true
+        order:
+          type: integer
+          minimum: 0
+
+    ResumeProject:
+      type: object
+      required:
+        - id
+        - name
+        - visible
+        - order
+      properties:
+        id:
+          type: string
+          example: proj-1
+        name:
+          type: string
+          example: Open Source CLI Tool
+        date:
+          type: string
+          nullable: true
+          description: Free-form date string.
+          example: "2023-06"
+        url:
+          type: string
+          nullable: true
+          example: https://github.com/janedoe/tool
+        tech:
+          type: array
+          default: []
+          items:
+            type: string
+          example:
+            - Go
+            - Docker
+        bullets:
+          type: array
+          default: []
+          items:
+            $ref: "#/components/schemas/ResumeBullet"
+        visible:
+          type: boolean
+          default: true
+        order:
+          type: integer
+          minimum: 0
+        relevanceReason:
+          type: string
+          nullable: true
+          description: AI explanation for why this entry was included.
+
+    ResumeCertification:
+      type: object
+      required:
+        - id
+        - title
+        - issuer
+        - visible
+        - order
+      properties:
+        id:
+          type: string
+          example: cert-1
+        title:
+          type: string
+          example: AWS Certified Solutions Architect
+        issuer:
+          type: string
+          example: Amazon Web Services
+        issueDate:
+          type: string
+          nullable: true
+          example: "2023-03"
+        expirationDate:
+          type: string
+          nullable: true
+          example: "2026-03"
+        credentialUrl:
+          type: string
+          nullable: true
+          example: https://aws.amazon.com/verification/abc123
+        visible:
+          type: boolean
+          default: true
+        order:
+          type: integer
+          minimum: 0

@@ -79,6 +79,7 @@ export const appApi = createApi({
     "Positions",
     "Teams",
     "Presets",
+    "ApiKeys",
   ],
   endpoints: (builder) => ({}),
 });
