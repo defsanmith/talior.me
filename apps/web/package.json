@@ -34,6 +34,7 @@
     "@tabler/icons-react": "^3.36.1",
     "@tailor.me/shared": "workspace:*",
     "@tanstack/react-table": "^8.21.3",
+    "async-mutex": "^0.5.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",

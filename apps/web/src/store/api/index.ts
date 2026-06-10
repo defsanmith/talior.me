@@ -7,6 +7,7 @@ import {
   fetchBaseQuery,
   FetchBaseQueryError,
 } from "@reduxjs/toolkit/query/react";
+import { Mutex } from "async-mutex";
 
 // Base query with authentication header
 const baseQuery = fetchBaseQuery({
@@ -23,44 +24,51 @@ const baseQuery = fetchBaseQuery({
   },
 });
 
+// Prevents concurrent refresh requests from racing.
+// Token rotation on the backend means only the first refresh succeeds;
+// all others would fail and wrongly dispatch logout.
+const refreshMutex = new Mutex();
+
 // Base query with automatic token refresh
 const baseQueryWithReauth: BaseQueryFn<
   string | FetchArgs,
   unknown,
   FetchBaseQueryError
 > = async (args, api, extraOptions) => {
+  await refreshMutex.waitForUnlock();
   let result = await baseQuery(args, api, extraOptions);
 
   if (result.error && result.error.status === 401) {
-    // Try to refresh the token
-    const refreshResult = await baseQuery(
-      { url: "/auth/refresh", method: "POST" },
-      api,
-      extraOptions,
-    );
+    if (!refreshMutex.isLocked()) {
+      const release = await refreshMutex.acquire();
+      try {
+        const refreshResult = await baseQuery(
+          { url: "/auth/refresh", method: "POST" },
+          api,
+          extraOptions,
+        );
 
-    if (refreshResult.data) {
-      // Store new access token - use action type string to avoid circular dependency
-      // Response is wrapped in { success: true, data: { accessToken: ... } }
-      const refreshResponse = refreshResult.data as {
-        data: { accessToken: string };
-      };
-      const accessToken = refreshResponse.data?.accessToken;
-      if (accessToken) {
-        api.dispatch({
-          type: "auth/setAccessToken",
-          payload: accessToken,
-        });
-
-        // Retry original request
-        result = await baseQuery(args, api, extraOptions);
-      } else {
-        // Refresh failed, logout user
-        api.dispatch({ type: "auth/logout" });
+        if (refreshResult.data) {
+          const refreshResponse = refreshResult.data as {
+            data: { accessToken: string };
+          };
+          const accessToken = refreshResponse.data?.accessToken;
+          if (accessToken) {
+            api.dispatch({ type: "auth/setAccessToken", payload: accessToken });
+            result = await baseQuery(args, api, extraOptions);
+          } else {
+            api.dispatch({ type: "auth/logout" });
+          }
+        } else {
+          api.dispatch({ type: "auth/logout" });
+        }
+      } finally {
+        release();
       }
     } else {
-      // Refresh failed, logout user
-      api.dispatch({ type: "auth/logout" });
+      // Another request already refreshed — retry with the new token
+      await refreshMutex.waitForUnlock();
+      result = await baseQuery(args, api, extraOptions);
     }
   }
 
