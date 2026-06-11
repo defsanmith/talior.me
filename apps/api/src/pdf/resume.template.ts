@@ -414,10 +414,10 @@ function generateProjectsSection(resume: EditableResume): string {
     // Build project header with optional URL link
     let projectHeader = `{\\textbf{${name}}`;
     if (tech) {
-      projectHeader += ` $|$ \\emph{${tech}}`;
+      projectHeader += ` $|$ ${tech}`;
     }
     if (url) {
-      projectHeader += ` $|$ \\href{${url}}{Link}`;
+      projectHeader += ` $|$ \\href{${url}}{\\emph{Link}}`;
     }
     projectHeader += "}";
 
