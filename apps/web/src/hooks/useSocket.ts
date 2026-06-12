@@ -1,12 +1,10 @@
 import { Config } from "@/lib/config";
-import { logout } from "@/store/slices/authSlice";
 import { useEffect, useRef } from "react";
 import { io, Socket } from "socket.io-client";
-import { useAppDispatch, useAppSelector } from "../store";
+import { useAppSelector } from "../store";
 
 export function useSocket() {
   const socketRef = useRef<Socket | null>(null);
-  const dispatch = useAppDispatch();
   const accessToken = useAppSelector((state) => state.auth.accessToken);
 
   // Create the socket once and keep it for the lifetime of the mounted tree.
@@ -31,10 +29,11 @@ export function useSocket() {
     socketInstance.on("connect_error", (error) => {
       console.error("WebSocket connection error:", error.message);
 
-      // Invalid/expired token: stop reconnect churn and force re-auth.
+      // On auth errors, stop reconnect churn and wait for the HTTP layer to
+      // refresh the token. The accessToken effect below will reconnect once
+      // a fresh token is in the store.
       if (/invalid token|jwt|unauthori/i.test(error.message)) {
         socketInstance.disconnect();
-        dispatch(logout());
       }
     });
 
@@ -48,7 +47,7 @@ export function useSocket() {
       socketInstance.disconnect();
       socketRef.current = null;
     };
-  }, [dispatch]);
+  }, []);
 
   // Keep handshake auth in sync with the current access token.
   useEffect(() => {
