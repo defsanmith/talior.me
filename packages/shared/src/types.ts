@@ -19,9 +19,11 @@ export const ParsedJDSchema = z.object({
   teamName: z.string().nullable().optional(),
   seniorityLevel: z
     .enum(["intern", "junior", "mid", "senior", "staff", "principal", "director", "vp", "unknown"])
+    .nullable()
     .optional(),
   remotePolicy: z
     .enum(["remote", "hybrid", "onsite", "unknown"])
+    .nullable()
     .optional(),
   roleArchetype: z
     .enum([
@@ -36,6 +38,7 @@ export const ParsedJDSchema = z.object({
       "management",
       "other",
     ])
+    .nullable()
     .optional(),
 });
 
