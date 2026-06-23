@@ -19,6 +19,7 @@ export enum ResumeGenerationStrategy {
 export enum JobStage {
   PARSING_JD = "Parsing job description",
   EVALUATING_FIT = "Evaluating profile fit",
+  PLANNING = "Planning resume customization",
   RETRIEVING_BULLETS = "Retrieving candidate bullets",
   SELECTING_BULLETS = "Selecting best bullets",
   REWRITING_BULLETS = "Rewriting bullets",

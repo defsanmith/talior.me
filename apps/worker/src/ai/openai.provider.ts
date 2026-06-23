@@ -1,6 +1,8 @@
 import { Injectable, Logger } from "@nestjs/common";
 import {
   ContentSelectionSchema,
+  CustomizationPlan,
+  CustomizationPlanSchema,
   ParsedJD,
   ParsedJDSchema,
   ProfileEvaluation,
@@ -24,6 +26,7 @@ export class OpenAIProvider implements IAIProvider {
   private readonly rewriteModel: string;
   private readonly selectionModel: string;
   private readonly evaluationModel: string;
+  private readonly planningModel: string;
 
   constructor() {
     this.client = new OpenAI({
@@ -33,6 +36,7 @@ export class OpenAIProvider implements IAIProvider {
     this.rewriteModel = process.env.OPENAI_REWRITE_MODEL || "gpt-4o-mini";
     this.selectionModel = process.env.OPENAI_SELECTION_MODEL || "gpt-4o-mini";
     this.evaluationModel = process.env.OPENAI_EVALUATION_MODEL || "gpt-4o";
+    this.planningModel = process.env.OPENAI_PLANNING_MODEL || "gpt-4o";
   }
 
   private handleError(error: any, operation: string): never {
@@ -125,6 +129,7 @@ Return only valid JSON.`,
   async rewriteBullet(
     bullet: { id: string; content: string; tags: string[]; skills: string[] },
     jd: ParsedJD,
+    plan?: CustomizationPlan,
   ): Promise<RewrittenBullet> {
     try {
       const completion = await this.client.beta.chat.completions.parse({
@@ -183,6 +188,13 @@ Skills/Tags: ${[...bullet.skills, ...bullet.tags].join(", ")}
 
 JD required skills: ${jd.required_skills.join(", ")}
 JD keywords: ${jd.keywords.join(", ")}
+${plan ? `
+CUSTOMIZATION PLAN:
+Narrative angle: ${plan.narrativeAngle}
+Tone guidance: ${plan.toneGuidance}
+Bullet angle: ${plan.bulletAngle}
+Keywords to emphasize: ${plan.keywordsToEmphasize.join(", ")}
+${plan.gapFramings.length > 0 ? `Gap framings:\n${plan.gapFramings.map((g) => `- ${g.gap}: ${g.approach}`).join("\n")}` : ""}` : ""}
 
 Synthesize the bullet and its skills/tags into the most specific, well-rounded statement that naturally highlights relevance to this role.`,
           },
@@ -211,6 +223,7 @@ Synthesize the bullet and its skills/tags into the most specific, well-rounded s
   async selectRelevantContent(
     profile: ProfileData,
     parsedJd: ParsedJD,
+    plan?: CustomizationPlan,
   ): Promise<ContentSelection> {
     try {
       // Format profile data for the prompt
@@ -331,6 +344,13 @@ Responsibilities: ${parsedJd.responsibilities.join("; ")}
 Keywords: ${parsedJd.keywords.join(", ")}
 ${parsedJd.roleArchetype ? `Role Archetype: ${parsedJd.roleArchetype}` : ""}
 ${parsedJd.seniorityLevel ? `Seniority: ${parsedJd.seniorityLevel}` : ""}
+${plan ? `
+CUSTOMIZATION PLAN (use this to guide selection and ordering):
+Narrative angle: ${plan.narrativeAngle}
+Tone guidance: ${plan.toneGuidance}
+Content priorities:
+${plan.contentPriorities.map((p) => `- ${p.theme}: ${p.reason}`).join("\n")}
+Keywords to emphasize: ${plan.keywordsToEmphasize.join(", ")}` : ""}
 
 CANDIDATE PROFILE:
 
@@ -538,6 +558,85 @@ Perform the full evaluation: skill mapping, dimension scoring, gap analysis with
       return completion.choices[0].message.parsed as ProfileEvaluation;
     } catch (error) {
       this.handleError(error, "evaluateProfileFit");
+    }
+  }
+
+  async generateCustomizationPlan(
+    profile: ProfileData,
+    parsedJd: ParsedJD,
+    evaluation: ProfileEvaluation,
+  ): Promise<CustomizationPlan> {
+    try {
+      const experiencesSummary = profile.experiences
+        .map((exp) => `- ${exp.title} at ${exp.company} (${exp.startDate} – ${exp.endDate || "Present"})`)
+        .join("\n");
+
+      const gapsSummary = evaluation.gaps
+        .map((g) => `[${g.severity}] ${g.requirement}: ${g.detail}${g.mitigationSuggestion ? ` → ${g.mitigationSuggestion}` : ""}`)
+        .join("\n");
+
+      const completion = await this.client.beta.chat.completions.parse({
+        model: this.planningModel,
+        messages: [
+          {
+            role: "system",
+            content: `You are a senior resume strategist. You have just received a candidate's fit evaluation and must now produce a concise customization plan that will guide how their resume is tailored for a specific role.
+
+Your plan will be consumed by two downstream steps:
+1. CONTENT SELECTION — which experiences/projects to include and in what order
+2. BULLET REWRITING — how to phrase individual bullets
+
+The plan must be specific and actionable, not generic career advice.
+
+Return JSON with this exact structure:
+{
+  "narrativeAngle": "<1-2 sentences: the core story this resume should tell — who the candidate is in relation to this role>",
+  "keywordsToEmphasize": ["<8-12 high-signal JD terms to weave into bullets where semantically valid>"],
+  "toneGuidance": "<1 sentence: how to calibrate voice — e.g., 'Lead with technical depth and ownership at scale; avoid broad management framing'>",
+  "contentPriorities": [
+    { "theme": "<theme name>", "reason": "<why this theme should be foregrounded for this role>" }
+  ],
+  "gapFramings": [
+    { "gap": "<gap requirement>", "approach": "<specific framing advice for how to address this gap in bullet language — only for moderate gaps, not hard-blockers>" }
+  ],
+  "bulletAngle": "<1-2 sentences: global instruction for bullet rewrites — e.g., 'Emphasize systems-level thinking and concrete performance improvements; tie every bullet back to reliability or scale'>",
+}
+
+Rules:
+- keywordsToEmphasize: only include terms that appear in the JD and have a plausible semantic match in the candidate's profile
+- gapFramings: only include moderate gaps (skip hard-blockers — they cannot be framed away)
+- contentPriorities: 2-4 themes, ordered by impact on the hiring decision
+- Be concrete: reference the actual role, company type, and candidate's specific experiences`,
+          },
+          {
+            role: "user",
+            content: `JOB: ${parsedJd.jobPosition || "Unknown"} at ${parsedJd.companyName || "Unknown"}
+Role archetype: ${parsedJd.roleArchetype || "unknown"} | Seniority: ${parsedJd.seniorityLevel || "unknown"}
+Required skills: ${parsedJd.required_skills.join(", ")}
+Key responsibilities: ${parsedJd.responsibilities.slice(0, 5).join("; ")}
+
+EVALUATION SUMMARY:
+Overall score: ${evaluation.overallScore}/5 (${evaluation.recommendation})
+${evaluation.summary}
+
+Strengths:
+${evaluation.strengths.map((s) => `- ${s}`).join("\n")}
+
+Gaps:
+${gapsSummary || "None identified"}
+
+CANDIDATE EXPERIENCES:
+${experiencesSummary || "None"}
+
+Generate a customization plan that will maximize this candidate's fit signal for this specific role.`,
+          },
+        ],
+        response_format: zodResponseFormat(CustomizationPlanSchema, "customization_plan"),
+      });
+
+      return completion.choices[0].message.parsed as CustomizationPlan;
+    } catch (error) {
+      this.handleError(error, "generateCustomizationPlan");
     }
   }
 }

@@ -1,6 +1,6 @@
 import { Injectable, Logger } from "@nestjs/common";
-import { AIProvider } from "@tailor.me/shared";
-import { IAIProvider } from "./ai-provider.interface";
+import { AIProvider, CustomizationPlan, ProfileEvaluation } from "@tailor.me/shared";
+import { IAIProvider, ProfileData } from "./ai-provider.interface";
 import { GeminiProvider } from "./gemini.provider";
 import { OpenAIProvider } from "./openai.provider";
 
@@ -40,12 +40,13 @@ export class AIService implements IAIProvider {
   async rewriteBullet(
     bullet: { id: string; content: string; tags: string[]; skills: string[] },
     jd: any,
+    plan?: CustomizationPlan,
   ) {
-    return this.provider.rewriteBullet(bullet, jd);
+    return this.provider.rewriteBullet(bullet, jd, plan);
   }
 
-  async selectRelevantContent(profile: any, parsedJd: any) {
-    return this.provider.selectRelevantContent(profile, parsedJd);
+  async selectRelevantContent(profile: any, parsedJd: any, plan?: CustomizationPlan) {
+    return this.provider.selectRelevantContent(profile, parsedJd, plan);
   }
 
   async evaluateProfileFit(
@@ -54,5 +55,13 @@ export class AIService implements IAIProvider {
     jobDescription: string,
   ) {
     return this.provider.evaluateProfileFit(profile, parsedJd, jobDescription);
+  }
+
+  async generateCustomizationPlan(
+    profile: ProfileData,
+    parsedJd: any,
+    evaluation: ProfileEvaluation,
+  ): Promise<CustomizationPlan> {
+    return this.provider.generateCustomizationPlan(profile, parsedJd, evaluation);
   }
 }

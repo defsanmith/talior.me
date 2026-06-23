@@ -223,6 +223,7 @@ model ResumeJob {
   trackingEnabled   Boolean   @default(false)
   evaluation        Json?
   evaluatedAt       DateTime?
+  customizationPlan Json?
   createdAt         DateTime  @default(now())
   completedAt       DateTime?
   updatedAt         DateTime  @updatedAt

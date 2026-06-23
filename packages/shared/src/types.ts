@@ -106,6 +106,31 @@ export const ProfileEvaluationSchema = z.object({
 
 export type ProfileEvaluation = z.infer<typeof ProfileEvaluationSchema>;
 
+// ============================================
+// Customization Plan Types
+// ============================================
+
+export const CustomizationPlanSchema = z.object({
+  narrativeAngle: z.string(),
+  keywordsToEmphasize: z.array(z.string()),
+  toneGuidance: z.string(),
+  contentPriorities: z.array(
+    z.object({
+      theme: z.string(),
+      reason: z.string(),
+    }),
+  ),
+  gapFramings: z.array(
+    z.object({
+      gap: z.string(),
+      approach: z.string(),
+    }),
+  ),
+  bulletAngle: z.string(),
+});
+
+export type CustomizationPlan = z.infer<typeof CustomizationPlanSchema>;
+
 export const RewrittenBulletSchema = z.object({
   bulletId: z.string(),
   rewrittenText: z.string(),

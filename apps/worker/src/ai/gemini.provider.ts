@@ -2,6 +2,8 @@ import { GoogleGenerativeAI, Schema, SchemaType } from "@google/generative-ai";
 import { Injectable, Logger } from "@nestjs/common";
 import {
   ContentSelectionSchema,
+  CustomizationPlan,
+  CustomizationPlanSchema,
   ParsedJD,
   ParsedJDSchema,
   ProfileEvaluation,
@@ -103,6 +105,39 @@ const contentSelectionGeminiSchema: Schema = {
   required: ["experiences","projects","education"],
 };
 
+const customizationPlanGeminiSchema: Schema = {
+  type: SchemaType.OBJECT,
+  properties: {
+    narrativeAngle: { type: SchemaType.STRING },
+    keywordsToEmphasize: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING } },
+    toneGuidance: { type: SchemaType.STRING },
+    contentPriorities: {
+      type: SchemaType.ARRAY,
+      items: {
+        type: SchemaType.OBJECT,
+        properties: {
+          theme: { type: SchemaType.STRING },
+          reason: { type: SchemaType.STRING },
+        },
+        required: ["theme", "reason"],
+      },
+    },
+    gapFramings: {
+      type: SchemaType.ARRAY,
+      items: {
+        type: SchemaType.OBJECT,
+        properties: {
+          gap: { type: SchemaType.STRING },
+          approach: { type: SchemaType.STRING },
+        },
+        required: ["gap", "approach"],
+      },
+    },
+    bulletAngle: { type: SchemaType.STRING },
+  },
+  required: ["narrativeAngle", "keywordsToEmphasize", "toneGuidance", "contentPriorities", "gapFramings", "bulletAngle"],
+};
+
 const profileEvaluationGeminiSchema: Schema = {
   type: SchemaType.OBJECT,
   properties: {
@@ -152,6 +187,7 @@ export class GeminiProvider implements IAIProvider {
   private readonly rewriteModel: string;
   private readonly selectionModel: string;
   private readonly evaluationModel: string;
+  private readonly planningModel: string;
 
   constructor() {
     this.client = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
@@ -161,6 +197,8 @@ export class GeminiProvider implements IAIProvider {
       process.env.GEMINI_SELECTION_MODEL || "gemini-2.5-flash";
     this.evaluationModel =
       process.env.GEMINI_EVALUATION_MODEL || "gemini-2.5-flash";
+    this.planningModel =
+      process.env.GEMINI_PLANNING_MODEL || "gemini-2.5-flash";
   }
 
   private handleError(error: any, operation: string): never {
@@ -249,6 +287,7 @@ Return only valid JSON.`;
   async rewriteBullet(
     bullet: { id: string; content: string; tags: string[]; skills: string[] },
     jd: ParsedJD,
+    plan?: CustomizationPlan,
   ): Promise<RewrittenBullet> {
     try {
       const model = this.client.getGenerativeModel({
@@ -308,6 +347,13 @@ Skills/Tags: ${[...bullet.skills, ...bullet.tags].join(", ")}
 
 JD required skills: ${jd.required_skills.join(", ")}
 JD keywords: ${jd.keywords.join(", ")}
+${plan ? `
+CUSTOMIZATION PLAN:
+Narrative angle: ${plan.narrativeAngle}
+Tone guidance: ${plan.toneGuidance}
+Bullet angle: ${plan.bulletAngle}
+Keywords to emphasize: ${plan.keywordsToEmphasize.join(", ")}
+${plan.gapFramings.length > 0 ? `Gap framings:\n${plan.gapFramings.map((g) => `- ${g.gap}: ${g.approach}`).join("\n")}` : ""}` : ""}
 
 Synthesize the bullet and its skills/tags into the most specific, well-rounded statement that naturally highlights relevance to this role.`;
 
@@ -336,6 +382,7 @@ Synthesize the bullet and its skills/tags into the most specific, well-rounded s
   async selectRelevantContent(
     profile: ProfileData,
     parsedJd: ParsedJD,
+    plan?: CustomizationPlan,
   ): Promise<ContentSelection> {
     try {
       // Format profile data for the prompt
@@ -462,6 +509,13 @@ Responsibilities: ${parsedJd.responsibilities.join("; ")}
 Keywords: ${parsedJd.keywords.join(", ")}
 ${parsedJd.roleArchetype ? `Role Archetype: ${parsedJd.roleArchetype}` : ""}
 ${parsedJd.seniorityLevel ? `Seniority: ${parsedJd.seniorityLevel}` : ""}
+${plan ? `
+CUSTOMIZATION PLAN (use this to guide selection and ordering):
+Narrative angle: ${plan.narrativeAngle}
+Tone guidance: ${plan.toneGuidance}
+Content priorities:
+${plan.contentPriorities.map((p) => `- ${p.theme}: ${p.reason}`).join("\n")}
+Keywords to emphasize: ${plan.keywordsToEmphasize.join(", ")}` : ""}
 
 CANDIDATE PROFILE:
 
@@ -665,6 +719,72 @@ Perform the full evaluation: skill mapping, dimension scoring, gap analysis with
       return ProfileEvaluationSchema.parse(raw);
     } catch (error) {
       this.handleError(error, "evaluateProfileFit");
+    }
+  }
+
+  async generateCustomizationPlan(
+    profile: ProfileData,
+    parsedJd: ParsedJD,
+    evaluation: ProfileEvaluation,
+  ): Promise<CustomizationPlan> {
+    try {
+      const model = this.client.getGenerativeModel({
+        model: this.planningModel,
+        generationConfig: {
+          responseMimeType: "application/json",
+          responseSchema: customizationPlanGeminiSchema,
+        },
+      });
+
+      const experiencesSummary = profile.experiences
+        .map((exp) => `- ${exp.title} at ${exp.company} (${exp.startDate} – ${exp.endDate || "Present"})`)
+        .join("\n");
+
+      const gapsSummary = evaluation.gaps
+        .map((g) => `[${g.severity}] ${g.requirement}: ${g.detail}${g.mitigationSuggestion ? ` → ${g.mitigationSuggestion}` : ""}`)
+        .join("\n");
+
+      const prompt = `You are a senior resume strategist. You have just received a candidate's fit evaluation and must now produce a concise customization plan that will guide how their resume is tailored for a specific role.
+
+Your plan will be consumed by two downstream steps:
+1. CONTENT SELECTION — which experiences/projects to include and in what order
+2. BULLET REWRITING — how to phrase individual bullets
+
+The plan must be specific and actionable, not generic career advice.
+
+Rules:
+- keywordsToEmphasize: only include terms that appear in the JD and have a plausible semantic match in the candidate's profile
+- gapFramings: only include moderate gaps (skip hard-blockers — they cannot be framed away)
+- contentPriorities: 2-4 themes, ordered by impact on the hiring decision
+- Be concrete: reference the actual role, company type, and candidate's specific experiences
+
+JOB: ${parsedJd.jobPosition || "Unknown"} at ${parsedJd.companyName || "Unknown"}
+Role archetype: ${parsedJd.roleArchetype || "unknown"} | Seniority: ${parsedJd.seniorityLevel || "unknown"}
+Required skills: ${parsedJd.required_skills.join(", ")}
+Key responsibilities: ${parsedJd.responsibilities.slice(0, 5).join("; ")}
+
+EVALUATION SUMMARY:
+Overall score: ${evaluation.overallScore}/5 (${evaluation.recommendation})
+${evaluation.summary}
+
+Strengths:
+${evaluation.strengths.map((s) => `- ${s}`).join("\n")}
+
+Gaps:
+${gapsSummary || "None identified"}
+
+CANDIDATE EXPERIENCES:
+${experiencesSummary || "None"}
+
+Generate a customization plan that will maximize this candidate's fit signal for this specific role.`;
+
+      const result = await model.generateContent(prompt);
+      const text = result.response.text();
+
+      const raw = JSON.parse(text);
+      return CustomizationPlanSchema.parse(raw);
+    } catch (error) {
+      this.handleError(error, "generateCustomizationPlan");
     }
   }
 }

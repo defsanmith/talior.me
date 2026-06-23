@@ -1,4 +1,4 @@
-import { ParsedJD, ProfileEvaluation, RewrittenBullet } from "@tailor.me/shared";
+import { CustomizationPlan, ParsedJD, ProfileEvaluation, RewrittenBullet } from "@tailor.me/shared";
 
 // Types for AI content selection
 export interface ProfileExperience {
@@ -110,6 +110,7 @@ export interface IAIProvider {
   rewriteBullet(
     bullet: { id: string; content: string; tags: string[]; skills: string[] },
     jd: ParsedJD,
+    plan?: CustomizationPlan,
   ): Promise<RewrittenBullet>;
 
   /**
@@ -118,6 +119,7 @@ export interface IAIProvider {
   selectRelevantContent(
     profile: ProfileData,
     parsedJd: ParsedJD,
+    plan?: CustomizationPlan,
   ): Promise<ContentSelection>;
 
   /**
@@ -129,4 +131,14 @@ export interface IAIProvider {
     parsedJd: ParsedJD,
     jobDescription: string,
   ): Promise<ProfileEvaluation>;
+
+  /**
+   * Generate a customization plan for tailoring the resume.
+   * Called after evaluation; the plan guides content selection and bullet rewriting.
+   */
+  generateCustomizationPlan(
+    profile: ProfileData,
+    parsedJd: ParsedJD,
+    evaluation: ProfileEvaluation,
+  ): Promise<CustomizationPlan>;
 }

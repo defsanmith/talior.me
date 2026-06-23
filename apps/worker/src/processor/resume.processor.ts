@@ -1,5 +1,6 @@
 import { Injectable } from "@nestjs/common";
 import {
+  CustomizationPlan,
   EditableResume,
   FontFamily,
   JobStage,
@@ -86,8 +87,11 @@ export class ResumeProcessor {
         companyId: true,
         positionId: true,
         teamId: true,
+        customizationPlan: true,
       },
     });
+
+    const customizationPlan = jobRecord?.customizationPlan as CustomizationPlan | null | undefined;
     if (jobRecord?.strategy === "bm25") {
       return this.bm25Processor.processBM25Job(job);
     }
@@ -235,6 +239,7 @@ export class ResumeProcessor {
         contentSelection = await this.ai.selectRelevantContent(
           profileData,
           parsedJd,
+          customizationPlan ?? undefined,
         );
       }
 
@@ -308,7 +313,7 @@ export class ResumeProcessor {
           userId,
         });
 
-        rewrittenBullets = await this.rewriteBullets(selectedBullets, parsedJd);
+        rewrittenBullets = await this.rewriteBullets(selectedBullets, parsedJd, customizationPlan ?? undefined);
       }
 
       // Step F: Verify
@@ -485,6 +490,7 @@ export class ResumeProcessor {
   private async rewriteBullets(
     bullets: SelectedBullet[],
     parsedJd: ParsedJD,
+    plan?: CustomizationPlan,
   ): Promise<Map<string, any>> {
     const rewritten = new Map();
     const concurrency = parseInt(
@@ -504,6 +510,7 @@ export class ResumeProcessor {
                 skills: bullet.skills,
               },
               parsedJd,
+              plan,
             );
             return { id: bullet.id, result, success: true };
           } catch (error) {

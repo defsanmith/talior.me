@@ -1,5 +1,6 @@
 import { Injectable, Logger } from "@nestjs/common";
 import {
+  CustomizationPlan,
   JobStage,
   JobStatus,
   ParsedJD,
@@ -148,14 +149,45 @@ export class EvaluationProcessor {
         evaluation.recommendation = "weak-fit";
       }
 
-      // Step 5: Save evaluation
+      // Step 5: Save evaluation (keep status PROCESSING until plan is generated)
       await this.prisma.resumeJob.update({
         where: { id: jobId },
         data: {
           evaluation: evaluation as any,
           evaluatedAt: new Date(),
+          status: JobStatus.PROCESSING,
+          stage: JobStage.PLANNING,
+          progress: 75,
+        },
+      });
+
+      // Step 6: Generate customization plan
+      await job.updateProgress({
+        progress: 75,
+        stage: JobStage.PLANNING,
+        userId,
+      });
+
+      let customizationPlan: CustomizationPlan | null = null;
+      try {
+        customizationPlan = await this.ai.generateCustomizationPlan(
+          profileData,
+          parsedJd,
+          evaluation,
+        );
+      } catch (planError) {
+        this.logger.warn(
+          `Customization plan generation failed for job ${jobId}, proceeding without plan: ${planError instanceof Error ? planError.message : planError}`,
+        );
+      }
+
+      // Step 7: Finalize — save plan and mark as EVALUATED
+      await this.prisma.resumeJob.update({
+        where: { id: jobId },
+        data: {
+          ...(customizationPlan ? { customizationPlan: customizationPlan as any } : {}),
           status: JobStatus.EVALUATED,
-          stage: JobStage.EVALUATING_FIT,
+          stage: JobStage.PLANNING,
           progress: 100,
         },
       });
@@ -164,7 +196,7 @@ export class EvaluationProcessor {
         `Evaluation complete for job ${jobId}: score=${score}, autoGenerate=${evaluation.autoGenerate}`,
       );
 
-      // Step 6: Decision — auto-generate or wait for user
+      // Step 8: Decision — auto-generate or wait for user
       if (evaluation.autoGenerate) {
         const connection = {
           host: process.env.REDIS_HOST || "localhost",
@@ -187,9 +219,7 @@ export class EvaluationProcessor {
 
       await job.updateProgress({
         progress: 100,
-        stage: evaluation.autoGenerate
-          ? "Generating resume"
-          : "Evaluation complete",
+        stage: evaluation.autoGenerate ? "Generating resume" : "Evaluation complete",
         status: JobStatus.EVALUATED,
         userId,
         evaluation: {
@@ -197,6 +227,7 @@ export class EvaluationProcessor {
           recommendation: evaluation.recommendation,
           autoGenerate: evaluation.autoGenerate,
         },
+        hasCustomizationPlan: customizationPlan !== null,
       } as any);
     } catch (error) {
       this.logger.error(
