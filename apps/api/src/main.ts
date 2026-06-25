@@ -50,11 +50,17 @@ async function bootstrap() {
     .setTitle("Tailor.me Webhook API")
     .setDescription(
       "Webhook endpoint for third-party resume generators to push finished resumes into a user's Tailor.me account.\n\n" +
-      "Use **API Keys** endpoints (JWT auth) to create a key, then pass it as `X-API-Key` on the **Webhook** endpoint.",
+        "Use **API Keys** endpoints (JWT auth) to create a key, then pass it as `X-API-Key` on the **Webhook** endpoint.",
     )
     .setVersion("1.0")
-    .addApiKey({ type: "apiKey", in: "header", name: "X-API-Key" }, "ApiKeyAuth")
-    .addBearerAuth({ type: "http", scheme: "bearer", bearerFormat: "JWT" }, "BearerAuth")
+    .addApiKey(
+      { type: "apiKey", in: "header", name: "X-API-Key" },
+      "ApiKeyAuth",
+    )
+    .addBearerAuth(
+      { type: "http", scheme: "bearer", bearerFormat: "JWT" },
+      "BearerAuth",
+    )
     .build();
 
   const swaggerDocument = SwaggerModule.createDocument(app, swaggerConfig, {
