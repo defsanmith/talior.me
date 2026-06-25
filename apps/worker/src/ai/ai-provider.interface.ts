@@ -1,4 +1,16 @@
-import { CustomizationPlan, ParsedJD, ProfileEvaluation, RewrittenBullet } from "@tailor.me/shared";
+import {
+  CustomizationPlan,
+  ParsedJD,
+  ProfileEvaluation,
+  RewrittenBullet,
+} from "@tailor.me/shared";
+
+export type BulletInput = {
+  id: string;
+  content: string;
+  tags: string[];
+  skills: string[];
+};
 
 // Types for AI content selection
 export interface ProfileExperience {
@@ -77,19 +89,24 @@ export interface ProfileData {
 export interface ContentSelection {
   experiences: Array<{
     id: string;
-    bulletIds: string[];       // ordered by JD relevance — most relevant bullet first
-    relevanceScore: number;    // 1–5, used for threshold filtering
+    bulletIds: string[]; // ordered by JD relevance — most relevant bullet first
+    relevanceScore: number; // 1–5, used for threshold filtering
     relevanceReason: string;
   }>;
   projects: Array<{
     id: string;
-    bulletIds: string[];       // ordered by JD relevance — most relevant bullet first
-    relevanceScore: number;    // 1–5
+    bulletIds: string[]; // ordered by JD relevance — most relevant bullet first
+    relevanceScore: number; // 1–5
     relevanceReason: string;
   }>;
   education: Array<{
     id: string;
     selectedCoursework: string[];
+    relevanceReason: string;
+  }>;
+  skills?: Array<{
+    categoryId: string;
+    skillIds: string[]; // ordered by JD relevance — most relevant skill first
     relevanceReason: string;
   }>;
 }
@@ -108,10 +125,20 @@ export interface IAIProvider {
    * Rewrite a resume bullet to align with job requirements
    */
   rewriteBullet(
-    bullet: { id: string; content: string; tags: string[]; skills: string[] },
+    bullet: BulletInput,
     jd: ParsedJD,
     plan?: CustomizationPlan,
   ): Promise<RewrittenBullet>;
+
+  /**
+   * Rewrite a group of bullets from the same parent (experience or project)
+   * in a single call so the model can enforce verb diversity across the set.
+   */
+  rewriteBulletsBatch(
+    bullets: BulletInput[],
+    jd: ParsedJD,
+    plan?: CustomizationPlan,
+  ): Promise<RewrittenBullet[]>;
 
   /**
    * Select the most relevant content from user's profile for a specific job

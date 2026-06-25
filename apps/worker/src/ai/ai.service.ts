@@ -1,6 +1,6 @@
 import { Injectable, Logger } from "@nestjs/common";
-import { AIProvider, CustomizationPlan, ProfileEvaluation } from "@tailor.me/shared";
-import { IAIProvider, ProfileData } from "./ai-provider.interface";
+import { AIProvider, CustomizationPlan, ProfileEvaluation, RewrittenBullet } from "@tailor.me/shared";
+import { BulletInput, IAIProvider, ProfileData } from "./ai-provider.interface";
 import { GeminiProvider } from "./gemini.provider";
 import { OpenAIProvider } from "./openai.provider";
 
@@ -38,11 +38,19 @@ export class AIService implements IAIProvider {
   }
 
   async rewriteBullet(
-    bullet: { id: string; content: string; tags: string[]; skills: string[] },
+    bullet: BulletInput,
     jd: any,
     plan?: CustomizationPlan,
   ) {
     return this.provider.rewriteBullet(bullet, jd, plan);
+  }
+
+  async rewriteBulletsBatch(
+    bullets: BulletInput[],
+    jd: any,
+    plan?: CustomizationPlan,
+  ): Promise<RewrittenBullet[]> {
+    return this.provider.rewriteBulletsBatch(bullets, jd, plan);
   }
 
   async selectRelevantContent(profile: any, parsedJd: any, plan?: CustomizationPlan) {

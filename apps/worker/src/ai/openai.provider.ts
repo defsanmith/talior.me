@@ -8,6 +8,7 @@ import {
   ProfileEvaluation,
   ProfileEvaluationSchema,
   RewrittenBullet,
+  RewrittenBulletBatchSchema,
   RewrittenBulletSchema,
 } from "@tailor.me/shared";
 import OpenAI from "openai";
@@ -31,6 +32,8 @@ export class OpenAIProvider implements IAIProvider {
   constructor() {
     this.client = new OpenAI({
       apiKey: process.env.OPENAI_API_KEY,
+      maxRetries: 4,
+      timeout: 120_000,
     });
     this.parseModel = process.env.OPENAI_PARSE_MODEL || "gpt-4o-mini";
     this.rewriteModel = process.env.OPENAI_REWRITE_MODEL || "gpt-4o-mini";
@@ -123,6 +126,109 @@ Return only valid JSON.`,
       return completion.choices[0].message.parsed as ParsedJD;
     } catch (error) {
       this.handleError(error, "parseJobDescription");
+    }
+  }
+
+  async rewriteBulletsBatch(
+    bullets: { id: string; content: string; tags: string[]; skills: string[] }[],
+    jd: ParsedJD,
+    plan?: CustomizationPlan,
+  ): Promise<RewrittenBullet[]> {
+    try {
+      const bulletsText = bullets
+        .map(
+          (b, i) =>
+            `Bullet ${i + 1} [id: ${b.id}]
+  Text: "${b.content}"
+  Skills/Tags: ${[...b.skills, ...b.tags].join(", ") || "none"}`,
+        )
+        .join("\n\n");
+
+      const completion = await this.client.beta.chat.completions.parse({
+        model: this.rewriteModel,
+        messages: [
+          {
+            role: "system",
+            content: `You are a professional career coach rewriting a set of resume bullets for a single experience or project. You receive all bullets together so you can produce a varied, cohesive set.
+
+ABSOLUTE CONSTRAINTS:
+- DO NOT add any number, percentage, or metric not present in the original bullet
+- DO NOT mention any technology, framework, or tool not in the original bullet or its skills/tags
+- DO NOT claim new responsibilities or leadership not stated in the original
+- DO NOT invent scale, scope, or impact not in the original
+
+VERB DIVERSITY — the most important rule for this batch:
+Every bullet MUST open with a DIFFERENT past-tense action verb. Scan all bullets in the batch before writing and assign each a unique verb. If you catch yourself reusing a verb, pick an alternative.
+
+Draw from this diverse bank — do not stay in one cluster:
+Build/Ship: built, engineered, developed, created, shipped, launched, delivered, wrote, implemented
+Improve/Optimize: optimized, reduced, cut, streamlined, accelerated, refactored, trimmed, halved
+Design/Architect: designed, architected, modeled, structured, defined, planned
+Automate/Tool: automated, scripted, instrumented, tooled, wired, integrated
+Own/Drive: led, owned, drove, ran, directed, managed, coordinated
+Connect/Migrate: migrated, ported, bridged, connected, integrated, consolidated
+Investigate/Fix: debugged, diagnosed, triaged, resolved, investigated, patched
+Deploy/Release: deployed, released, configured, provisioned, containerized, rolled out
+Measure/Validate: benchmarked, tested, validated, profiled, audited, monitored
+
+ETHICAL KEYWORD INJECTION: Map existing language to JD vocabulary only where there is a genuine semantic match.
+
+BANNED WORDS: "leveraged", "utilized", "spearheaded", "facilitated", "passionate", "synergy", "cross-functional", "cutting-edge"
+
+STYLE:
+- Structure: Action Verb + What + How/With What + Impact/Context
+- 20–35 words per bullet
+- No trailing period
+
+SELF-VERIFICATION before returning:
+1. Are all opening verbs unique across the batch? If not, fix duplicates.
+2. Does any bullet contain tech or metrics not in the original? If yes, remove them.
+3. Is each bullet specific enough to describe what the candidate actually did?
+
+Return JSON: { "bullets": [ { bulletId, rewrittenText, evidenceBulletIds: [bulletId], riskFlags: [] }, ... ] }
+Return bullets in the SAME ORDER as the input.`,
+          },
+          {
+            role: "user",
+            content: `JD required skills: ${jd.required_skills.join(", ")}
+JD keywords: ${jd.keywords.join(", ")}
+${plan ? `
+CUSTOMIZATION PLAN:
+Narrative angle: ${plan.narrativeAngle}
+Tone guidance: ${plan.toneGuidance}
+Bullet angle: ${plan.bulletAngle}
+Keywords to emphasize: ${plan.keywordsToEmphasize.join(", ")}
+${plan.gapFramings.length > 0 ? `Gap framings:\n${plan.gapFramings.map((g) => `- ${g.gap}: ${g.approach}`).join("\n")}` : ""}` : ""}
+
+BULLETS TO REWRITE:
+${bulletsText}
+
+Rewrite all ${bullets.length} bullets. Each must start with a DIFFERENT verb. Return in input order.`,
+          },
+        ],
+        response_format: zodResponseFormat(RewrittenBulletBatchSchema, "rewritten_bullets"),
+      });
+
+      const result = completion.choices[0].message.parsed;
+      const rewritten = result?.bullets ?? [];
+
+      return bullets.map((original) => {
+        const found = rewritten.find((r) => r.bulletId === original.id);
+        const text = found?.rewrittenText?.trim();
+        const riskFlags = found?.riskFlags ?? [];
+        if (!text || text === original.content.trim()) {
+          this.logger.warn(`Bullet ${original.id} was not rewritten by model`);
+          riskFlags.push("no_rewrite");
+        }
+        return {
+          bulletId: original.id,
+          rewrittenText: text || original.content,
+          evidenceBulletIds: [original.id],
+          riskFlags,
+        };
+      });
+    } catch (error) {
+      this.handleError(error, "rewriteBulletsBatch");
     }
   }
 
@@ -297,7 +403,15 @@ For each selected experience or project:
 - Return bulletIds in ORDER OF RELEVANCE — most relevant bullet first
 - The resume displays bullets in exactly the order you return them — put the strongest signal bullet at the top
 
-STEP 5 — EXPERIENCE ORDERING:
+STEP 5 — SKILL SELECTION AND ORDERING:
+For each skill category, select the skills that are most relevant to this specific role:
+- Include ALL categories that have at least one relevant skill
+- Within each category, select only skills that match the JD's required skills, nice-to-have, or keywords
+- Return skillIds in ORDER OF RELEVANCE — skills directly matching required_skills first, then nice-to-have, then keywords
+- Omit skills with no connection to this role (they dilute signal)
+- Return categories in ORDER OF RELEVANCE — the category with the most JD-matching skills goes first
+
+STEP 6 — EXPERIENCE ORDERING:
 Return all arrays in ORDER OF RELEVANCE — highest-scoring experience first. This controls the resume's section order. The item the hiring manager should see first goes first.
 
 NARRATIVE COHERENCE:
@@ -306,6 +420,7 @@ The selected items should tell a consistent story toward this role. If two exper
 CRITICAL ID RULES:
 - Only use IDs that appear in the VALID IDs section
 - selectedCoursework must be exact strings from the candidate's "Coursework" list
+- skillIds must be exact IDs from the candidate's skill categories
 - Before returning, verify every ID in your response exists in the valid lists
 
 Return a JSON object with this exact structure:
@@ -331,6 +446,13 @@ Return a JSON object with this exact structure:
       "id": "education_id",
       "selectedCoursework": ["Course 1", "Course 2"],
       "relevanceReason": "Why this coursework is relevant"
+    }
+  ],
+  "skills": [
+    {
+      "categoryId": "category_id",
+      "skillIds": ["most_relevant_skill_id", "second_skill_id", ...],
+      "relevanceReason": "Which JD requirements these skills address"
     }
   ]
 }`,
@@ -371,8 +493,10 @@ Valid experience IDs: ${profile.experiences.map((e) => e.id).join(", ") || "none
 Valid project IDs: ${profile.projects.map((p) => p.id).join(", ") || "none"}
 Valid education IDs: ${profile.education.map((e) => e.id).join(", ") || "none"}
 Valid bullet IDs: ${[...profile.experiences.flatMap((e) => e.bullets.map((b) => b.id)), ...profile.projects.flatMap((p) => p.bullets.map((b) => b.id))].join(", ") || "none"}
+Valid skill category IDs: ${profile.skillCategories.map((c) => c.id).join(", ") || "none"}
+Valid skill IDs: ${profile.skillCategories.flatMap((c) => c.skills.map((s) => s.id)).join(", ") || "none"}
 
-Score every experience and project, then select and order by relevance threshold.`,
+Score every experience and project, select and order skills by JD relevance, then assemble the full selection.`,
           },
         ],
         response_format: zodResponseFormat(ContentSelectionSchema, "content_selection"),
@@ -383,6 +507,7 @@ Score every experience and project, then select and order by relevance threshold
         experiences: result?.experiences || [],
         projects: result?.projects || [],
         education: result?.education || [],
+        skills: result?.skills || [],
       };
     } catch (error) {
       this.handleError(error, "selectRelevantContent");

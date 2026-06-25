@@ -140,6 +140,12 @@ export const RewrittenBulletSchema = z.object({
 
 export type RewrittenBullet = z.infer<typeof RewrittenBulletSchema>;
 
+export const RewrittenBulletBatchSchema = z.object({
+  bullets: z.array(RewrittenBulletSchema),
+});
+
+export type RewrittenBulletBatch = z.infer<typeof RewrittenBulletBatchSchema>;
+
 export const ContentSelectionSchema = z.object({
   experiences: z.array(
     z.object({
@@ -164,6 +170,13 @@ export const ContentSelectionSchema = z.object({
       relevanceReason: z.string(),
     }),
   ),
+  skills: z.array(
+    z.object({
+      categoryId: z.string(),
+      skillIds: z.array(z.string()), // ordered by JD relevance — most relevant skill first
+      relevanceReason: z.string(),
+    }),
+  ).optional(),
 });
 
 export type ContentSelectionType = z.infer<typeof ContentSelectionSchema>;

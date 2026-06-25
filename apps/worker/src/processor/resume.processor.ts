@@ -222,6 +222,11 @@ export class ResumeProcessor {
             selectedCoursework: [],
             relevanceReason: "All education included (selection disabled)",
           })),
+          skills: profileData.skillCategories.map((cat) => ({
+            categoryId: cat.id,
+            skillIds: cat.skills.map((s) => s.id),
+            relevanceReason: "All skills included (selection disabled)",
+          })),
         };
       } else {
         await this.updateJobStatus(
@@ -334,12 +339,10 @@ export class ResumeProcessor {
         rewrittenBullets,
       );
 
-      // Step G: Sort skills manually based on selected bullets
-      const sortedSkills = this.sortSkillsByRelevance(
-        profileData,
-        contentSelection,
-        parsedJd,
-      );
+      // Step G: Determine skill ordering — prefer AI selection, fall back to manual sort
+      const sortedSkills = contentSelection.skills && contentSelection.skills.length > 0
+        ? contentSelection.skills.map((s) => ({ categoryId: s.categoryId, skillIds: s.skillIds }))
+        : this.sortSkillsByRelevance(profileData, contentSelection, parsedJd);
 
       // Step H: Assemble resume
       await this.updateJobStatus(
@@ -493,45 +496,48 @@ export class ResumeProcessor {
     plan?: CustomizationPlan,
   ): Promise<Map<string, any>> {
     const rewritten = new Map();
-    const concurrency = parseInt(
-      process.env.BULLET_REWRITE_CONCURRENCY || "5",
+
+    // Group bullets by their parent so each group is rewritten in one call.
+    // This lets the model see the full set and enforce verb diversity within
+    // an experience or project.
+    const groups = new Map<string, SelectedBullet[]>();
+    for (const bullet of bullets) {
+      const key = bullet.parentId;
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key)!.push(bullet);
+    }
+
+    const results = await Promise.allSettled(
+      [...groups.entries()].map(async ([parentId, group]) => {
+        try {
+          const inputs = group.map((b) => ({
+            id: b.id,
+            content: b.content,
+            tags: b.tags,
+            skills: b.skills,
+          }));
+          const batchResults = await this.ai.rewriteBulletsBatch(inputs, parsedJd, plan);
+          return { parentId, batchResults, success: true };
+        } catch (error) {
+          console.error(`Failed to rewrite bullets for parent ${parentId}:`, error);
+          return {
+            parentId,
+            batchResults: group.map((b) => ({
+              bulletId: b.id,
+              rewrittenText: b.content,
+              evidenceBulletIds: [b.id],
+              riskFlags: ["rewrite_failed"],
+            })),
+            success: false,
+          };
+        }
+      }),
     );
 
-    for (let i = 0; i < bullets.length; i += concurrency) {
-      const batch = bullets.slice(i, i + concurrency);
-      const results = await Promise.allSettled(
-        batch.map(async (bullet) => {
-          try {
-            const result = await this.ai.rewriteBullet(
-              {
-                id: bullet.id,
-                content: bullet.content,
-                tags: bullet.tags,
-                skills: bullet.skills,
-              },
-              parsedJd,
-              plan,
-            );
-            return { id: bullet.id, result, success: true };
-          } catch (error) {
-            console.error(`Failed to rewrite bullet ${bullet.id}:`, error);
-            return {
-              id: bullet.id,
-              result: {
-                bulletId: bullet.id,
-                rewrittenText: bullet.content,
-                evidenceBulletIds: [bullet.id],
-                riskFlags: ["rewrite_failed"],
-              },
-              success: false,
-            };
-          }
-        }),
-      );
-
-      for (const res of results) {
-        if (res.status === "fulfilled") {
-          rewritten.set(res.value.id, res.value.result);
+    for (const res of results) {
+      if (res.status === "fulfilled") {
+        for (const r of res.value.batchResults) {
+          rewritten.set(r.bulletId, r);
         }
       }
     }

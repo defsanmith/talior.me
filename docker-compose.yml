@@ -132,6 +132,8 @@ services:
     container_name: tailor-worker
     env_file:
       - .env
+    environment:
+      NODE_OPTIONS: "--dns-result-order=ipv4first"
     depends_on:
       migrate:
         condition: service_completed_successfully
