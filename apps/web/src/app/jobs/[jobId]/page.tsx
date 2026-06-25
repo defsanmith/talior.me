@@ -689,6 +689,16 @@ function ResumeBuilderEditor({
     return { url: null, label: "Application Link", provider: null };
   };
 
+  // Relevance score maps from AI customization plan
+  const experienceScores = useMemo<Record<string, number>>(
+    () => Object.fromEntries((job.customizationPlan?.experiences ?? []).map((e) => [e.id, e.relevanceScore])),
+    [job.customizationPlan],
+  );
+  const projectScores = useMemo<Record<string, number>>(
+    () => Object.fromEntries((job.customizationPlan?.projects ?? []).map((p) => [p.id, p.relevanceScore])),
+    [job.customizationPlan],
+  );
+
   // Sorted sections for rendering
   const sortedSections = useMemo(
     () => [...resume.sectionOrder].sort((a, b) => a.order - b.order),
@@ -727,6 +737,7 @@ function ResumeBuilderEditor({
                 handleResumeUpdate({ experiences: items })
               }
               profileItems={profileResponse?.data?.experiences}
+              relevanceScores={experienceScores}
             />
           </DraggableItem>
         );
@@ -757,6 +768,7 @@ function ResumeBuilderEditor({
               }
               onItemsChange={(items) => handleResumeUpdate({ projects: items })}
               profileItems={profileResponse?.data?.projects}
+              relevanceScores={projectScores}
             />
           </DraggableItem>
         );

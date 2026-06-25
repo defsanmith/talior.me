@@ -20,6 +20,7 @@ import {
 } from "@dnd-kit/sortable";
 import { ProfileProject } from "@tailor.me/shared";
 import {
+  CalendarDays,
   ChevronDown,
   ChevronRight,
   Copy,
@@ -49,6 +50,7 @@ interface ProjectsSectionProps {
   onSectionVisibilityChange: (visible: boolean) => void;
   onItemsChange: (items: ResumeProject[]) => void;
   profileItems?: ProfileProject[];
+  relevanceScores?: Record<string, number>;
 }
 
 export function ProjectsSection({
@@ -57,8 +59,32 @@ export function ProjectsSection({
   onSectionVisibilityChange,
   onItemsChange,
   profileItems,
+  relevanceScores,
 }: ProjectsSectionProps) {
   const [isExpanded, setIsExpanded] = useState(true);
+
+  const handleSortByRelevance = () => {
+    if (items.length < 2) return;
+    const sorted = [...items].sort((a, b) => {
+      const scoreA = relevanceScores?.[a.id] ?? 0;
+      const scoreB = relevanceScores?.[b.id] ?? 0;
+      return scoreB - scoreA;
+    });
+    onItemsChange(sorted.map((item, idx) => ({ ...item, order: idx })));
+  };
+
+  const handleSortByDate = () => {
+    if (items.length < 2) return;
+    const parseDate = (d: string | null | undefined) => {
+      if (!d) return 0;
+      const parsed = new Date(d).getTime();
+      return isNaN(parsed) ? 0 : parsed;
+    };
+    const sorted = [...items].sort(
+      (a, b) => parseDate(b.date) - parseDate(a.date),
+    );
+    onItemsChange(sorted.map((item, idx) => ({ ...item, order: idx })));
+  };
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
@@ -190,18 +216,44 @@ export function ProjectsSection({
           <span className="text-sm">({items.length})</span>
         </div>
 
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => onSectionVisibilityChange(!sectionVisible)}
-          className="h-8 w-8 p-0"
-        >
-          {sectionVisible ? (
-            <Eye className="h-4 w-4 text-emerald-400" />
-          ) : (
-            <EyeOff className="h-4 w-4" />
+        <div className="flex items-center gap-1">
+          {items.length >= 2 && (
+            <>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleSortByRelevance}
+                className="h-7 w-7 p-0"
+                title="Sort by AI relevance"
+                type="button"
+              >
+                <Sparkles className="h-3.5 w-3.5" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleSortByDate}
+                className="h-7 w-7 p-0"
+                title="Sort by date (newest first)"
+                type="button"
+              >
+                <CalendarDays className="h-3.5 w-3.5" />
+              </Button>
+            </>
           )}
-        </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => onSectionVisibilityChange(!sectionVisible)}
+            className="h-8 w-8 p-0"
+          >
+            {sectionVisible ? (
+              <Eye className="h-4 w-4 text-emerald-400" />
+            ) : (
+              <EyeOff className="h-4 w-4" />
+            )}
+          </Button>
+        </div>
       </div>
 
       {/* Section Content */}
