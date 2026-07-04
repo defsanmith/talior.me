@@ -439,7 +439,7 @@ export interface JobResponse {
   evaluation?: any;
   evaluatedAt?: string | Date | null;
   externalJobSource?: ExternalJobSourceResponse | null;
-  customizationPlan?: ContentSelectionType | null;
+  customizationPlan?: any;
   createdAt: Date;
   updatedAt: Date;
 }

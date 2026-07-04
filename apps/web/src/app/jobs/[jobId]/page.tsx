@@ -95,6 +95,7 @@ import {
 } from "@/store/api/tracker/mutations";
 import {
   ApplicationStatus,
+  ContentSelectionType,
   FontFamily,
   JobResponse,
   JobStatus,
@@ -690,13 +691,14 @@ function ResumeBuilderEditor({
   };
 
   // Relevance score maps from AI customization plan
+  const plan = job.customizationPlan as ContentSelectionType | null | undefined;
   const experienceScores = useMemo<Record<string, number>>(
-    () => Object.fromEntries((job.customizationPlan?.experiences ?? []).map((e) => [e.id, e.relevanceScore])),
-    [job.customizationPlan],
+    () => Object.fromEntries((plan?.experiences ?? []).map((e) => [e.id, e.relevanceScore])),
+    [plan],
   );
   const projectScores = useMemo<Record<string, number>>(
-    () => Object.fromEntries((job.customizationPlan?.projects ?? []).map((p) => [p.id, p.relevanceScore])),
-    [job.customizationPlan],
+    () => Object.fromEntries((plan?.projects ?? []).map((p) => [p.id, p.relevanceScore])),
+    [plan],
   );
 
   // Sorted sections for rendering
